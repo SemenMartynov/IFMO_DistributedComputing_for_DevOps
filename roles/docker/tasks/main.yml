@@ -1,0 +1,33 @@
+- name: Install Docker
+  apt:
+    name: docker.io
+    state: present
+  become: yes
+
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Install Docker Compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)"
+    dest: /usr/local/bin/docker-compose
+    mode: 'u+x'
+  become: yes
+
+- name: Create Docker network
+  command: docker network create wordpress-network
+  ignore_errors: yes
+
+- name: Copy docker-compose.yml template
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ playbook_dir }}/docker-compose.yml"
+  become: yes
+
+- name: Start Docker containers
+  command: docker-compose up -d
+  args:
+    chdir: "{{ playbook_dir }}"
