@@ -10,9 +10,13 @@
     state: started
     enabled: yes
 
+- name: Set Docker Compose URL
+  shell: echo "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)"
+  register: docker_compose_url
+
 - name: Install Docker Compose
   get_url:
-    url: "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)"
+    url: "{{ docker_compose_url.stdout }}"
     dest: /usr/local/bin/docker-compose
     mode: 'u+x'
   become: yes
