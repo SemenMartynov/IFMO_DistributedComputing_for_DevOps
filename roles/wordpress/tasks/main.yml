@@ -6,10 +6,10 @@
     ports:
       - "8080:80"
     env:
-      WORDPRESS_DB_HOST: "{{ db_host }}"
-      WORDPRESS_DB_USER: "{{ db_user }}"
-      WORDPRESS_DB_PASSWORD: "{{ db_password }}"
-      WORDPRESS_DB_NAME: "{{ db_name }}"
+      WORDPRESS_DB_HOST: "wordpress_db"
+      WORDPRESS_DB_USER: "wordpress_user"
+      WORDPRESS_DB_PASSWORD: "wordpress_password"
+      WORDPRESS_DB_NAME: "wordpress_db"
     volumes:
       - wordpress_data:/var/www/html
 
@@ -19,10 +19,10 @@
     image: mysql:5.7
     restart_policy: always
     environment:
-      MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
-      MYSQL_DATABASE: "{{ db_name }}"
-      MYSQL_USER: "{{ db_user }}"
-      MYSQL_PASSWORD: "{{ db_password }}"
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "wordpress_db"
+      MYSQL_USER: "wordpress_user"
+      MYSQL_PASSWORD: "wordpress_password"
     volumes:
       - db_data:/var/lib/mysql
 
