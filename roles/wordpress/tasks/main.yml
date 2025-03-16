@@ -3,7 +3,7 @@
     name: wordpress
     image: wordpress:latest
     state: started
-    recreate: false
+    recreate: true
     restart_policy: always
     ports:
       - "8080:80"
@@ -20,7 +20,7 @@
     name: wordpress_db
     image: mysql:5.7
     state: started
-    recreate: false
+    recreate: true
     restart_policy: always
     ports:
       - "3306:3306"
