@@ -10,14 +10,6 @@
     state: started
     enabled: yes
 
-# Add this task to wait for Docker service to be fully up and running
-# - name: Wait for Docker service to be ready
-#   wait_for:
-#     port: 2375
-#     delay: 10
-#     timeout: 300
-#     state: started
-
 - name: Set Docker Compose URL
   shell: echo "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)"
   register: docker_compose_url
