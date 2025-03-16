@@ -2,9 +2,11 @@
   docker_container:
     name: wordpress
     image: wordpress:latest
+    state: started
+    force_restart: yes
     restart_policy: always
     ports:
-      - "8081:80"
+      - "8080:80"
     env:
       WORDPRESS_DB_HOST: "wordpress_db"
       WORDPRESS_DB_USER: "wordpress_user"
@@ -17,9 +19,11 @@
   docker_container:
     name: wordpress_db
     image: mysql:5.7
-    ports:
-      - "3307:3307"
+    state: started
+    force_restart: yes
     restart_policy: always
+    ports:
+      - "3306:3306"
     env:
       MYSQL_ROOT_PASSWORD: "root_password"
       MYSQL_DATABASE: "wordpress_db"
