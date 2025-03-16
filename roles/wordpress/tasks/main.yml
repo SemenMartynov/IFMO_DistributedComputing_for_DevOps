@@ -1,9 +1,14 @@
-- name: Ensure WordPress container is running
+- name: Remove existing WordPress container if it exists
+  docker_container:
+    name: ifmo_distributedcomputing_for_devops-wordpress-1
+    state: absent
+  ignore_errors: yes
+
+- name: Ensure WordPress container is running (recreate)
   docker_container:
     name: wordpress
     image: wordpress:latest
     state: started
-    recreate: true
     restart_policy: always
     ports:
       - "8080:80"
@@ -14,6 +19,12 @@
       WORDPRESS_DB_NAME: "wordpress_db"
     volumes:
       - wordpress_data:/var/www/html
+
+- name: Remove existing database container if it exists
+  docker_container:
+    name: ifmo_distributedcomputing_for_devops-db-1
+    state: absent
+  ignore_errors: yes
 
 - name: Ensure database container is running
   docker_container:
