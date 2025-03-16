@@ -17,6 +17,8 @@
   docker_container:
     name: wordpress_db
     image: mysql:5.7
+    ports:
+      - "3306:3306"
     restart_policy: always
     environment:
       MYSQL_ROOT_PASSWORD: "root_password"
