@@ -5,10 +5,10 @@
     state: present
     restart_policy: always
     env:
-      MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
-      MYSQL_DATABASE: "{{ db_name }}"
-      MYSQL_USER: "{{ db_user }}"
-      MYSQL_PASSWORD: "{{ db_password }}"
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: wordpress_db
+      MYSQL_USER: wordpress_user
+      MYSQL_PASSWORD: wordpress_password
     volumes:
       - db_data:/var/lib/mysql
 
