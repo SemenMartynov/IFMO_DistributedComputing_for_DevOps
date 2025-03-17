@@ -45,7 +45,11 @@ IFMO_DistributedComputing_for_DevOps
 3. Обновите файл `group_vars/all.yml` с вашими учетными данными базы данных и настройками WordPress.
 4. Измените файл `host_vars/localhost.yml`, если у вас есть какие-либо специфические конфигурации для вашей локальной среды.
 5. Убедитесь, что ваш файл инвентаря (`inventory/hosts.ini`) правильно настроен для указания на целевые хосты.
-6. Запустите плейбук:
+6. Создайте сеть Docker:
+   ``` bash
+   docker network create wordpress-network
+   ```
+7. Запустите плейбук:
    ``` bash
    sudo ansible-playbook -i inventory/hosts.ini playbook.yml
    ```

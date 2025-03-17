@@ -12,11 +12,6 @@
     volumes:
       - db_data:/var/lib/mysql
 
-- name: Create database volume
-  docker_volume:
-    name: db_data
-    state: present
-
 - name: Wait for MySQL to be ready
   wait_for:
     port: 3306

@@ -11,6 +11,8 @@ services:
       WORDPRESS_DB_NAME: wordpress_db
     volumes:
       - wordpress_data:/var/www/html
+    networks:
+      - wordpress-network
 
   db:
     name: wordpress_db
@@ -24,7 +26,12 @@ services:
       MYSQL_PASSWORD: wordpress_password
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - wordpress-network
 
 volumes:
   wordpress_data:
   db_data:
+
+networks:
+  wordpress-network:

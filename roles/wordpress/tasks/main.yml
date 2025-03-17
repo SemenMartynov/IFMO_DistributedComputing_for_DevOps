@@ -1,3 +1,7 @@
+- name: Create Docker network
+  docker_network:
+    name: wordpress-network
+
 - name: Create Docker volumes
   docker_volume:
     name: "{{ item }}"
