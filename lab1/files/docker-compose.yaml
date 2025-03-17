@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:9.2
+    hostname: mysql
+    container_name: mysql
+    networks:
+      - lab1
+    environment:
+      MYSQL_ROOT_PASSWORD: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    ports:
+      - 3306:3306
+  
+  nginx:
+    image: nginx:1.27.4
+    hostname: nginx
+    container_name: nginx
+    networks:
+      - lab1
+    depends_on:
+      - mysql
+      - apache
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/wordpress.conf
+      - ./localhost.crt:/etc/nginx/ssl/localhost.crt
+      - ./localhost.key:/etc/nginx/ssl/localhost.key
+    ports:
+      - 80:80
+      - 443:443
+  
+  apache:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: apache
+    hostname: apache
+    networks:
+      - lab1
+    ports:
+      - 9080:80
+      - 9443:443
+    depends_on:
+      - mysql
+
+networks:
+  lab1:
+    name: lab1
+    driver: bridge
+
+  # nginx:
+  #   image: nginx:1.27.4
+  #   hostname: nginx
+  #   container_name: nginx
+  #   volumes:
+  #     - ~/lab1/nginx.conf:/etc/nginx/conf.d/wordpress.conf
+  #     - ~/lab1/localhost.crt:/etc/nginx/ssl/localhost.crt
+  #     - ~/lab1/localhost.key:/etc/nginx/ssl/localhost.key
+  #   ports:
+  #     - 8080:80
+  #     - 8443:443

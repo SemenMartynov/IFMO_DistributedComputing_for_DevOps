@@ -1,0 +1,94 @@
+#SPDX-License-Identifier: MIT-0
+---
+### Install and upgrade packages
+- name: Update repositories cache and install requirements for docker
+  ansible.builtin.apt:
+    update_cache: yes
+    name: "{{ item }}"
+  with_items: 
+    - ca-certificates
+    - curl
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Upgrade packages
+  ansible.builtin.dnf:
+    state: latest
+    name: "*"
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+
+- name: Install requirements for docker
+  ansible.builtin.dnf:
+    update_cache: yes
+    name: "{{ item }}"
+  with_items: 
+    - dnf-plugins-core
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+
+###Install repo docker
+
+- name: Install repo docker for dnf
+  ansible.builtin.shell: sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+  when: ansible_distribution == 'Fedora'
+
+- name: Install repo docker for dnf
+  ansible.builtin.shell: sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  when: ansible_distribution == 'CentOS'
+
+- name: Download certs for ubuntu
+  ansible.builtin.shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Download certs for debian
+  ansible.builtin.shell: curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  when: ansible_distribution == 'Debian'
+
+- name: Change file ownership, group and permissions
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Add docker repo
+  ansible.builtin.shell: echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  when: ansible_distribution == 'Debian'
+
+- name: Add docker repo
+  ansible.builtin.shell: echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  when: ansible_distribution == 'Ubuntu'
+
+### Install docker packages
+
+- name: Upgrade packages
+  ansible.builtin.dnf:
+    state: latest
+    name: "*"
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+
+- name: Install docker packages
+  ansible.builtin.dnf:
+    state: latest
+    name: "{{ item }}"
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+  with_items: 
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+  notify: 
+    - Start docker
+
+- name: Update repositories cache and install requirements for docker
+  ansible.builtin.apt:
+    update_cache: yes
+    name: "{{ item }}"
+  with_items: 
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+  notify: 
+    - Start docker
+
