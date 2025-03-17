@@ -1,6 +1,8 @@
 services:
   wordpress:
     image: wordpress:latest
+    depends_on:
+      - db
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: wordpress_user
