@@ -21,9 +21,10 @@
     mode: 'u+x'
   become: yes
 
-- name: Create Docker network
-  command: docker network create wordpress-network
-  ignore_errors: yes
+- name: Ensure Docker network exists
+  docker_network:
+    name: wordpress-network
+    state: present
 
 - name: Copy docker-compose.yml template
   template:
