@@ -58,5 +58,5 @@ IFMO_DistributedComputing_for_DevOps
 После запуска плейбука у вас должен быть сайт WordPress, работающий на Docker, доступный по IP-адресу вашей хост-машины. Вы можете управлять контейнерами с помощью команд Docker.
 
 ## Результат
-Будет поднят WordPress-сайт, например http://176.113.82.169/
+Будет поднят WordPress-сайт, например http://176.113.82.169:8080
 ![image](https://github.com/AlexeyKuzko/IFMO_DistributedComputing_for_DevOps/blob/main/result.png)
