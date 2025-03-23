@@ -3,8 +3,6 @@ services:
   wordpress:
     image: wordpress:php8.1
     restart: always
-    ports:
-      - "80:80"
     volumes:
       - "wp_data:/var/www/html/"
     environment:
@@ -14,6 +12,8 @@ services:
       WORDPRESS_DB_NAME: {{ db_name }}
     depends_on:
       - db
+    networks:
+      - wp-network
       
   db:
     image: mysql:9.2.0
@@ -25,7 +25,40 @@ services:
       MYSQL_DATABASE: {{ db_name }}
       MYSQL_USER: {{ db_user }}
       MYSQL_PASSWORD: {{ db_password }}
+    networks:
+      - wp-network
+
+  nginx:
+    image: nginx:1.27-alpine-perl
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - wp_data:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d
+      - certbot:/etc/letsencrypt
+    depends_on:
+      - wordpress
+    networks:
+      - wp-network
+  
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot:/etc/letsencrypt
+      - wp_data:/var/www/html
+    command:
+      - certonly --webroot --webroot-path=/var/www/html --email kykitos@yandex.ru --agree-tos --no-eff-email --staging -d wordpress.study-ansible.io
+    depends_on:
+      - nginx
+
 
 volumes:
   wp_data:
   db_data:
+  certbot:
+
+networks:
+  wp-network:
+    driver: bridge
