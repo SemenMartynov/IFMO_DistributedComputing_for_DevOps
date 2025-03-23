@@ -1,0 +1,13 @@
+- name: Update repositories cache and install "ca-certificates" package
+  apt:
+    pkg:
+      - ca-certificates
+    update_cache: yes
+
+- name: Setup timezone
+  shell:
+    cmd: "timedatectl set-timezone {{time_zone}}"
+
+- name: Setup locale settings
+  shell:
+    cmd: 'locale-gen {{locale1}} && update-locale LANG={{locale2}} LC_TIME={{locale1}}'

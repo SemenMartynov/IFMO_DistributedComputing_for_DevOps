@@ -1,0 +1,50 @@
+- name: Create directory nginx_www
+  file:
+    path: "{{vol_nginx_www}}"
+    state: directory
+    mode: '0755'
+
+- name: Create directory nginx_conf
+  file:
+    path: "{{vol_nginx_conf}}"
+    state: directory
+    mode: '0755'
+
+- name: Create directory db_data
+  file:
+    path: "{{vol_db_data}}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Docker Compose files
+  copy:
+    src: files/docker-compose.yml
+    dest: /data/docker-compose.yml
+
+- name: Copy Nginx conf files
+  copy:
+    src: files/nginx.conf
+    dest: "{{vol_nginx_conf}}"
+
+- name: Remove containers
+  community.docker.docker_compose_v2:
+    project_src: "/data"
+    state: absent
+
+- name: Run docker compose
+  community.docker.docker_compose_v2:
+    project_src: "/data"
+    files:
+      - docker-compose.yml
+    remove_volumes: true
+  environment:
+    - MARIADB_ROOT_PASSWORD: "{{db_root_password}}"
+    - WORDPRESS_DB_USER: "{{db_wordpress_user}}"
+    - MARIADB_USER: "{{db_wordpress_user}}"
+    - WORDPRESS_DB_PASSWORD: "{{db_wordpress_password}}"
+    - MARIADB_PASSWORD: "{{db_wordpress_password}}"
+    - WORDPRESS_DB_NAME: "{{wordpress_database}}"
+    - MARIADB_DATABASE: "{{wordpress_database}}"
+    - VOL_NGINX_WWW: "{{vol_nginx_www}}"
+    - VOL_NGINX_CONF: "{{vol_nginx_conf}}"
+    - VOL_DB_DATA: "{{vol_db_data}}"

@@ -1,0 +1,9 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for lab1
+##### Default settings
+- include_tasks: default_settings.yml
+##### Install Docker
+- include_tasks: install_docker.yml
+##### Install WordPress
+- include_tasks: install_wordpress.yml
