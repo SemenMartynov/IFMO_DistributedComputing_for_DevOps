@@ -36,7 +36,7 @@ services:
       - 443:443
     volumes:
       - wp_data:/var/www/html
-      - ./home/user/wordpress/nginx.conf:/etc/nginx/conf.d
+      - /home/user/wordpress/nginx.conf:/etc/nginx/conf.d/nginx.conf
       - certbot:/etc/letsencrypt
     depends_on:
       - wordpress
@@ -48,10 +48,9 @@ services:
     volumes:
       - certbot:/etc/letsencrypt
       - wp_data:/var/www/html
-    command: certonly --webroot --webroot-path=/var/www/html --email kykitos@yandex.ru --agree-tos --no-eff-email --staging -d wordpress.study-ansible.io
+    command: certonly --webroot --webroot-path=/var/www/html --email kykitos@yandex.ru --agree-tos --no-eff-email --force-renewal -d wordpress.study-ansible.io
     depends_on:
       - nginx
-
 
 volumes:
   wp_data:
