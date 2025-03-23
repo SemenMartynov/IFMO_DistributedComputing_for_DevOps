@@ -5,7 +5,7 @@
 
 - name: Copy nginx.conf to remote server
   copy:
-    src: roles/templates/nginx.conf
+    src: nginx.conf
     dest: /home/user/wordpress/nginx.conf
 
 - name: Generate docker-compose.yml from template
