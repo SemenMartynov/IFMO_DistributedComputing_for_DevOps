@@ -1,5 +1,6 @@
 - hosts: study-ansible
-  become: yes
+  become: true
+  remote_user: user
   vars:
     db_user: wordpress
     db_password: wordpress
