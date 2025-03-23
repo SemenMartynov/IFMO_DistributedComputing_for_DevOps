@@ -48,8 +48,7 @@ services:
     volumes:
       - certbot:/etc/letsencrypt
       - wp_data:/var/www/html
-    command:
-      - certonly --webroot --webroot-path=/var/www/html --email kykitos@yandex.ru --agree-tos --no-eff-email --staging -d wordpress.study-ansible.io
+    command: certonly --webroot --webroot-path=/var/www/html --email kykitos@yandex.ru --agree-tos --no-eff-email --staging -d wordpress.study-ansible.io
     depends_on:
       - nginx
 
