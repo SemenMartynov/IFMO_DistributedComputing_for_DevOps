@@ -9,9 +9,9 @@ services:
       - "wp_data:/var/www/html/"
     environment:
       WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress 
+      WORDPRESS_DB_USER: {{ db_user }}
+      WORDPRESS_DB_PASSWORD: {{ db_password }}
+      WORDPRESS_DB_NAME: {{ db_name }}
     depends_on:
       - db
       
@@ -21,10 +21,10 @@ services:
     volumes:
       - "db_data:/var/lib/mysql"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
+      MYSQL_DATABASE: {{ db_name }}
+      MYSQL_USER: {{ db_user }}
+      MYSQL_PASSWORD: {{ db_password }}
 
 volumes:
   wp_data:
