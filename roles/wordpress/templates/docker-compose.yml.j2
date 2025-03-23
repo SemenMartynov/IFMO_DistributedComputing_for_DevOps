@@ -36,7 +36,7 @@ services:
       - 443:443
     volumes:
       - wp_data:/var/www/html
-      - /home/user/wordpress/nginx.conf:/etc/nginx/conf.d
+      - ./home/user/wordpress/nginx.conf:/etc/nginx/conf.d
       - certbot:/etc/letsencrypt
     depends_on:
       - wordpress
