@@ -1,0 +1,80 @@
+- name: Развернуть WordPress с MySQL
+  hosts: web
+  become: true
+  tasks:
+    - name: Скопировать .env на сервер
+      ansible.builtin.copy:
+        src: .env
+        dest: /home/vagrant/.env
+        mode: '0600'
+
+    - name: Проверить, установлен ли Docker
+      ansible.builtin.stat:
+        path: /usr/bin/docker
+      register: docker_bin
+
+    - name: Скачать установочный скрипт Docker
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /home/vagrant/get-docker.sh
+        mode: '0755'
+      when: not docker_bin.stat.exists
+
+    - name: Запустить установочный скрипт Docker
+      ansible.builtin.shell: sh /home/vagrant/get-docker.sh
+      when: not docker_bin.stat.exists
+
+    - name: Убедиться, что Docker запущен
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Добавить пользователя в группу Docker
+      ansible.builtin.user:
+        name: "{{ ansible_user | default('vagrant') }}"
+        groups: docker
+        append: yes
+
+    - name: Перезапустить Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+
+    - name: Создать сеть Docker
+      community.docker.docker_network:
+        name: wp_net
+
+    - name: Создать том для БД
+      community.docker.docker_volume:
+        name: mysql_data
+
+    - name: Создать том для WordPress
+      community.docker.docker_volume:
+        name: wordpress_data
+
+    - name: Запустить MySQL контейнер
+      community.docker.docker_container:
+        name: mysql
+        image: mysql:latest
+        restart_policy: always
+        env_file: /home/vagrant/.env
+        ports:
+          - "3306:3306"
+        volumes:
+          - mysql_data:/var/lib/mysql
+        networks:
+          - name: wp_net
+
+    - name: Запустить WordPress контейнер
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env_file: /home/vagrant/.env
+        ports:
+          - "80:80"
+        volumes:
+          - wordpress_data:/var/www/html
+        networks:
+          - name: wp_net
