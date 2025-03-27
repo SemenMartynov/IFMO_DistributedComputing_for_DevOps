@@ -1,0 +1,35 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Create project directory
+  ansible.builtin.file:
+    path: /srv/docker/wp
+    state: directory
+
+- name: Copy files
+  ansible.builtin.copy:
+    src: docker-compose.yml
+    dest: /srv/docker/wp/docker-compose.yml
+    owner: user
+    group: user
+    mode: '0644'
+  
+- name: Create and start app
+  community.docker.docker_compose_v2:
+    project_src: /srv/docker/wp/
+  register: output
+  environment: "{{ env_vars }}"
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output
+
+- name: Verify that services are running
+  ansible.builtin.assert:
+    that:
+      - wp_container.State == 'running'
+      - db_container.State == 'running'
+  vars:
+    wp_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
+    db_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db") | first }}

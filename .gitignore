@@ -1,0 +1,5 @@
+.DS_Store
+ansible.cfg
+vault
+.env
+inventory/
