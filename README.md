@@ -36,4 +36,4 @@ Distributed Computing course for DevOps 2025
 
 Тестирование:
 ------------
-для автоматизиии развёртывая и тестирования работы playbook'а использется [GitHub Actions](https://github.com/features/actions).
+для автоматизации развёртывания и тестирования работы playbook'а использется [GitHub Actions](https://github.com/features/actions).
