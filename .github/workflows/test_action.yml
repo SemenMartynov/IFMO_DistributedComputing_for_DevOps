@@ -34,8 +34,13 @@ jobs:
       run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
 
     - name: Test docker containers are running
-      run: sudo docker ps
+      run: |
+        sudo docker ps
+        sudo docker volume ls
+        sudo docker network ls
 
-    - name: Test wordpress
-      run: curl "http://127.0.0.1"
+    - name: Test wordpress is listening HTTP port
+      run: |
+        ss -tnlp | grep 80
+        curl http://127.0.0.1
       
