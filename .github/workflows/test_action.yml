@@ -16,7 +16,7 @@ jobs:
       run: echo -e "[servers]\nserver1 ansible_host=127.0.0.1" > test-inv
 
     - name: Setup and Run Ansible
-      uses: alex-oleshkevich/ansible-playbook@v1.0.1
+      uses: alex-oleshkevich/ansible-playbook@v1.0.0
       with:
         version: "9.3.0"
         private-key: |
