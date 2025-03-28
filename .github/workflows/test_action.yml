@@ -23,7 +23,6 @@ jobs:
     - name: Setup and Run Ansible
       uses: alex-oleshkevich/ansible-playbook@v1.0.0
       with:
-        version: "9.3.0"
         private-key: |
                 -----BEGIN OPENSSH PRIVATE KEY-----
                 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -35,8 +34,8 @@ jobs:
         become-password: "password"
         become-user: "root"
         become-method: "sudo"
-        inventory-file: "test-inv"
-        playbook-file: "wp-mysql-playbook.yml"
+        inventory-file: "./test-inv"
+        playbook-file: "./wp-mysql-playbook.yml"
         
     - name: "Print Ansible version"
       run: ansible-playbook --version
