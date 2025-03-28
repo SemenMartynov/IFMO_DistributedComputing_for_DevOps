@@ -42,5 +42,5 @@ jobs:
     - name: Test wordpress is listening HTTP port
       run: |
         ss -tnlp | grep 80
-        curl http://127.0.0.1
+        curl 'http://localhost/'
       
