@@ -17,6 +17,9 @@ jobs:
          echo '[servers]' > test-inv
          echo 'server1 ansible_host=127.0.0.1' >> test-inv
 
+    - name: "Show test inventory"
+      run: cat test-inv
+      
     - uses: actions/checkout@v4
 
     - name: Setup and Run Ansible
