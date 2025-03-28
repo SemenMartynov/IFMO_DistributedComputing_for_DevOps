@@ -42,7 +42,7 @@ jobs:
     - name: Test wordpress is listening HTTP port
       run: |
         ss -tnlp | grep 80
-        ip addr show
+        sleep 30 # need some time
         wget -O- "http://localhost/" || true
-        curl "http://localhost/" || true
+        curl -v "http://localhost/" || true
 
