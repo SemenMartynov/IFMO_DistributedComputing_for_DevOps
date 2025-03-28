@@ -33,3 +33,7 @@ Distributed Computing course for DevOps 2025
   * Контейнер wordpress использует apache, у в его составе есть штатный модуль [mod_md](https://httpd.apache.org/docs/2.4/mod/mod_md.html),
 который автоматизирует работу по получению и продлению сертификатов letsencrypt.
   * Или использовать готовые решения, например, https://github.com/systemli/ansible-role-letsencrypt .
+
+Тестирование:
+------------
+для автоматизиии развёртывая и тестирования работы playbook'а использется [GitHub Actions](https://github.com/features/actions).
