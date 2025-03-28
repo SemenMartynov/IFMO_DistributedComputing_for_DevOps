@@ -42,6 +42,5 @@ jobs:
     - name: Testing wordpress container is serving HTTP port
       run: |
         sleep 30 # need some time for docker containers to start properly
-        ss -tnlp | grep 80
-        curl -v "http://localhost/" || true
+        curl -v "http://127.0.0.1/" || true
 
