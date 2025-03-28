@@ -12,30 +12,22 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-    - name: "Generate test inventory"
-      run: echo 'server1 ansible_host=127.0.0.1' > test-inv
-
-    - name: "Show test inventory"
-      run: cat test-inv
-      
     - uses: actions/checkout@v4
 
-    - name: Setup and Run Ansible
-      uses: alex-oleshkevich/ansible-playbook@v1.0.0
-      with:
-        private-key: |
-                -----BEGIN OPENSSH PRIVATE KEY-----
-                b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-                QyNTUxOQAAACBO/dqLgtV78Tq2Y+1OGm5SY2bym4WNY0dtfP/92LYYtQAAAJDHbnLlx25y
-                5QAAAAtzc2gtZWQyNTUxOQAAACBO/dqLgtV78Tq2Y+1OGm5SY2bym4WNY0dtfP/92LYYtQ
-                AAAEDPqDO80rVJjovlesCfGCn4IpJG+gePVKIXKiMYV5dkpE792ouC1XvxOrZj7U4ablJj
-                ZvKbhY1jR218//3Ythi1AAAACGFsZXhAeHBzAQIDBAU=
-                -----END OPENSSH PRIVATE KEY-----
-        become-password: "password"
-        become-user: "root"
-        become-method: "sudo"
-        inventory-file: "./test-inv"
-        playbook-file: "./wp-mysql-playbook.yml"
-        
+    - name: "Install Ansible"
+      run: pip install ansible
+
     - name: "Print Ansible version"
       run: ansible-playbook --version
+      
+    - name: "Generate ansible.cfg"
+      run: |
+        echo '[defaults]' > .ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> .ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> .ansible.cfg
+
+    - name: "Generate localhost inventory"
+      run: echo 'localhost ansible_connection=local' > .ansible-hosts
+
+    - name: Run Ansible Playbook
+      run: ansible-playbook wp-mysql-playbook.yml
