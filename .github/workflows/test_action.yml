@@ -22,12 +22,14 @@ jobs:
       
     - name: "Generate ansible.cfg"
       run: |
-        echo '[defaults]' > .ansible.cfg
-        echo 'hostfile = ~/.ansible-hosts'  >> .ansible.cfg
-        echo 'inventory = ~/.ansible-hosts' >> .ansible.cfg
+        echo '[defaults]' > ~/.ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
+        echo 'transport = local' >> ~/.ansible.cfg
+        
 
     - name: "Generate localhost inventory"
-      run: echo 'localhost ansible_connection=local' > .ansible-hosts
+      run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
 
-    - name: Run Ansible Playbook
-      run: ansible-playbook wp-mysql-playbook.yml
+    - name: Run Ansible Playbook locally
+      run: ansible-playbook --connection=local 127.0.0.1 wp-mysql-playbook.yml
