@@ -1,0 +1,6 @@
+- name: Развёртывание WordPress на удалённом сервере
+  hosts: local
+  connection: local
+  become: no
+  roles:
+    - wordpress

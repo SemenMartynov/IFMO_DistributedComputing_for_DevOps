@@ -1,0 +1,49 @@
+- name: Обновить apt-кэш
+  apt:
+    update_cache: yes
+  become: yes
+  when: ansible_os_family != "Darwin"
+
+- name: Установить Docker (docker.io)
+  apt:
+    name: docker.io
+    state: present
+  become: yes
+  when: ansible_os_family != "Darwin"
+
+- name: Убедиться, что pip установлен (для установки docker-compose через pip, если потребуется)
+  apt:
+    name: python3-pip
+    state: present
+  become: yes
+  when: ansible_os_family != "Darwin"
+
+- name: Установить Docker Compose через get_url (бинарный файл)
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+  become: yes
+  when: ansible_os_family != "Darwin"
+
+- name: Создать директорию для Docker Compose файлов
+  file:
+    path: "{{ lookup('env', 'HOME') }}/wordpress"
+    state: directory
+    mode: '0755'
+
+- name: Скопировать шаблон docker-compose.yml в {{ lookup('env', 'HOME') }}/wordpress/
+  template:
+    src: templates/docker-compose.yml.j2
+    dest: "{{ lookup('env', 'HOME') }}/wordpress/docker-compose.yml"
+    mode: '0644'
+
+- name: Остановить и удалить старые контейнеры, образы и тома
+  command: docker-compose down --rmi all --volumes --remove-orphans
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}/wordpress"
+
+- name: Запустить контейнеры через Docker Compose с пересборкой
+  command: docker-compose up --build -d
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}/wordpress"
