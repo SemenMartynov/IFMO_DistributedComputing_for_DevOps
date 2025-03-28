@@ -1,0 +1,30 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Generate test inventory"
+      run: echo -e "[servers]\nserver1 ansible_host=127.0.0.1" > test-inv
+
+    - name: Setup and Run Ansible
+      uses: alex-oleshkevich/setup-ansible@v1.0.1
+      with:
+      # The version of Ansible to install.
+        version: "9.3.0"
+        inventory-file: "test-inv"
+        playbook-file: "wp-mysql-playbook.yml"
+        become-password: "password"
+        become-user: "root"
+        become-method: "sudo"
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
