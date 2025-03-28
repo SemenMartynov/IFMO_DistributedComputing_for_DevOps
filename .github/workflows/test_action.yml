@@ -26,10 +26,16 @@ jobs:
         echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
         echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
         echo 'transport = local' >> ~/.ansible.cfg
-        
 
     - name: "Generate localhost inventory"
       run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
 
     - name: Run Ansible Playbook locally
       run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
+
+    - name: Test docker containers are running
+      run: sudo docker ps
+
+    - name: Test wordpress
+      run: curl "http://127.0.0.1"
+      
