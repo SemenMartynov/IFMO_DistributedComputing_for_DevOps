@@ -13,7 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: "Generate test inventory"
-      run: echo -e "[servers]\nserver1 ansible_host=127.0.0.1" > test-inv
+      run: |
+         echo '[servers]' > test-inv
+         echo 'server1 ansible_host=127.0.0.1' >> test-inv
 
     - uses: actions/checkout@v4
 
