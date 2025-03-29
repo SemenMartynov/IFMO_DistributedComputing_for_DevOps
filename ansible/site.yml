@@ -1,0 +1,12 @@
+---
+- name: "Base system setup"
+  hosts: all
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+- name: "Docker installation"
+  hosts: all
+  roles:
+    - docker_install

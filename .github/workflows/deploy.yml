@@ -1,0 +1,25 @@
+name: Install Docker
+
+on: push
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Jinja2
+        run: pip install jinja2-cli
+
+      - name: Generate inventory from template
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+        run: |
+          mkdir -p ansible/inventory/generated
+          jinja2 ansible/inventory/template.yml.j2 -D server_ip="$SERVER_IP" > ansible/inventory/generated/production.yml
+
+      - name: Run Ansible
+        run: |
+          ansible-playbook \
+            -i ansible/inventory/generated/production.yml \
+            ansible/site.yml
