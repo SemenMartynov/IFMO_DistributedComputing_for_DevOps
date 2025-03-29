@@ -1,0 +1,13 @@
+wp_download_url: https://wordpress.org/latest.tar.gz
+dependencies:
+  - apache2
+  - mysql-client
+  - php
+  - php-mysql
+  - php-cli
+  - php-curl
+  - php-gd
+  - php-intl
+  - php-mbstring
+  - php-xml
+  - php-zip
