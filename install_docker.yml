@@ -5,7 +5,6 @@
   # https://docs.docker.com/engine/install/ubuntu/
   vars:
     docker_users: [ ubuntu,user,ilen ]
-    docker_compose_version: "2.23.0"
 
   tasks:
     - name: Установка нужных пакетов
