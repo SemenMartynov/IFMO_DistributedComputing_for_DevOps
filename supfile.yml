@@ -39,9 +39,9 @@ commands:
       cd $APP_DIR/code && 
       git clone $GIT_REMOTE . ;
 
-  targets:
-    deploy:
-      - pull
-      - build
-      - stop
-      - start
+targets:
+  deploy:
+    - pull
+    - build
+    - stop
+    - start
