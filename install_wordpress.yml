@@ -40,8 +40,6 @@
       shell: "sudo docker compose -f {{ wp_install_dir }}/docker-compose.yml up -d"
       args:
         chdir: "{{ wp_install_dir }}"
-#      register: compose_output
-#      changed_when: "'Started' in compose_output.stdout or 'Created' in compose_output.stdout"
 
     # Проверка статуса контейнеров
     - name: Проверка запущенных контейнеров
