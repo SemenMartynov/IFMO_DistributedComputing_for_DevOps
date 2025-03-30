@@ -34,6 +34,7 @@ commands:
     desc: Setup project in a new environment
     run: >
       sudo mkdir -p $APP_DIR/code &&
+      sudo mkdir -p $APP_DIR/storage &&
       sudo chown -R $USER $APP_DIR && 
       cd $APP_DIR/code && 
       git clone $GIT_REMOTE . ;
