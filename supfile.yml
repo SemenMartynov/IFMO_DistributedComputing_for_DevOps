@@ -1,0 +1,46 @@
+version: 0.4
+
+env:
+  GIT_REMOTE: https://github.com/idbolshakov-study/IFMO_DistributedComputing_for_DevOps
+  ENVFILE_PATH: /opt/app/.env
+  USER: idbolshakov
+  APP_DIR: /opt/app
+
+
+networks:
+  # this setup is used for host app in the local machine
+  local:
+    hosts:
+      - localhost
+        
+commands:
+  start:
+    desc: Start wordpress instance in background
+    run: cd $APP_DIR/code && docker compose --env-file $ENVFILE_PATH up -d
+
+  stop:
+    desc: Stop wordpress instance
+    run: cd $APP_DIR/code && docker compose --env-file $ENVFILE_PATH down
+
+  build:
+    desc: Build wordpress instance containers
+    run: cd $APP_DIR/code && docker compose --env-file $ENVFILE_PATH build
+
+  pull:
+    desc: fetch from remote git repo to local branch
+    run: cd $APP_DIR/code && git pull;
+
+  provision:
+    desc: Setup project in a new environment
+    run: >
+      sudo mkdir -p $APP_DIR/code &&
+      sudo chown -R $USER $APP_DIR && 
+      cd $APP_DIR/code && 
+      git clone $GIT_REMOTE . ;
+
+  targets:
+    deploy:
+      - pull
+      - build
+      - stop
+      - start

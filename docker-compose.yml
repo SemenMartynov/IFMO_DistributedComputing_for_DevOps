@@ -1,0 +1,26 @@
+services:
+  wordpress:
+    image: wordpress:6.7.2
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: $APP_DB_HOST
+      WORDPRESS_DB_USER: $APP_DB_USER
+      WORDPRESS_DB_PASSWORD: $APP_DB_PASSWORD
+      WORDPRESS_DB_NAME: $APP_DB_NAME
+    depends_on:
+      - db 
+    volumes:
+      - $APP_STORAGE/wordpress_data:/var/www/html
+
+  db:
+    image: mariadb:10
+    restart: always
+    environment:
+      MYSQL_USER: $APP_DB_USER
+      MYSQL_PASSWORD: $APP_DB_PASSWORD
+      MYSQL_ROOT_PASSWORD: $APP_DB_PASSWORD
+      MYSQL_DATABASE: $APP_DB_NAME
+    volumes:
+      - $APP_STORAGE/mysql_data:/var/lib/mysql
