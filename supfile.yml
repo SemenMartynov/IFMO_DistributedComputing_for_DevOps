@@ -24,7 +24,7 @@ networks:
 commands:
   start:
     desc: Start wordpress instance in background
-    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH up -d
+    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH up
 
   stop:
     desc: Stop wordpress instance

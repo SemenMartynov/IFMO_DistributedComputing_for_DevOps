@@ -18,9 +18,30 @@ services:
     image: mariadb:10
     restart: always
     environment:
+      MYSQL_REPLICATION_MODE: master
       MYSQL_USER: $APP_DB_USER
       MYSQL_PASSWORD: $APP_DB_PASSWORD
       MYSQL_ROOT_PASSWORD: $APP_DB_PASSWORD
       MYSQL_DATABASE: $APP_DB_NAME
+      MYSQL_REPLICATION_USER: $APP_DB_USER
+      MYSQL_REPLICATION_PASSWORD: $APP_DB_PASSWORD
     volumes:
       - $APP_STORAGE/mysql_data:/var/lib/mysql
+
+  db-slave:
+    image: mariadb:10
+    restart: always
+    environment:
+      MYSQL_REPLICATION_MODE: slave
+      MYSQL_MASTER_HOST: db
+      MYSQL_USER: $APP_DB_USER
+      MYSQL_PASSWORD: $APP_DB_PASSWORD
+      MYSQL_ROOT_PASSWORD: $APP_DB_PASSWORD
+      MYSQL_DATABASE: $APP_DB_NAME
+      MYSQL_REPLICATION_USER: $APP_DB_USER
+      MYSQL_REPLICATION_PASSWORD: $APP_DB_PASSWORD
+    depends_on:
+      - db 
+    volumes:
+      - $APP_STORAGE/mysql_data_slave:/var/lib/mysql
+
