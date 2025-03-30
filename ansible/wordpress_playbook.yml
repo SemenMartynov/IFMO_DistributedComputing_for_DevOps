@@ -45,6 +45,12 @@
         dest: "{{ docker_compose_path }}/docker-compose.yml"
         mode: '0644'
 
+    - name: Copy Nginx Config File
+      copy:
+        src: nginx.conf
+        dest: "{{ docker_compose_path }}/nginx.conf"
+        mode: '0644'
+
     - name: Stop and remove existing containers (if any)
       shell: "docker-compose down"
       args:
