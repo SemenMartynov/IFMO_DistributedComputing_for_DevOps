@@ -10,8 +10,14 @@ env:
 
 
 networks:
-  # this setup is used for host app in the local machine
+  # this setup is used for run app in the local machine
   local:
+    hosts:
+      - localhost
+  # this setup is used for development purposes
+  develop:
+    env:
+      CODE_DIR: .
     hosts:
       - localhost
         
