@@ -1,0 +1,54 @@
+- name: Deploy WordPress
+  hosts: all
+  become: true
+  vars:
+    docker_compose_path: "/opt/wordpress"
+    wordpress_db_name: "wordpress"
+    wordpress_db_user: "wp_user"
+    wordpress_db_password: "wp_password"
+    wordpress_db_root_password: "rootpassword"
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - ufw
+        state: present
+        update_cache: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Allow necessary ports in UFW
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+
+    - name: Create Docker Compose directory
+      file:
+        path: "{{ docker_compose_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy Docker Compose file
+      copy:
+        src: docker-compose.yml
+        dest: "{{ docker_compose_path }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Start Docker Compose
+      shell: "docker-compose up -d"
+      args:
+        chdir: "{{ docker_compose_path }}"
+
+    - name: Ensure UFW is enabled
+      ufw:
+        state: enabled
