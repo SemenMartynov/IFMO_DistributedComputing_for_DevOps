@@ -31,6 +31,7 @@
       loop:
         - "80"
         - "443"
+        - "22"
 
     - name: Create Docker Compose directory
       file:
@@ -43,6 +44,12 @@
         src: docker-compose.yml
         dest: "{{ docker_compose_path }}/docker-compose.yml"
         mode: '0644'
+
+    - name: Stop and remove existing containers (if any)
+      shell: "docker-compose down"
+      args:
+        chdir: "{{ docker_compose_path }}"
+      ignore_errors: true
 
     - name: Start Docker Compose
       shell: "docker-compose up -d"
