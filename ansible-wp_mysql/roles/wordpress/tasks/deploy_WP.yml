@@ -1,0 +1,26 @@
+- name: Create directory
+  file:
+    path: /wordpress
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Containers stop
+  command: docker-compose down
+  args:
+    chdir: /wordpress
+  ignore_errors: true
+
+- name: Template copy
+  template:
+    src: docker-compose.yml.j2
+    dest: /wordpress/docker-compose.yml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Containers start
+  command: docker-compose up -d
+  args:
+    chdir: /wordpress
