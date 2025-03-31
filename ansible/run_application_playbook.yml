@@ -1,0 +1,12 @@
+---
+- name: Run application
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Copy dock
+      copy:
+        src: docker-compose.yml
+        dest: "{{ docker_compose_path }}/docker-compose.yml"
+        mode: '0644'
