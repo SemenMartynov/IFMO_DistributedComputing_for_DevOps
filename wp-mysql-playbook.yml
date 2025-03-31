@@ -1,13 +1,4 @@
 ---
-- name: Generate MySQL password
-  hosts: all
-  gather_facts: False
-  vars:
-    pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
-  tasks:
-    - set_fact:
-        mysql_passwd: "{{ pwd_alias }}"
-
 - hosts: all
   become: true
   vars:
@@ -20,8 +11,13 @@
     wp_dbuser: wp_dbuser
     wp_int_network: wp_int_network
     wp_ext_network: wp_ext_network
+    pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 
   tasks:
+
+    - name: Generate MySQL password
+      - set_fact:
+        mysql_passwd: "{{ pwd_alias }}"
 
     - name: Install aptitude
       apt:
