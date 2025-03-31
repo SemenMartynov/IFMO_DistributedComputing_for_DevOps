@@ -3,10 +3,32 @@
   hosts: all
   become: yes
   gather_facts: yes
+  vars:
+    application_path: "/var/www"
 
   tasks:
-    - name: Copy dock
+    - name: Create Docker Compose directory
+      file:
+        path: "{{ application_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose
       copy:
-        src: docker-compose.yml
-        dest: "{{ docker_compose_path }}/docker-compose.yml"
-        mode: '0644'
+        src: ../docker/docker-compose.production.yml
+        dest: "{{ application_path }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Copy env
+      copy:
+        src: ../docker/.env
+        dest: "{{ application_path }}/.env"
+        mode: "0644"
+
+    - name: Up containers
+      shell: "sudo docker compose up -d"
+      args:
+        chdir: "{{ application_path }}"
+
+    - name: Make migration
+      shell: "sudo docker exec -it www-backend-1 python3 manage.py migrate"
