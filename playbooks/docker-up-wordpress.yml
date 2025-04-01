@@ -1,0 +1,24 @@
+---
+- name: Запуск Wordpress с базой данных с использованием docker-compose
+  hosts: all
+  tasks:
+    - name: Создать каталог для приложения
+      ansible.builtin.file:
+        path: ~/app
+        state: directory
+        mode: '0755'
+
+    - name: Доставить файл с переменными окружения на сервер
+      ansible.builtin.copy:
+        src: ../.env
+        dest: ~/app/.env
+
+    - name: Доставить docker-compose файл на сервер
+      ansible.builtin.copy:
+        src: ../docker-compose.yaml
+        dest: ~/app/docker-compose.yaml
+
+    - name: Запустить docker-compose конфигурацию
+      community.docker.docker_compose_v2:
+        project_src: ~/app
+        state: present
