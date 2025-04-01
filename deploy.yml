@@ -1,0 +1,19 @@
+---
+- name: Деплой Wordpress и  Mysql в Docker
+  hosts: webserver
+  become: true
+  tasks:
+    - name: Создать директорию проекта
+      file:
+        path: wordpress/
+        state: directory
+
+    - name: Скопировать docker-compose.yml на сервер
+      copy:
+        src: docker-compose.yml
+        dest: wordpress/docker-compose.yml
+
+    - name: Запустить Wordpress и Mysql
+      command: docker-compose up -d
+      args:
+        chdir: wordpress/
