@@ -3,7 +3,7 @@ services:
     image: mariadb:11
     command: '--default-authentication-plugin=mysql_native_password'
     volumes:
-      - db_data:/srv/docker/wp/mysql
+      - ./mariadb-master/data:/var/lib/mysql
     restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
@@ -13,7 +13,7 @@ services:
   wordpress:
     image: wordpress:latest
     volumes:
-      - wp_data:/srv/docker/wp/www/html
+      - wp_data:/var/www/html
     ports:
       - 80:80
     restart: always
@@ -24,5 +24,4 @@ services:
       - WORDPRESS_DB_NAME=${DB_NAME}
 
 volumes:
-  db_data:
   wp_data:

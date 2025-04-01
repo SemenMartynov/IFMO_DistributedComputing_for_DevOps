@@ -2,22 +2,29 @@
 ---
 - name: Create project directory
   ansible.builtin.file:
-    path: /srv/docker/wp
+    path: "{{ project_dir }}"
     state: directory
 
-- name: Copy files
+- name: Upload docker-compose
   ansible.builtin.copy:
-    src: docker-compose.yml
-    dest: /srv/docker/wp/docker-compose.yml
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: user
+    group: user
+    mode: '0644'
+
+- name: Upload environment variables
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/.env"
+    dest: "{{ project_dir }}/.env"
     owner: user
     group: user
     mode: '0644'
   
 - name: Create and start app
   community.docker.docker_compose_v2:
-    project_src: /srv/docker/wp/
+    project_src: "{{ project_dir }}"
   register: output
-  environment: "{{ env_vars }}"
 
 - name: Show results
   ansible.builtin.debug:
