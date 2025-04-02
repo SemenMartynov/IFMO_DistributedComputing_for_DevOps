@@ -1,0 +1,7 @@
+---
+- name: Deploy Wordpress with Docker
+  hosts: wordpress
+  become: yes
+  roles:
+    - docker
+    - wordpres
