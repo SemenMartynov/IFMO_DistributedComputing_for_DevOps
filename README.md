@@ -1,7 +1,7 @@
 # IFMO_DistributedComputing_for_DevOps
 Distributed Computing course for DevOps 2025
 
-```
+
 # NetBox Deployment Project
 
 This project provides a structured approach to deploying [NetBox](https://github.com/netbox-community/netbox), an open-source web-based tool for managing and documenting computer networks. The deployment process is automated using Ansible playbooks and Docker Compose, ensuring a streamlined setup and configuration experience.
@@ -20,7 +20,7 @@ The project includes:
 ├── LICENSE
 ├── README.md
 ├── install-docker.yml          # Ansible playbook to install Docker and copy the NetBox project folder
-├── inventory                   # Inventory file for Ansible (not included in this snippet)
+├── inventory                   # Inventory file for Ansible
 ├── netbox                      # Main NetBox project folder
 │   ├── configuration            # Configuration files for NetBox
 │   │   ├── configuration.py     # Main NetBox configuration
@@ -72,6 +72,8 @@ You can access the NetBox web interface at the following address:
 [http://192.168.0.105:8003/](http://192.168.0.105:8003/)
 
 Default login credentials are typically configured in the `netbox.env` file. Ensure you update them as needed for security.
+
+![Screen](./scr.png)
 
 ---
 
