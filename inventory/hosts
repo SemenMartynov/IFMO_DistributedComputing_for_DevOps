@@ -1,2 +1,2 @@
 [wordpress]
-#ip ansible_user=ivancld 
+158.160.115.41 ansible_user=user 
