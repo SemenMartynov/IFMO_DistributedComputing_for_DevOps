@@ -1,0 +1,51 @@
+---
+- name: Установка Docker
+  hosts: all
+  become: yes
+  vars:
+    docker_users: [ user ]
+
+  tasks:
+    - name: Установка нужных пакетов
+      apt:
+        update_cache: yes
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    - name: Добавление GPG ключа
+      apt_key:
+        url: "https://download.docker.com/linux/ubuntu/gpg"
+        state: present
+
+
+    - name: Добавление docker-репозитория
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable"
+        state: present
+ 
+    - name: Обновление кэша пакетов и установка Docker
+      apt:
+        update_cache: yes
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - containerd.io
+        state: present
+
+    - name: Добавление пользователя в группу Docker
+      user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop: "{{ docker_users }}"
+      when: docker_users | length > 0
+
+    - name: Автозапуск сервиса
+      service:
+        name: docker
+        state: started
+        enabled: yes

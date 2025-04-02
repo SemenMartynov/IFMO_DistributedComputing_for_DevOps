@@ -1,5 +1,5 @@
 services:
-  netbox: &netbox
+  netbox:
     image: docker.io/netboxcommunity/netbox:${VERSION-v4.2-3.2.0}
     depends_on:
       - postgres
@@ -8,19 +8,19 @@ services:
     ports:
       - 8003:8080
     env_file: env/netbox.env
-    user: "unit:root"
+    user: "root:root"
     healthcheck:
       test: curl -f http://localhost:8080/login/ || exit 1
       start_period: 90s
       timeout: 3s
       interval: 15s
-    volumes:
-      - ./configuration:/etc/netbox/config:z,ro
-      - netbox-media-files:/opt/netbox/netbox/media:rw
-      - netbox-reports-files:/opt/netbox/netbox/reports:rw
-      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
+#    volumes:
+#      - ./configuration:/etc/netbox/config:z,ro
+#      - netbox-media-files:/opt/netbox/netbox/media:rw
+#      - netbox-reports-files:/opt/netbox/netbox/reports:rw
+#      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
   netbox-worker:
-    <<: *netbox
+    image: docker.io/netboxcommunity/netbox:${VERSION-v4.2-3.2.0}
     depends_on:
       netbox:
         condition: service_healthy
@@ -34,7 +34,7 @@ services:
       timeout: 3s
       interval: 15s
   netbox-housekeeping:
-    <<: *netbox
+    image: docker.io/netboxcommunity/netbox:${VERSION-v4.2-3.2.0}
     depends_on:
       netbox:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
 
   # postgres
   postgres:
-    image: docker.io/bitnami/postgresql:16
+    image: docker.io/bitnami/postgresql:17
     ports:
       - 5432:5432
     env_file:
