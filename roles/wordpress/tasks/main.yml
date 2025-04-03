@@ -3,11 +3,6 @@
     path: /home/user/wordpress
     state: directory
 
-- name: Copy nginx.conf to remote server
-  copy:
-    src: nginx.conf
-    dest: /home/user/wordpress/nginx.conf
-
 - name: Generate docker-compose.yml from template
   template:
     src: docker-compose.yml.j2
