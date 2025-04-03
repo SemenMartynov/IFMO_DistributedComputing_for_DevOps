@@ -1,0 +1,42 @@
+- name: Ensure Docker is installed via APT
+  apt:
+    name: docker.io
+    state: present
+  become: yes
+
+- name: Enable and start Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Define Docker Compose download URL (idempotent fact setting)
+  set_fact:
+    docker_compose_url: "https://github.com/docker/compose/releases/latest/download/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}"
+  changed_when: false
+
+- name: Download and install Docker Compose
+  get_url:
+    url: "{{ docker_compose_url }}"
+    dest: /usr/local/bin/docker-compose
+    mode: 'u+x'
+    timeout: 60
+  become: yes
+
+- name: Generate docker-compose.yml from template (idempotent)
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ playbook_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Create dedicated Docker network for WordPress
+  docker_network:
+    name: wordpress-network
+    state: present
+
+- name: Deploy containers via community.docker.docker_compose
+  community.docker.docker_compose:
+    project_src: "{{ playbook_dir }}"
+    state: present
+    pull: false 
+    recreate: smart
