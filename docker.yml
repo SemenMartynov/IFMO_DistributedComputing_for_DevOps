@@ -1,0 +1,107 @@
+---
+- name: Установка Docker и запуск Wordpress с отдельной БД
+  hosts: all
+  become: yes
+  vars:
+    docker_users: [server]
+    mysql_root_password: root
+
+  tasks:
+    - name: Установить Docker
+      block:
+        - name: Установка нужных пакетов
+          apt: 
+            update_cache: yes
+            name: 
+              - ca-certificates
+              - curl
+            state: present
+
+        - name: Добавление GPG ключа
+          apt_key: 
+            url: "https://download.docker.com/linux/ubuntu/gpg"
+            state: present
+
+        - name: Добавление Docker репозитория
+          apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_lsb.codename}} stable"
+            state: present
+
+        - name: Обновление кэша пакетов и установка Docker
+          apt:
+            update_cache: yes
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+            state: present
+
+        - name: Добавление пользователя в группу Docker
+          user: 
+            name: "{{ item }}"
+            groups: docker
+            append: yes
+          loop: "{{ docker_users }}"
+          when: docker_users | length > 0
+
+        - name: Запуск и автозапус сервиса Docker
+          service: 
+            name: docker
+            state: started
+            enabled: yes
+
+    - name: Создать Docker-сеть для связи контейнера с БД и контейнера с Wordpress
+      docker_network:
+        name: wordpress_network
+        state: present
+
+    - name: Запустить контейнер с MariaDB и проверить статус
+      block:
+      - name: Установка контейнера
+        docker_container:
+          name: mariadb
+          image: mariadb:latest
+          restart_policy: always
+          env:
+            MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+            MYSQL_DATABASE: wordpress
+            MYSQL_USER: wp_user
+            MYSQL_PASSWORD: wp_password
+          ports:
+            - "3306:3306"
+          networks:
+            - name: wordpress_network
+          volumes:
+            - mariadb_data:/var/lib/mysql
+
+      - name: Проверить, что MariaDB контейнер запущен
+        shell: docker ps --filter "name=mariadb" --format "{{ '{{' }}.Status{{ '}}' }}"
+        register: mariadb_status
+
+      - name: Вывести статус MariaDB контейнера
+        debug:
+          msg: "MariaDB контейнер статус: {{ mariadb_status.stdout }}"
+
+    - name: Запустить контейнер с WordPress
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: mariadb:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wp_user
+          WORDPRESS_DB_PASSWORD: wp_password
+        ports:
+          - "8080:80"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - wordpress_data:/var/www/html
+
+
+
+      
+
+        
+
