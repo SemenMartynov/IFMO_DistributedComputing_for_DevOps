@@ -1,0 +1,21 @@
+---
+- name: Deploy WordPress with Docker
+  hosts: wordpress_servers
+  become: false
+  
+  tasks:
+    - name: Create project directory
+      file:
+        path: "{{ ansible_env.HOME }}/wordpress"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: docker-compose.yml
+        dest: "{{ ansible_env.HOME }}/wordpress/docker-compose.yml"
+
+    - name: Deploy WordPress stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ ansible_env.HOME }}/wordpress"
+        state: present 
