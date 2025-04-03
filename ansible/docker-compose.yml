@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:6.7
+    container_name: wordpress
+    depends_on:
+      - database
+    ports:
+      - "80:80"
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - wordpress_network
+
+  database:
+    image: mariadb:11.7
+    container_name: database
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MARIADB_INITDB_SKIP_TZINFO: 1
+    volumes:
+      - database_data:/var/lib/mysql
+    networks:
+      - wordpress_network
+
+volumes:
+  database_data:
+  wordpress_data:
+
+networks:
+  wordpress_network:
+    driver: bridge

@@ -1,0 +1,73 @@
+---
+- name: WordPress + DB
+  hosts: all
+  become: true
+
+  vars:
+    project_dir: /opt/wordpress
+
+  tasks:
+    - name: Install required dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker and Docker Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running and enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml to project directory
+      copy:
+        src: docker-compose.yml
+        dest: "{{ project_dir }}/ansible/docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy .env file to project directory
+      copy:
+        src: .env
+        dest: "{{ project_dir }}/ansible/.env"
+        mode: '0644'
+
+    - name: Remove existing containers and volumes (if any)
+      shell: docker compose down --volumes
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: true
+
+    - name: Start WordPress containers with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
