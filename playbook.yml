@@ -1,7 +1,85 @@
 ---
-- name: Deploy Wordpress with Docker
+- name: Deploy WordPress with Docker
   hosts: wordpress
   become: yes
-  roles:
-    - docker
-    - wordpres
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: Install system prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-docker
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      notify: restart sshd
+
+    - name: Create application directory
+      file:
+        path: /opt/wordpress
+        state: directory
+        mode: 0755
+
+    - name: Deploy Docker Compose file
+      copy:
+        src: files/docker-compose.yml
+        dest: /opt/wordpress/docker-compose.yml
+        mode: 0644
+
+    - name: Start WordPress containers
+      command: docker compose -f /opt/wordpress/docker-compose.yml up -d
+      args:
+        chdir: /opt/wordpress
+      environment:
+        DB_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
+        DB_NAME: "{{ DB_NAME }}"
+        DB_USER: "{{ DB_USER }}"
+        DB_PASSWORD: "{{ DB_PASSWORD }}"
+
+    - name: Verify containers are running
+      command: docker ps --filter name=wordpress
+      register: container_status
+      changed_when: false
+
+    - name: Show containers status
+      debug:
+        var: container_status.stdout_lines
+
+  handlers:
+    - import_tasks: handlers/main.yml
