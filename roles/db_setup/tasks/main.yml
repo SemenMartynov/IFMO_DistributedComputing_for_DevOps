@@ -1,0 +1,7 @@
+- name: Wait for MySQL service on port 3306
+  wait_for:
+    port: 3306
+    delay: 10
+    timeout: 60
+    state: started
+  changed_when: false
