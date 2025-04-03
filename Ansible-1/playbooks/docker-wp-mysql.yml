@@ -1,0 +1,8 @@
+---
+- name: Install Docker, Create MySQL, Wordpress containers and run them
+  hosts: webservers
+  become: true
+  roles:
+    - docker
+    - mysql_db
+    - wordpress
