@@ -1,0 +1,11 @@
+---
+- name: Запуск PHP-FPM контейнера
+  community.docker.docker_container:
+    name: wordpress-php
+    image: wordpress:php8.1-fpm
+    state: started
+    restart_policy: always
+    networks:
+      - name: lemp_docker_network
+    volumes:
+      - wordpress_data:/var/www/html

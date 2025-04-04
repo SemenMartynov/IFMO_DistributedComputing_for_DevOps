@@ -1,0 +1,11 @@
+---
+- name: My first play
+  hosts: lemp
+  become: true
+  tasks:
+    - name: Ping my hosts
+      ansible.builtin.ping:
+  roles:
+    - docker
+    - nginx
+    - wordpress
