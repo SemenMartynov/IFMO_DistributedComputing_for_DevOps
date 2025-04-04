@@ -1,0 +1,82 @@
+---
+- name: Deploy WordPress with MySQL in Docker
+  hosts: wordpress_server
+  become: true
+
+  vars:
+    db_name: wordpress
+    db_user: wp_user
+    db_password: wp_pass
+    db_root_password: root_pass
+    wordpress_port: 8080
+
+  tasks:
+    - name: Install Docker and Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker is started
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create project directory
+      file:
+        path: /opt/wordpress
+        state: directory
+
+    - name: Copy docker-compose.yml with WordPress and MySQL
+      copy:
+        dest: /opt/wordpress/docker-compose.yml
+        content: |
+          version: '3.8'
+
+          services:
+            db:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_DATABASE: {{ db_name }}
+                MYSQL_USER: {{ db_user }}
+                MYSQL_PASSWORD: {{ db_password }}
+                MYSQL_ROOT_PASSWORD: {{ db_root_password }}
+              volumes:
+                - db_data:/var/lib/mysql
+
+            wordpress:
+              image: wordpress:latest
+              depends_on:
+                - db
+              ports:
+                - "{{ wordpress_port }}:80"
+              restart: always
+              environment:
+                WORDPRESS_DB_HOST: db:3306
+                WORDPRESS_DB_NAME: {{ db_name }}
+                WORDPRESS_DB_USER: {{ db_user }}
+                WORDPRESS_DB_PASSWORD: {{ db_password }}
+              volumes:
+                - wordpress_data:/var/www/html
+
+          volumes:
+            db_data:
+            wordpress_data:
+
+    - name: Launch WordPress and MySQL containers
+      community.docker.docker_compose:
+        project_src: /opt/wordpress
+
+    - name: Wait for WordPress to be available
+      wait_for:
+        port: "{{ wordpress_port }}"
+        delay: 10
+        timeout: 60
+
+    - name: Show success message
+      debug:
+        msg: "WordPress is now available at http://{{ ansible_host }}:{{ wordpress_port }}"
