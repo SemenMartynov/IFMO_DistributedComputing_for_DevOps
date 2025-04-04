@@ -16,8 +16,8 @@
 
 - name: Установка контейнера Nginx
   community.docker.docker_container:
-    name: nginx
-    image: nginx:latest
+    name: "{{ nginx_container_name }}"
+    image: "{{ nginx_image }}"
     state: started
     ports:
       - "80:80"
@@ -27,3 +27,4 @@
     volumes:
       - /var/www:/usr/share/nginx/html
       - /opt/nginx/conf.d:/etc/nginx/conf.d:ro
+      - "{{ worpress_volume }}:/var/www/html:ro"

@@ -1,4 +1,7 @@
 ---
+- name: Сбор фактов о сервисах
+  ansible.builtin.service_facts:
+
 - name: Обновление списка пакетов
   ansible.builtin.apt:
     update_cache: true
@@ -22,11 +25,8 @@
 
 - name: Add docker repository to apt
   ansible.builtin.apt_repository:
-    repo: "deb https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
+    repo: deb https://download.docker.com/linux/ubuntu bionic stable
     state: present
-
-- name: Обновление списка пакетов после добавления репозитория
-  ansible.builtin.apt:
     update_cache: true
 
 - name: Установка Docker Engine
@@ -45,16 +45,16 @@
     state: present
 
 - name: Создание группы docker (если её нет)
-    ansible.builtin.group:
-      name: docker
-      state: present
-  
+  ansible.builtin.group:
+    name: docker
+    state: present
+
 - name: Добавление пользователя в группу docker
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
     append: true
-    notify: Перезапуск SSH-соединения
+  notify: Перезапуск SSH-соединения
 
 - name: Установка прав доступа для сокета Docker
   ansible.builtin.file:
@@ -62,16 +62,13 @@
     owner: root
     group: docker
     mode: '0660'
-    notify: Restart docker
+  notify: Restart docker
 
 - name: Запуск и включение сервиса Docker
   ansible.builtin.service:
     name: docker
     state: started
     enabled: true
-
-- name: Сбор фактов о сервисах
-  ansible.builtin.service_facts:
 
 - name: Проверка запуска
   ansible.builtin.debug:

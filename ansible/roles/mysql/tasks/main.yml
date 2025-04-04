@@ -1,6 +1,6 @@
 ---
 - name: Запуск контейнера mysql
--   docker_container:
+  community.docker.docker_container:
     name: "{{ mysql_container_name }}"
     image: "{{ mysql_image }}"
     env:

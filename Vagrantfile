@@ -16,7 +16,6 @@ Vagrant.configure("2") do |config|
   config.vm.define "lemp" do |lemp|
     lemp.vm.box = "ubuntu/jammy64"
     lemp.vm.network "private_network", ip: "192.168.56.56"
-    lemp.vm.synced_folder "./test", "/vagrant_data"
 
     lemp.vm.provision "ansible" do |ansible|
       ansible.playbook = "./ansible/playbook.yaml"

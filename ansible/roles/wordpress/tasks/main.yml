@@ -1,14 +1,14 @@
 ---
 - name: Запуск PHP-FPM контейнера
   community.docker.docker_container:
-    name: wordpress-php
-    image: wordpress:php8.1-fpm
+    name: "{{ wordpress_container_name }}"
+    image: "{{ wordpress_image }}"
     state: started
     restart_policy: always
     networks:
       - name: "{{ docker_network }}"
     volumes:
-      - wordpress_data:/var/www/html
+      - "{{ worpress_volume }}:/var/www/html"
     env:
       WORDPRESS_DB_HOST: "{{ mysql_container_name }}:3306"
       WORDPRESS_DB_NAME: "{{ mysql_database }}"
