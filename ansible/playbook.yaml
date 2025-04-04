@@ -1,0 +1,12 @@
+---
+- name: Первое задание
+  hosts: lemp
+  become: true
+  tasks:
+    - name: Ping my hosts
+      ansible.builtin.ping:
+  roles:
+    - docker
+    - nginx
+    - mysql
+    - wordpress
