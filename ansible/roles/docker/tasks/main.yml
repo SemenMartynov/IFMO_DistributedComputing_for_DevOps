@@ -22,7 +22,7 @@
 
 - name: Add docker repository to apt
   ansible.builtin.apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu bionic stable
+    repo: "deb https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
     state: present
 
 - name: Обновление списка пакетов после добавления репозитория
@@ -44,11 +44,25 @@
     name: docker
     state: present
 
+- name: Создание группы docker (если её нет)
+    ansible.builtin.group:
+      name: docker
+      state: present
+  
 - name: Добавление пользователя в группу docker
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
     append: true
+    notify: Перезапуск SSH-соединения
+
+- name: Установка прав доступа для сокета Docker
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    owner: root
+    group: docker
+    mode: '0660'
+    notify: Restart docker
 
 - name: Запуск и включение сервиса Docker
   ansible.builtin.service:
@@ -66,5 +80,5 @@
 
 - name: Создаем сеть докера
   community.docker.docker_network:
-    name: lemp_docker_network
+    name: "{{ docker_network }}"
     state: present

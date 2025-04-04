@@ -4,3 +4,6 @@
   ansible.builtin.service:
     name: docker
     state: restarted
+    
+- name: Перезапуск SSH-соединения
+  ansible.builtin.meta: reset_connection

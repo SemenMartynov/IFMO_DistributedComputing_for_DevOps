@@ -1,2 +1,4 @@
 ---
 # defaults file for nginx
+mysql_image: "mysql:8.0"
+mysql_container_name: "mysql-container"

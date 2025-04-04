@@ -23,7 +23,7 @@
       - "80:80"
     restart_policy: always
     networks:
-      - name: lemp_docker_network
+      - name: "{{ docker_network }}"
     volumes:
       - /var/www:/usr/share/nginx/html
       - /opt/nginx/conf.d:/etc/nginx/conf.d:ro

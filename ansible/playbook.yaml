@@ -1,5 +1,5 @@
 ---
-- name: My first play
+- name: Первое задание
   hosts: lemp
   become: true
   tasks:
@@ -8,4 +8,5 @@
   roles:
     - docker
     - nginx
+    - mysql
     - wordpress
