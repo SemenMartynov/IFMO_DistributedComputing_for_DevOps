@@ -6,7 +6,7 @@ Distributed Computing course for DevOps 2025
 
 На удаленном сервере разворачивает через github actions / ansible экземпляр CMS Directus.
 
-Directus доступен по адресу: http://158.160.44.189:8055/admin/login
+Directus доступен по адресу: http://130.193.36.192:8055/admin/login
 
 Admin email: "admin@example.com"
 Admin password: "d1r3ctu5"
