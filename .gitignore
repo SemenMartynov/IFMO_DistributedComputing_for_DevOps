@@ -1,6 +1,7 @@
 # Vagrant
 .vagrant/
 *.log
+.vagrant
 
 
 # Ansible
@@ -23,3 +24,4 @@ vault_password_file
 .DS_Store
 Thumbs.
 .vscode/
+.vscode
