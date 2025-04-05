@@ -12,7 +12,7 @@ services:
       - env/netbox-master.env
     user: "root:root"
     healthcheck:
-      test: curl -f http://localhost:8080/login/ || exit 1
+      test: curl -f http://localhost:8003/login/ || exit 1
       start_period: 90s
       timeout: 3s
       interval: 15s
