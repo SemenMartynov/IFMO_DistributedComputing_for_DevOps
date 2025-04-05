@@ -141,7 +141,7 @@ Below is an example of how the NetBox UI might look:
 
 ![Screen](./scr.png)
 
-### Screenshot of main Netbox IU
+### Screenshot of main Netbox UI
 ![Screen](./scr_master.png)
 
 ### Screenshot of Netbox UI with **maintenance mode**
@@ -156,5 +156,3 @@ Below is an example of how the NetBox UI might look:
 - For further details about NetBox, refer to the official documentation: [https://netbox.readthedocs.io/](https://netbox.readthedocs.io/)
 
 ---
-
-Теперь раздел четко описывает различия между доступом к **master** и **slave** серверам, объясняет режим обслуживания (maintenance mode) на **slave** и предоставляет полезные заметки для пользователя.
