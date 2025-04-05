@@ -3,9 +3,14 @@
   hosts: all
   become: yes
   vars:
-    docker_users: [ user ]
+    docker_users: [ user ]  # Список пользователей, которых нужно добавить в группу Docker
 
   tasks:
+    - name: Определение дистрибутива и кодового имени
+      set_fact:
+        os_distribution: "{{ ansible_distribution }}"
+        os_codename: "{{ ansible_lsb.codename | default(ansible_distribution_release) }}"
+
     - name: Установка нужных пакетов
       apt:
         update_cache: yes
@@ -17,22 +22,20 @@
 
     - name: Добавление GPG ключа
       apt_key:
-        url: "https://download.docker.com/linux/ubuntu/gpg"
+        url: "{{ 'https://download.docker.com/linux/ubuntu/gpg' if os_distribution == 'Ubuntu' else 'https://download.docker.com/linux/debian/gpg' }}"
         state: present
-
 
     - name: Добавление docker-репозитория
       apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable"
+        repo: "deb [arch=amd64] https://download.docker.com/linux/{{ os_distribution | lower }} {{ os_codename }} stable"
         state: present
- 
+
     - name: Обновление кэша пакетов и установка Docker
       apt:
         update_cache: yes
         name:
           - docker-ce
           - docker-ce-cli
-          - containerd.io
           - containerd.io
         state: present
 
@@ -44,7 +47,7 @@
       loop: "{{ docker_users }}"
       when: docker_users | length > 0
 
-    - name: Автозапуск сервиса
+    - name: Автозапуск сервиса Docker
       service:
         name: docker
         state: started
