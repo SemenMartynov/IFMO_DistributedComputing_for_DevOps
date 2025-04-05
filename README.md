@@ -112,10 +112,6 @@ slave
 
 ---
 
-Вот обновленный раздел **Accessing the NetBox UI**, учитывающий особенности доступа к обоим серверам (master и slave), а также уточнение про режим обслуживания (maintenance mode) на slave-сервере:
-
----
-
 ## Accessing the NetBox UI
 
 You can access the NetBox web interface on both the **master** and **slave** servers. Below are the details for each:
