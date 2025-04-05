@@ -3,13 +3,27 @@
   hosts: master
   become: yes
   tasks:
-    - name: Copy docker-compose.yml to the remote host
+    - name: Copy docker-compose_master.yml to the remote host
       copy:
         src: ./netbox/
         dest: /home/{{ ansible_user }}/netbox/
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         directory_mode: '0644'
+
+    - name: Check if docker-compose is already running
+      command: >
+        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_master.yml ps --format json
+      register: docker_compose_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Stop docker-compose if it is already running
+      command: >
+        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_master.yml down
+      when: docker_compose_status.stdout != "[]"
+      args:
+        chdir: /home/{{ ansible_user }}
 
     - name: Run docker-compose in detached mode
       command: >

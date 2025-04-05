@@ -3,7 +3,7 @@
   hosts: slave
   become: yes
   tasks:
-    - name: Copy docker-compose.yml to the remote host
+    - name: Copy docker-compose.yml_slave to the remote host
       copy:
         src: ./netbox/
         dest: /home/{{ ansible_user }}/netbox/
