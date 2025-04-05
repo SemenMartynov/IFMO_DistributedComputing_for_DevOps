@@ -7,7 +7,9 @@ services:
       - redis-cache
     ports:
       - 8003:8080
-    env_file: env/netbox.env
+    env_file:
+      - env/netbox.env
+      - env/netbox-slave.env
     user: "root:root"
     healthcheck:
       test: curl -f http://localhost:8080/login/ || exit 1
@@ -53,6 +55,7 @@ services:
       - 5432:5432
     env_file:
       - env/postgres.env
+      - env/postgres-slave.env
     volumes:
       - netbox-postgres-data:/bitnami/postgresql
 
