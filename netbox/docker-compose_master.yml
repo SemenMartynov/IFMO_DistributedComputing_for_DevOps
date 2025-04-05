@@ -12,10 +12,11 @@ services:
       - env/netbox-master.env
     user: "root:root"
     healthcheck:
-      test: curl -f http://localhost:8003/login/ || exit 1
-      start_period: 90s
-      timeout: 3s
-      interval: 15s
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      start_period: 120s
+      timeout: 10s
+      interval: 30s
+      retries: 3
 #    volumes:
 #      - ./configuration:/etc/netbox/config:z,ro
 #      - netbox-media-files:/opt/netbox/netbox/media:rw
@@ -58,6 +59,12 @@ services:
       - env/postgres-master.env
     volumes:
       - netbox-postgres-data:/bitnami/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # redis
   redis:
