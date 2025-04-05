@@ -63,10 +63,10 @@ The project includes:
 Example `inventory` file:
 ```ini
 [master]
-192.168.0.105
+192.168.0.5
 
 [slave]
-192.168.0.106
+192.168.0.250
 
 [all:children]
 master
@@ -112,24 +112,49 @@ slave
 
 ---
 
+Вот обновленный раздел **Accessing the NetBox UI**, учитывающий особенности доступа к обоим серверам (master и slave), а также уточнение про режим обслуживания (maintenance mode) на slave-сервере:
+
+---
+
 ## Accessing the NetBox UI
 
-You can access the NetBox web interface at the following address:  
-[http://192.168.0.105:8003/](http://192.168.0.105:8003/)  
-Replace `192.168.0.105` with the actual IP or hostname of your **master** server.
+You can access the NetBox web interface on both the **master** and **slave** servers. Below are the details for each:
 
-Use the superuser credentials created in the previous step to log in.
+### Master Server
+The **master** server hosts the primary instance of NetBox with full read-write capabilities. You can access it at the following address:  
+[http://192.168.0.5:8003/](http://192.168.0.5:8003/)  
+Replace `192.168.0.5` with the actual IP or hostname of your **master** server.
+
+Use the superuser credentials created during the deployment process to log in.
+
+### Slave Server
+The **slave** server hosts a secondary instance of NetBox, which operates in **maintenance mode**. This means that the database on the slave server is configured as **read-only**, allowing you to view data but not make any changes.  
+
+You can access the slave instance at the following address:  
+[http://192.168.0.250:8003/](http://192.168.0.250:8003/)  
+Replace `192.168.0.250` with the actual IP or hostname of your **slave** server.
+
+When you log in to the slave instance, you will see a notification indicating that the system is in **maintenance mode**. This is expected behavior due to the read-only database configuration.
+
+### Screenshot
+Below is an example of how the NetBox UI might look:
 
 ![Screen](./scr.png)
+
+### Screenshot of main Netbox IU
+![Screen](./scr_master.png)
+
+### Screenshot of Netbox UI with **maintenance mode**
+![Screen](./scr_slave.png)
 
 ---
 
 ## Notes
 
-- Modify the configuration files under `netbox/configuration` to suit your specific requirements.
-- Update the `.env` files in the `netbox/env` directory to customize service settings such as database credentials, Redis configurations, and more.
-- Ensure that the IP addresses or hostnames in the `inventory` file match the actual deployment servers.
-
-For further details about NetBox, refer to the official documentation: [https://netbox.readthedocs.io/](https://netbox.readthedocs.io/)
+- The **slave** server is intended for redundancy and failover purposes. It allows you to view data even if the **master** server becomes unavailable.
+- Ensure that the IP addresses or hostnames (`192.168.0.5` for master and `192.168.0.250` for slave) match the actual deployment servers.
+- For further details about NetBox, refer to the official documentation: [https://netbox.readthedocs.io/](https://netbox.readthedocs.io/)
 
 ---
+
+Теперь раздел четко описывает различия между доступом к **master** и **slave** серверам, объясняет режим обслуживания (maintenance mode) на **slave** и предоставляет полезные заметки для пользователя.

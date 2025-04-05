@@ -3,3 +3,7 @@ vm-master ansible_host=192.168.0.5 ansible_user=user ansible_password=123 ansibl
 
 [slave]
 vm-slave ansible_host=192.168.0.250 ansible_user=user ansible_password=123 ansible_become_password=123
+
+[all:children]
+master
+slave
