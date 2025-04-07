@@ -11,7 +11,7 @@
     state: present
     restart_policy: always
     networks:
-      db_cluster_network: {}
+      - name: db_cluster_network
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
@@ -34,7 +34,7 @@
     state: present
     restart_policy: always
     networks:
-      db_cluster_network: {}
+      - name: db_cluster_network
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
@@ -55,7 +55,7 @@
     state: present
     restart_policy: always
     networks:
-      db_cluster_network: {}
+      - name: db_cluster_network
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
