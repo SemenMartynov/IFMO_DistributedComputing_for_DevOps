@@ -3,5 +3,5 @@
   become: yes
   roles:
     - docker
-    - db
+    - db_cluster
     - wordpress
