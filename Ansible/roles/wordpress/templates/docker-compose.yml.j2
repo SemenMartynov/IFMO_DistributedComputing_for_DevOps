@@ -16,6 +16,8 @@ services:
 
   wordpress_database:
     image: {{ mysql_image }}
+    ports:
+      - "{{ db_port }}:3306"
     environment:
       MYSQL_DATABASE: {{ db_name }}
       MYSQL_USER: {{ db_user }}

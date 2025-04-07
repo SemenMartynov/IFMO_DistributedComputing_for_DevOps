@@ -1,0 +1,19 @@
+---
+# Версии образов
+mysql_image: mysql:9.2.0
+wordpress_image: wordpress:6.7.2-php8.2-apache
+
+# Порты
+wp_port: 8080
+db_port: 3306
+
+# Настройки базы данных (мастера)
+db_name: wordpress
+db_user: wpuser
+db_password: wppassword
+db_root_password: password
+
+# Репликация
+group_name: "wordpress_cluster"
+replication_user: "repl_user"
+replication_password: "repl_pass"

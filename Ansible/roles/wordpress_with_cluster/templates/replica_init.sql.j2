@@ -1,0 +1,10 @@
+CHANGE REPLICATION SOURCE TO
+  SOURCE_HOST='master_database',
+  SOURCE_PORT={{ db_port }},
+  SOURCE_USER='{{ replication_user }}',
+  SOURCE_PASSWORD='{{ replication_password }}',
+  SOURCE_LOG_FILE='mysql-bin.000003',
+  SOURCE_LOG_POS=158,
+  GET_SOURCE_PUBLIC_KEY=1;
+
+START REPLICA;

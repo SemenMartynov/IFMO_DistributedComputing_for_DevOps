@@ -2,14 +2,14 @@
 - name: Create docker-compose.yml
   template:
     src: docker-compose.yml.j2
-    dest: ../docker-compose.yml
-    owner: root
-    group: root
+    dest: ../playbook_files/wordpress/docker-compose.yml
+    owner: user
+    group: user
     mode: '0644'
 
 - name: Start containers
   community.docker.docker_compose_v2:
-    project_src: ../
+    project_src: ../playbook_files/wordpress
     state: present
     recreate: always
     pull: missing
