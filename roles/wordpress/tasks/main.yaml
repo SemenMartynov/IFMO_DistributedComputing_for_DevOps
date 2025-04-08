@@ -1,13 +1,19 @@
 - name: Install Dependencies
   apt:
-    name: '{{ item }}'
+    name: "{{ item }}"
     state: present
     update_cache: yes
-  with_items: '{{ dependencies }}'
+  with_items: "{{ dependencies }}"
+
+- name: Start Apache
+  service:
+    name: apache2
+    state: started
+    enabled: true
 
 - name: Download WordPress
   get_url:
-    url: '{{ wp_download_url }}'
+    url: "{{ wp_download_url }}"
     dest: /tmp/wordpress.tar.gz
 
 - name: Extract WordPress
@@ -16,11 +22,6 @@
     dest: /var/www/
     copy: no
 
-- name: Remove apache2 index.html
-  file:
-    path: /var/www/html/index.html
-    state: absent
-
 - name: Move WordPress files
   copy:
     src: /var/www/wordpress/
@@ -28,7 +29,7 @@
     remote_src: yes
     owner: www-data
     group: www-data
-    mode: '0755'
+    mode: "0755"
 
 - name: Generate wp-config.php from template
   template:
@@ -36,10 +37,5 @@
     dest: /var/www/html/wp-config.php
     owner: www-data
     group: www-data
-    mode: '0644'
-
-- name: Start Apache
-  service:
-    name: apache2
-    state: started
-    enabled: yes
+    mode: "0644"
+  notify: Restart Apache

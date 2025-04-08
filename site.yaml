@@ -1,6 +1,45 @@
-- name: Setup server
+- name: Setup master DB
+  hosts: db-master
+  become: true
+  vars:
+    db_id: 1
+    db_user: practicum
+    db_name: practicum
+    db_password: password
+  roles:
+    - mysql-common
+    - mysql-master
+  tags:
+    - master
+    - db
+
+- name: Setup slave DB
+  hosts: db-slave
+  become: true
+  vars:
+    db_id: 2
+    db_user: practicum
+    db_name: practicum
+    db_password: password
+    master_host: 192.168.56.19
+  roles:
+    - mysql-common
+    - mysql-slave
+  tags:
+    - slave
+    - db
+
+- name: Setup WordPress
   hosts: web
   become: true
+  vars:
+    db_port: 3306
+    db_user: practicum
+    db_name: practicum
+    db_host: 192.168.56.19
+    db_password: password
   roles:
-    - mysql
+    - wordpress
+  tags:
+    - web
     - wordpress

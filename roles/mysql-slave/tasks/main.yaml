@@ -1,0 +1,31 @@
+# TODO: how to do it only if needed?
+# - name: Stop slave threads
+#   mysql_replication:
+#     mode: stopreplica
+#     login_user: "{{ db_root_user }}"
+#     login_host: "{{ db_host }}"
+#     login_port: "{{ db_port }}"
+#     login_unix_socket: "{{ db_login_unix_socket }}"
+
+- name: Configure slave replication
+  mysql_replication:
+    mode: changeprimary
+    master_host: "{{ master_host }}"
+    master_user: "{{ repl_user }}"
+    master_password: "{{ repl_password }}"
+    master_log_file: "{{ hostvars['db-master'].master_log_file }}"
+    master_log_pos: "{{ hostvars['db-master'].master_log_pos }}"
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+
+- name: Start slave
+  mysql_replication:
+    mode: startreplica
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+  notify: Restart MySQL
+  

@@ -7,7 +7,7 @@
 - Ansible installed
 
 #### Steps
-1. Run the following command to start the virtual machine
+1. Run the following command to start the virtual machine:
 ```bash
 vagrant up
 ```
@@ -15,7 +15,7 @@ vagrant up
 ```bash
 ansible-playbook site.yml
 ```
-3. After the provisioning is complete, you can access the WordPress site by navigating to `http:/192.168.0.15` in your web browser.
+3. After the provisioning is complete, you can access the WordPress site by navigating to `http://127.0.0.15` in your web browser.
 4. To stop the virtual machine, run the following command:
 ```bash
 vagrant halt

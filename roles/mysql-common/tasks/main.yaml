@@ -1,0 +1,28 @@
+- name: Install dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items: "{{ dependencies }}"
+
+- name: Start MySQL
+  service:
+    name: mysql
+    state: started
+
+- name: Update bind-address
+  lineinfile:
+    path: "{{ configuration_file }}"
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+    state: present
+  notify: Restart MySQL
+
+- name: Update server id
+  when: db_id is defined
+  lineinfile:
+    path: "{{ configuration_file }}"
+    regexp: '^server-id'
+    line: 'server-id = {{ db_id }}'
+    state: present
+  notify: Restart MySQL
