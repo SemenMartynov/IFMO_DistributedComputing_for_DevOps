@@ -1,0 +1,67 @@
+name: 🚀 Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🔐 Set up SSH Agent
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 📝 Save SSH key to file
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > id_rsa
+          chmod 600 id_rsa
+
+      - name: 🔑 Add remote host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          cat ~/.ssh/known_hosts
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: 📦 Install Ansible and Docker collection
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: 📁 Create Ansible inventory file
+        run: |
+          echo "[production]" > inventory.ini
+          echo "${{ secrets.SSH_HOST }} ansible_user=${{ secrets.SSH_USER }} ansible_ssh_private_key_file=${{ github.workspace }}/id_rsa" >> inventory.ini
+          cat inventory.ini
+
+      - name: 🚀 Run Ansible Playbook
+        run: |
+          ansible-playbook -i inventory.ini deploy.yml
+
+      - name: ✅ Check website status
+        run: |
+          echo "⏳ Ждём 60 секунд, чтобы сервисы успели подняться..."
+          sleep 60
+          
+          echo "🌐 Проверяем доступность: http://${{ secrets.SSH_HOST }}:8080"
+          STATUS=$(curl -L -s -o /dev/null -w '%{http_code}' http://${{ secrets.SSH_HOST }}:8080)
+          echo "📶 HTTP Status Code: $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Сайт недоступен или работает некорректно."
+            exit 1
+          fi
+
+          echo "✅ Сайт доступен и работает корректно!"
