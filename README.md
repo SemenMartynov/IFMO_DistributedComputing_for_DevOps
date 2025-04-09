@@ -20,4 +20,4 @@
 
 Запуск
 
-`ansible-playbook playbooks/task1.yml -i inventory/hosts.yml --ask-vault-pass`
+`ansible-playbook playbooks/task1.yml -i inventory/hosts.yml`
