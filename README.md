@@ -2,6 +2,19 @@
 
 Развертывание Wordpress + БД в Docker
 
+## Task 1
+
+Требуется средствами Ansible развернуть docker с WordPress, вынеся DB в отдельный контейнер.
+
+## Task 2
+
+Для своего инстанса WordPress, заменить БД на cluster, и обеспечить синхронизацию данных.
+
+- Выбрать любую доступную реляционную СУБД и любой вариант репликации.
+
+- Опционально, настроить шифрование передаваемых данных.
+- на выходе это будет развитие того же Ansible playbook, что делали ранее.
+
 # Использование
 
 Активировать виртуальное окружение с установленным ansible
@@ -20,4 +33,4 @@
 
 Запуск
 
-`ansible-playbook playbooks/task1.yml -i inventory/hosts.yml`
+`ansible-playbook playbooks/task1.yml -i inventory/hosts.yml --ask-become-pass`

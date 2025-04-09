@@ -6,4 +6,4 @@
     - docker
     - wordpress
   vars:
-    docker_users: [ user ]
+    docker_users: [ "{{ ansible_ssh_user }}" ]
