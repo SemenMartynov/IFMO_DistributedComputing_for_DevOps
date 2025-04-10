@@ -1,5 +1,6 @@
 #SPDX-License-Identifier: MIT-0
 ---
+
 - name: Dump all databases
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
@@ -16,7 +17,6 @@
     mode: '0755'
   loop:
     - "{{ project_dir }}/mariadb-master/config"
-    - "{{ project_dir }}/mariadb-master/init"
     - "{{ project_dir }}/mariadb-replica/config"
     - "{{ project_dir }}/mariadb-replica/init"
 
@@ -32,8 +32,8 @@
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-master/config/my.cnf"
       mode: '0644'
-      owner: user
-      group: user
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
       content: |
         [mariadb]
         log-bin
@@ -41,19 +41,12 @@
         log-basename=my-mariadb
         binlog-format=MIXED             
 
-- name: Initialize MariaDB master
-  ansible.builtin.copy:
-      dest: "{{ project_dir }}/mariadb-master/init/init.sql"
-      mode: '0644'
-      content: |
-        CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}';
-        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
-        FLUSH PRIVILEGES;
-
 - name: Configure MariaDB replica
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-replica/config/my.cnf"
       mode: '0644'
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
       content: |
         [mariadb]
         server_id=3001
@@ -64,6 +57,8 @@
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-replica/init/init.sql"
       mode: '0644'
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
       content: |
         CHANGE MASTER TO
           MASTER_HOST='db',
@@ -95,7 +90,7 @@
     db_replica_container: >-
       {{ output.containers | selectattr("Service", "equalto", "db-replica") | first }}
 
-- name: Wait until database is up
+- name: Wait until master database is up
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
     service: db
@@ -108,15 +103,14 @@
     - result.rc == 0 
     - result.stdout == "1"
 
-# Scripts in /docker-entrypoint-initdb.d are only run if you start the container with a data directory that is empty.
-# We already have a data from previous task, so we need to run the init script manually.
-# This is a workaround for the fact that the init script is not run when the container starts with an existing data directory. 
-- name: Execute master init script
+- name: Set up replication user
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
     service: db
     command: >
-      sh -c 'mariadb -p$MYSQL_ROOT_PASSWORD < /docker-entrypoint-initdb.d/init.sql'
+      sh -c "mariadb -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; \
+        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%'; \
+        FLUSH PRIVILEGES;\""
 
 - name: Restore master databases
   community.docker.docker_compose_v2_exec:
@@ -125,14 +119,27 @@
     command: >
       sh -c 'mariadb -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
 
-- name: Check replication status
+- name: Wait until replication starts
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
     service: db-replica
     command: >
-      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G';"
+      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;' | grep -E 'Slave_IO_Running:|Slave_SQL_Running:' | tr -d '[:space:]'"
+  register: result
+  retries: 5
+  delay: 30
+  until:
+    - result.rc == 0 
+    - result.stdout == "Slave_IO_Running:YesSlave_SQL_Running:Yes"
+
+- name: Get replication status
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db-replica
+    command: >
+      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;'"
   register: result
 
 - name: Show replication status
   ansible.builtin.debug:
-    var: result
+    var: result.stdout_lines

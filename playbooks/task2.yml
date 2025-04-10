@@ -1,6 +1,6 @@
 ---
 - name: Change single database to cluster and sync data
   hosts: remote
-  become: true
+  #become: true
   roles:
     - mysql-replication

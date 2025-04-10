@@ -4,6 +4,9 @@
   ansible.builtin.file:
     path: "{{ project_dir }}"
     state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0755'
 
 - name: Upload docker-compose
   ansible.builtin.copy:
