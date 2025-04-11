@@ -2,5 +2,6 @@ mysql_root_password: "rootPassword"
 mysql_database: "wp_database"
 mysql_user: "wp_username"
 mysql_password: "wp_password"
+mysql_replica_user: "replica_user"
+mysql_replica_password: "replica_password"
 wp_network: "wordpress_network"
-
