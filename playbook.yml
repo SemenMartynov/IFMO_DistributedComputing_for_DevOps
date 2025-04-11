@@ -1,21 +1,104 @@
 ---
 - name: Deploy WordPress with Docker
   hosts: wordpress_servers
-  become: false
-  
+  become: true
+  vars_files:
+    - vars/main.yml
+
   tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+        filename: docker
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Create docker group
+      group:
+        name: docker
+        state: present
+
+    - name: Create project user
+      user:
+        name: "{{ project_user }}"
+        group: "{{ project_group }}"
+        home: "{{ project_home }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: "{{ project_user }}"
+        groups: docker
+        append: yes
+
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ docker_compose_arch }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+        checksum: "{{ docker_compose_sha256 }}"
+
     - name: Create project directory
       file:
-        path: "{{ ansible_env.HOME }}/wordpress"
+        path: "{{ project_dir }}"
         state: directory
         mode: '0755'
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
 
     - name: Copy docker-compose.yml
       copy:
         src: docker-compose.yml
-        dest: "{{ ansible_env.HOME }}/wordpress/docker-compose.yml"
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0644'
+
+    - name: Copy MySQL configuration
+      copy:
+        src: mysql.cnf
+        dest: "{{ project_dir }}/mysql.cnf"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0644'
+
+    - name: Copy environment file
+      copy:
+        src: .env
+        dest: "{{ project_dir }}/.env"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0600'
 
     - name: Deploy WordPress stack
       community.docker.docker_compose_v2:
-        project_src: "{{ ansible_env.HOME }}/wordpress"
-        state: present 
+        project_src: "{{ project_dir }}"
+        state: present
+      become_user: "{{ project_user }}"

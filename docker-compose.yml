@@ -1,47 +1,95 @@
-version: '3'
+version: '3.8'
 
 services:
-  db:
-    image: mariadb:latest
-    volumes:
-      - db_data:/var/lib/mysql
+  node1:
+    image: bitnami/mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: somewordpress
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_REPLICATION_MODE=master
+      - MYSQL_REPLICATION_USER=repl_user
+      - MYSQL_REPLICATION_PASSWORD=repl_password
+    volumes:
+      - mysql_node1_data:/bitnami/mysql/data
     networks:
-      - wp_network
+      wp_network:
+        ipv4_address: 10.0.0.11
+
+  node2:
+    image: bitnami/mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_REPLICATION_MODE=slave
+      - MYSQL_REPLICATION_USER=repl_user
+      - MYSQL_REPLICATION_PASSWORD=repl_password
+      - MYSQL_MASTER_HOST=node1
+      - MYSQL_MASTER_PORT_NUMBER=3306
+      - MYSQL_MASTER_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_node2_data:/bitnami/mysql/data
+    networks:
+      wp_network:
+        ipv4_address: 10.0.0.12
+    depends_on:
+      - node1
+
+  node3:
+    image: bitnami/mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_REPLICATION_MODE=slave
+      - MYSQL_REPLICATION_USER=repl_user
+      - MYSQL_REPLICATION_PASSWORD=repl_password
+      - MYSQL_MASTER_HOST=node1
+      - MYSQL_MASTER_PORT_NUMBER=3306
+      - MYSQL_MASTER_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_node3_data:/bitnami/mysql/data
+    networks:
+      wp_network:
+        ipv4_address: 10.0.0.13
+    depends_on:
+      - node1
 
   wordpress:
     image: wordpress:latest
     depends_on:
-      - db
+      - node1
+      - node2
+      - node3
     ports:
       - "8080:80"
+    restart: always
     environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_HOST: node1
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
     volumes:
       - wordpress_data:/var/www/html
-    restart: always
     networks:
       - wp_network
 
-  test:
-    image: ubuntu:latest
-    platform: linux/arm64/v8
-    command: sleep infinity
-    restart: always
+volumes:
+  mysql_node1_data:
+  mysql_node2_data:
+  mysql_node3_data:
+  wordpress_data:
 
 networks:
   wp_network:
     driver: bridge
-
-volumes:
-  db_data:
-  wordpress_data:
-  test_data: 
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24 

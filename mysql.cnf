@@ -1,0 +1,9 @@
+[mysqld]
+server-id=1
+log-bin=mysql-bin
+binlog-format=ROW
+sync_binlog=1
+innodb_flush_log_at_trx_commit=1
+binlog_do_db=${MYSQL_DATABASE}
+max_connections=1000
+bind-address=0.0.0.0 
