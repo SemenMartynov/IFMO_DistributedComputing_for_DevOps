@@ -1,49 +1,95 @@
+# Обновление apt-кэша
 - name: Обновить apt-кэш
   apt:
     update_cache: yes
   become: yes
-  when: ansible_os_family != "Darwin"
 
-- name: Установить Docker (docker.io)
-  apt:
-    name: docker.io
+# Добавить GPG-ключ официального репозитория Docker
+- name: Добавить GPG-ключ официального репозитория Docker
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
     state: present
   become: yes
-  when: ansible_os_family != "Darwin"
 
-- name: Убедиться, что pip установлен (для установки docker-compose через pip, если потребуется)
+# Добавить официальный репозиторий Docker
+- name: Добавить официальный репозиторий Docker
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  become: yes
+
+# Обновить apt-кэш с новым репозиторием Docker
+- name: Обновить apt-кэш с новым репозиторием Docker
   apt:
-    name: python3-pip
+    update_cache: yes
+  become: yes
+
+# Установить Docker CE, Docker CE CLI, containerd и Compose Plugin
+- name: Установить Docker CE, Docker CE CLI, containerd и Compose Plugin
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
     state: present
   become: yes
-  when: ansible_os_family != "Darwin"
 
-- name: Установить Docker Compose через get_url (бинарный файл)
-  get_url:
-    url: "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
-    dest: /usr/local/bin/docker-compose
-    mode: '0755'
+# Запустить Docker-демон и включить его автозапуск
+- name: Убедиться, что Docker-демон запущен и включён
+  service:
+    name: docker
+    state: started
+    enabled: yes
   become: yes
-  when: ansible_os_family != "Darwin"
 
-- name: Создать директорию для Docker Compose файлов
+# Задача для ожидания восстановления SSH-соединения после установки Docker
+- name: Дождаться восстановления SSH-соединения после установки Docker
+  wait_for_connection:
+    delay: 10
+    timeout: 120
+  become: no
+
+# Создание директории для WordPress файлов (фиксированный путь)
+- name: Создать директорию для WordPress файлов
   file:
-    path: "{{ lookup('env', 'HOME') }}/wordpress"
+    path: "/home/ubuntu/wordpress"
     state: directory
     mode: '0755'
+  become: yes
 
-- name: Скопировать шаблон docker-compose.yml в {{ lookup('env', 'HOME') }}/wordpress/
+# Копирование шаблона docker-compose.yml в директорию (фиксированный путь)
+- name: Скопировать шаблон docker-compose.yml в директорию
   template:
     src: templates/docker-compose.yml.j2
-    dest: "{{ lookup('env', 'HOME') }}/wordpress/docker-compose.yml"
+    dest: "/home/ubuntu/wordpress/docker-compose.yml"
     mode: '0644'
+  become: yes
 
-- name: Остановить и удалить старые контейнеры, образы и тома
-  command: docker-compose down --rmi all --volumes --remove-orphans
-  args:
-    chdir: "{{ lookup('env', 'HOME') }}/wordpress"
+# Остановка и удаление старых контейнеров, образов и томов
+- name: Остановить и удалить старые контейнеры и тома
+  community.docker.docker_compose_v2:
+    project_src: "/home/ubuntu/wordpress"
+    state: absent
+  become: yes
 
+# Запустить контейнеры через Docker Compose с пересборкой (асинхронно)
 - name: Запустить контейнеры через Docker Compose с пересборкой
-  command: docker-compose up --build -d
-  args:
-    chdir: "{{ lookup('env', 'HOME') }}/wordpress"
+  community.docker.docker_compose_v2:
+    project_src: "/home/ubuntu/wordpress"
+    state: present
+    build: always
+  become: yes
+  async: 300
+  poll: 0
+  register: docker_compose_job
+
+- name: Дождаться завершения задачи запуска контейнеров Docker Compose
+  async_status:
+    jid: "{{ docker_compose_job.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  delay: 10
+
