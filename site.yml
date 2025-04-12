@@ -1,0 +1,8 @@
+---
+- name: Установка Docker и развертывание WordPress
+  hosts: wordpress_servers
+  become: yes
+
+  roles:
+    - docker_install
+    - wordpress

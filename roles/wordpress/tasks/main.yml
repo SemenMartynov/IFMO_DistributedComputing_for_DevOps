@@ -1,0 +1,28 @@
+---
+# Роль: Деплой WordPress и MySQL в контейнерах
+- name: Остановка запущенных контейнеров WordPress (если есть)
+  ansible.builtin.stat:
+    path: "{{ wp_install_dir }}/docker-compose.yml"
+  register: compose_file
+
+- name: Выключение текущих контейнеров WordPress
+  ansible.builtin.shell: docker-compose down --remove-orphans
+  args:
+    chdir: "{{ wp_install_dir }}"
+  when: compose_file.stat.exists
+
+- name: Создание директории для WordPress
+  ansible.builtin.file:
+    path: "{{ wp_install_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Копирование docker-compose файла
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ wp_install_dir }}/docker-compose.yml"
+
+- name: Запуск контейнеров WordPress и MySQL
+  ansible.builtin.shell: docker-compose up -d --remove-orphans
+  args:
+    chdir: "{{ wp_install_dir }}"

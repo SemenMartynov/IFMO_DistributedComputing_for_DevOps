@@ -1,0 +1,39 @@
+---
+# Роль: Установка Docker и Docker Compose
+- name: Проверка наличия Docker
+  ansible.builtin.command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Установка Docker
+  ansible.builtin.apt:
+    update_cache: yes
+    name: docker.io
+    state: present
+  when: docker_check.rc != 0
+
+- name: Проверка наличия Docker Compose
+  ansible.builtin.command: which docker-compose
+  register: compose_check
+  changed_when: false
+  failed_when: false
+
+- name: Установка Docker Compose
+  ansible.builtin.apt:
+    name: docker-compose
+    state: present
+  when: compose_check.rc != 0
+
+- name: Добавление пользователя в группу docker
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: yes
+
+- name: Запуск и включение Docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes
