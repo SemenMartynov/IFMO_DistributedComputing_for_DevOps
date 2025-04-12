@@ -31,7 +31,11 @@ services:
     volumes:
       - mysql_master_data:/var/lib/mysql
       - ./master_init.sql:/docker-entrypoint-initdb.d/master_init.sql
-    command: --log-bin=mysql-bin --server-id=1 --binlog-do-db={{ mysql_database }}
+    command: 
+      --log-bin=mysql-bin 
+      --server-id=1 
+      --binlog-do-db={{ mysql_database }}
+      --default-authentication-plugin=mysql_native_password
     networks:
       - wpnet
     ports:
@@ -49,7 +53,7 @@ services:
       MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
     volumes:
       - mysql_slave_data:/var/lib/mysql
-    command: --server-id=1 --relay-log=slave-relay-bin=slave-bin --read-only=1
+    command: --server-id=2 --relay-log=slave-relay-bin=slave-bin --read-only=1
     networks:
       - wpnet
     ports:

@@ -14,6 +14,11 @@
       template:
         src: docker-compose.yml.j2
         dest: wordpress/docker-compose.yml
+    
+    - name: Скопировать master_init.sql
+      copy:
+        src: master_init.sql
+        dest: wordpress/master_init.sql
 
     - name: Запустить Wordpress и Mysql
       command: docker-compose up -d
