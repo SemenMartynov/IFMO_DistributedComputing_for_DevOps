@@ -1,9 +1,27 @@
 version: '3.8'
 
 services:
-  db:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - wpnet
+    environment:
+      WORDPRESS_DB_HOST: mysql-master:3306
+      WORDPRESS_DB_USER: {{ mysql_user }}
+      WORDPRESS_DB_PASSWORD: {{ mysql_password }}
+      WORDPRESS_DB_NAME: {{ mysql_database }}
+    depends_on:
+      - mysql-master
+      - mysql-slave
+
+      
+  mysql-master:
     image: mysql:8.0
-    container_name: wordpress_db
+    container_name: mysql-master
     restart: always
     environment:
       MYSQL_DATABASE: {{ mysql_database }}
@@ -11,20 +29,37 @@ services:
       MYSQL_PASSWORD: {{ mysql_password }}
       MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
     volumes:
-      - db_data:/var/lib/mysql
-
-  wordpress:
-    image: wordpress:latest
-    container_name: wordpress
-    restart: always
+      - mysql_master_data:/var/lib/mysql
+      - ./master_init.sql:/docker-entrypoint-initdb.d/master_init.sql
+    command: --log-bin=mysql-bin --server-id=1 --binlog-do-db={{ mysql_database }}
+    networks:
+      - wpnet
     ports:
-      - "80:80"
+      - "3306:3306"
+  
+
+  mysql-slave:
+    image: mysql:8.0
+    container_name: mysql-slave
+    restart: always
     environment:
-      WORDPRESS_DB_HOST: wordpress_db
-      WORDPRESS_DB_USER: {{ mysql_user }}
-      WORDPRESS_DB_PASSWORD: {{ mysql_password }}
-      WORDPRESS_DB_NAME: {{ mysql_database }}
-    depends_on:
-      - db
+      MYSQL_DATABASE: {{ mysql_database }}
+      MYSQL_USER: {{ mysql_user }}
+      MYSQL_PASSWORD: {{ mysql_password }}
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+    volumes:
+      - mysql_slave_data:/var/lib/mysql
+    command: --server-id=1 --relay-log=slave-relay-bin=slave-bin --read-only=1
+    networks:
+      - wpnet
+    ports:
+      - "3307:3306"
+
+
+networks:
+  wpnet:
+    driver: bridge
+
 volumes:
-  db_data:
+  mysql_master_data:
+  mysql_slave_data:
