@@ -2,6 +2,8 @@
 - name: Деплой Wordpress и  Mysql в Docker
   hosts: webserver
   become: true
+  vars_files:
+    - vars.yml
   tasks:
     - name: Создать директорию проекта
       file:
@@ -9,8 +11,8 @@
         state: directory
 
     - name: Скопировать docker-compose.yml на сервер
-      copy:
-        src: docker-compose.yml
+      template:
+        src: docker-compose.yml.j2
         dest: wordpress/docker-compose.yml
 
     - name: Запустить Wordpress и Mysql
