@@ -1,0 +1,65 @@
+---
+# Задачи для настройки кластера MySQL
+
+- name: Проверка наличия Docker и Docker Compose
+  command: docker compose version
+  register: docker_compose_check
+  failed_when: false
+  changed_when: false
+
+- name: Создание директории для проекта WordPress MySQL Cluster
+  file:
+    path: "{{ mysql_cluster_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Создание директорий для данных каждой ноды кластера
+  file:
+    path: "{{ mysql_cluster_dir }}/mysql_data_{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ range(1, mysql_cluster_nodes + 1) | list }}"
+
+- name: Копирование .env файла для кластера
+  template:
+    src: mysql_cluster/.env.j2
+    dest: "{{ mysql_cluster_dir }}/.env"
+    mode: '0644'
+
+- name: Копирование docker-compose.yml
+  template:
+    src: mysql_cluster/docker-compose.yml.j2
+    dest: "{{ mysql_cluster_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Копирование init-primary.sql
+  template:
+    src: mysql_cluster/init-primary.sql.j2
+    dest: "{{ mysql_cluster_dir }}/init-primary.sql"
+    mode: '0644'
+
+- name: Копирование init-secondary.sql
+  template:
+    src: mysql_cluster/init-secondary.sql.j2
+    dest: "{{ mysql_cluster_dir }}/init-secondary.sql"
+    mode: '0644'
+
+- name: Создание сети Docker для кластера MySQL
+  docker_network:
+    name: "{{ wp_mysql_cluster_name }}"
+    driver: bridge
+    state: present
+
+- name: Запуск контейнеров кластера через Docker Compose
+  docker_compose:
+    project_src: "{{ mysql_cluster_dir }}/"
+    state: present
+  register: docker_compose_job
+
+- name: Вывод информации о статусе кластера
+  shell: |
+    docker exec mysql_node_1 mysql -uroot -p"{{ mysql_root_password }}" \
+      -e "SHOW MASTER STATUS;"
+  register: cluster_status
+  changed_when: false
+  failed_when: false 
