@@ -9,18 +9,94 @@
       file:
         path: wordpress/
         state: directory
+      tags: create
 
     - name: Скопировать docker-compose.yml на сервер
       template:
         src: docker-compose.yml.j2
         dest: wordpress/docker-compose.yml
-    
-    - name: Скопировать master_init.sql
-      copy:
-        src: master_init.sql
-        dest: wordpress/master_init.sql
+      tags: copy1
 
     - name: Запустить Wordpress и Mysql
       command: docker-compose up -d
       args:
         chdir: wordpress/
+      tags: play
+
+    - name: Проверка доступности MySQL
+      shell: docker exec wordpress_db mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
+      register: result
+      retries: 10
+      delay: 3
+      until: result.rc == 0
+
+    - name: Создать дамп базы данных
+      command: > 
+        docker exec -i wordpress_db 
+        mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }} 
+        --all-databases --source-data=2
+      register: dump_output
+
+    - name: Сохранить дамп в файл
+      copy:
+        content: "{{ dump_output.stdout }}"
+        dest: /home/server_artur/wordpress/wordpress_dump.sql
+
+    - name: Остановить и удалить контейнеры из ДЗ1
+      command: docker-compose down
+      args:
+        chdir: wordpress/
+
+    - name: Скопировать docker-compose_dz2.yml.j2 на сервер
+      template:
+        src: docker-compose_dz2.yml.j2
+        dest: wordpress/docker-compose.yml
+
+    - name: Скопировать master_init.sql
+      copy:
+        src: master_init.sql
+        dest: wordpress/master_init.sql
+
+    - name: Запустить инстанс Wordpress, mysql-master, mysql-slave
+      command: docker-compose up -d
+      args:
+        chdir: wordpress/
+      tags: play
+
+    - name: Проверка доступности MySQL
+      shell: docker exec mysql-master mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
+      register: result
+      retries: 10
+      delay: 3
+      until: result.rc == 0
+
+    - name: Выполнить дамп на мастере
+      shell: cat /home/server_artur/wordpress/wordpress_dump.sql | docker exec -i mysql-master mysql -uroot -p{{ mysql_root_password }}
+
+    - name: Получить координаты binlog с мастера
+      shell: docker exec mysql-master mysql -uroot -p{{ mysql_root_password }} -e "SHOW MASTER STATUS"
+      register: master_status
+
+    - name: Сохранить MASTER_LOG_FILE и MASTER_LOG_POS в перменные
+      set_fact:
+        master_log_file: "{{ master_status.stdout | regex_search('File: (.*)', '\\1') }}"
+        master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+
+    - name: Настроить репликацию на слейв-сервере
+      shell: |
+        docker exec -i mysql-slave mysql -uroot -p{{ mysql_root_password }} -e "
+        CHANGE MASTER TO
+          MASTER_HOST='mysql-master',
+          MASTER_USER='replica_user',
+          MASTER_PASSWORD='{{ MASTER_PASSWORD }}',
+          MASTER_LOG_FILE='{{ master_log_file }}',
+          MASTER_LOG_POS={{ master_log_pos }};
+        START SLAVE;"
+
+    - name: Проверить статус репликации на слейве
+      shell: docker exec mysql-slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+
+    - name: Вывести статус репликации
+      debug:
+        msg: "{{ slave_status.stdout_lines }}"
