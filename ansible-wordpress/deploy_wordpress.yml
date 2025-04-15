@@ -1,0 +1,57 @@
+---
+- name: Развертывание WordPress с использованием Docker
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Убедитесь, что Docker установлен
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Убедитесь, что Docker Compose установлен
+      apt:
+        name: docker-compose
+        state: present
+
+    - name: Создать каталог для WordPress
+      file:
+        path: /opt/wordpress
+        state: directory
+
+    - name: Создать файл docker-compose.yml
+      copy:
+        dest: /opt/wordpress/docker-compose.yml
+        content: |
+          version: '3.8'
+          services:
+            db:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: wordpress
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: wordpress
+                MYSQL_PASSWORD: wordpress
+              volumes:
+                - db_data:/var/lib/mysql
+
+            wordpress:
+              image: wordpress:latest
+              restart: always
+              ports:
+                - "8000:80"
+              environment:
+                WORDPRESS_DB_HOST: db
+                WORDPRESS_DB_USER: wordpress
+                WORDPRESS_DB_PASSWORD: wordpress
+                WORDPRESS_DB_NAME: wordpress
+              depends_on:
+                - db
+
+          volumes:
+            db_data:
+    
+    - name: Запустить контейнеры
+      docker_compose:
+        project_src: /opt/wordpress
+        state: present
