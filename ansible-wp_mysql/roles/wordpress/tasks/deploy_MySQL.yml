@@ -1,0 +1,21 @@
+- name: MySQL container start
+  docker_container:
+    name: mysql
+    image: mysql:5.7
+    state: started
+    restart_policy: always
+    networks:
+      - name: wp-network
+    env:
+      MYSQL_ROOT_PASSWORD: mysql_root_password
+      MYSQL_DATABASE: mysql_db
+      MYSQL_USER: mysql_user
+      MYSQL_PASSWORD: mysql_user_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+- name: MySQL volume
+  docker_volume:
+    name: mysql_data

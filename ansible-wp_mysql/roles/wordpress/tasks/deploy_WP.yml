@@ -1,26 +1,17 @@
-- name: Create directory
-  file:
-    path: /wordpress
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-
-- name: Containers stop
-  command: docker-compose down
-  args:
-    chdir: /wordpress
-  ignore_errors: true
-
-- name: Template copy
-  template:
-    src: docker-compose.yml.j2
-    dest: /wordpress/docker-compose.yml
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Containers start
-  command: docker-compose up -d
-  args:
-    chdir: /wordpress
+- name: WordPress container start
+  docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: wp-network
+    env:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: mysql_db
+      WORDPRESS_DB_USER: mysql_user
+      WORDPRESS_DB_PASSWORD: mysql_user_password
+    ports:
+      - "80:80"
+    links:
+      - mysql
