@@ -75,7 +75,7 @@
        networks:
          - name: "{{ docker_network }}"
          - name: "{{ cluster_network }}"
-        published_ports:
+       published_ports:
           - "3307:3306"
 
 
@@ -97,7 +97,7 @@
          - "/home/server/tmp/sql_confs/slave_user_init.sql:/docker-entrypoint-initdb.d/slave_user_init.sql:ro" запуск slave
        networks:
          - name: "{{ cluster_network }}"
-        published_ports:
+       published_ports:
           - "3308:3306"
 
    - name: запускаю контейнер WordPress
