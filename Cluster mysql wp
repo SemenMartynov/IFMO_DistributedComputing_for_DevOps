@@ -1,5 +1,5 @@
 #запуск с запросом на рута 
-#ansible-playbook -i inventory.ini docker_wp.yml --ask-become-pass
+#ansible-playbook -i inventory.ini ans.yml --ask-become-pass
 
 
 #установка ansible на ubuntu
@@ -9,6 +9,7 @@
 #попробую также как в практике развернуть репликацию в MySQL, как я понял идею нужно выделить две машины: 1) кор с мастером, где также будет WP 2)слейв.
 # https://habr.com/ru/articles/532216/
 #https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_variables_module.html#ansible-collections-community-mysql-mysql-variables-module
+#https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-howto.html
 ---
 - name: Развертывание WordPress с Docker
   hosts: all
@@ -30,78 +31,80 @@
       single_branch: yes
       version: "add-cluster"
 
-    - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
-      apt:
-        name:
-          - docker.io
-          - python3-pip
-          - python3-docker
-        state: present
-        update_cache: yes
+   - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
+     apt:
+       name:
+         - docker.io
+         - python3-pip
+         - python3-docker
+       state: present
+       update_cache: yes
 
-    - name: запускаю сервис Docker
-      service:
-        name: docker
-        state: started
-        enabled: true
+   - name: запускаю сервис Docker
+     service:
+       name: docker
+       state: started
+       enabled: true
 
-    - name: Docker сеть для связи wp и бд #
-      docker_network:
-        name: "{{ docker_network }}"
-        name: "{{ cluster_network }}" #Создаю сеть для связи мастера и слейва
-        state: present
+   - name: Создаю Docker-сеть для WP и БД
+     docker_network:
+       name: "{{ docker_network }}"
+       state: present
 
-    - name: запускаю контейнер базы данных MySQL -master
-      docker_container:
-        name: wp_db_master
-        image: mysql:5.7
-        state: started
-        restart_policy: always
-        env:
-          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-          MYSQL_DATABASE: "{{ mysql_database }}"
-          MYSQL_USER: "{{ mysql_user }}"
-          MYSQL_PASSWORD: "{{ mysql_password }}"
-        networks:
-          - name: "{{ docker_network }}"
-          - name: "{{ cluster_network }}"
-
-    - name: запускаю контейнер базы данных MySQL - slave
-
-    - name: запускаю контейнер базы данных MySQL - slave
-      docker_container:
-        name: wp_db_slave
-        image: mysql:5.7
-        state: started
-        restart_policy: always
-        env:
-          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-          MYSQL_DATABASE: "{{ mysql_database }}"
-          MYSQL_USER: "{{ mysql_user }}"
-          MYSQL_PASSWORD: "{{ mysql_password }}"
-        networks:
-          - name: "{{ cluster_network }}"
+   - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
+     docker_network:
+       name: "{{ cluster_network }}"
+       state: present
 
 
+   - name: запускаю контейнер базы данных MySQL -master
+     docker_container:
+       name: wp_db_master
+       image: mysql:5.7
+       state: started
+       restart_policy: always
+       env:
+         MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+         MYSQL_DATABASE: "{{ mysql_database }}"
+         MYSQL_USER: "{{ mysql_user }}"
+         MYSQL_PASSWORD: "{{ mysql_password }}"
+       volumes:
+         - "/home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+       networks:
+         - name: "{{ docker_network }}"
+         - name: "{{ cluster_network }}"
+       published_ports: #чтобы стучаться с хоста
+         - "3307:3306"
 
 
+   - name: запускаю контейнер базы данных MySQL - slave
+     docker_container:
+       name: wp_db_slave
+       image: mysql:5.7
+       state: started
+       restart_policy: always
+       env:
+         MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+         MYSQL_DATABASE: "{{ mysql_database }}"
+         MYSQL_USER: "{{ mysql_user }}"
+         MYSQL_PASSWORD: "{{ mysql_password }}"
+       volumes:
+         - "/home/server/tmp/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+       networks:
+         - name: "{{ cluster_network }}"
 
-
-
-
-    - name: запускаю контейнер WordPress
-      docker_container:
-        name: wordpress
-        image: wordpress:latest
-        state: started
-        restart_policy: always
-        published_ports:
-          - "80:80"
-        env:
-          WORDPRESS_DB_HOST: "wp_db:3306"
-          WORDPRESS_DB_USER: "{{ mysql_user }}"
-          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
-          WORDPRESS_DB_NAME: "{{ mysql_database }}"
-        networks:
-          - name: "{{ docker_network }}"
-    
+   - name: запускаю контейнер WordPress
+     docker_container:
+       name: wordpress
+       image: wordpress:latest
+       state: started
+       restart_policy: always
+       published_ports:
+         - "80:80"
+       env:
+         WORDPRESS_DB_HOST: "wp_db:3306"
+         WORDPRESS_DB_USER: "{{ mysql_user }}"
+         WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+         WORDPRESS_DB_NAME: "{{ mysql_database }}"
+       networks:
+         - name: "{{ docker_network }}"
