@@ -1,30 +1,62 @@
 - name: Развернуть WordPress с MySQL
   hosts: web
   become: true
+  vars:
+    mysql_image: mysql:8.3
+    wordpress_image: wordpress:latest
+    env_path: /home/user/.env
   tasks:
     - name: Скопировать .env на сервер
       ansible.builtin.copy:
         src: .env
-        dest: /home/vagrant/.env
+        dest: "{{ env_path }}"
         mode: '0600'
 
-    - name: Проверить, установлен ли Docker
-      ansible.builtin.stat:
-        path: /usr/bin/docker
-      register: docker_bin
+    - name: Скопировать конфиги MySQL
+      loop:
+        - master.cnf
+        - slave.cnf
+        - init-master.sh
+        - init-slave.sh
+      copy:
+        src: "{{ item }}"
+        dest: "/home/user/{{ item }}"
+        mode: '0644'
 
-    - name: Скачать установочный скрипт Docker
-      ansible.builtin.get_url:
-        url: https://get.docker.com
-        dest: /home/vagrant/get-docker.sh
-        mode: '0755'
-      when: not docker_bin.stat.exists
+    - name: Установить зависимости
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
 
-    - name: Запустить установочный скрипт Docker
-      ansible.builtin.shell: sh /home/vagrant/get-docker.sh
-      when: not docker_bin.stat.exists
+    - name: Добавить официальный GPG ключ Docker
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-    - name: Убедиться, что Docker запущен
+    - name: Добавить Docker репозиторий
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Установить Docker и Docker Compose CLI
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: latest
+        update_cache: yes
+
+    - name: Убедиться, что Docker запущен и включен
       ansible.builtin.systemd:
         name: docker
         state: started
@@ -32,9 +64,18 @@
 
     - name: Добавить пользователя в группу Docker
       ansible.builtin.user:
-        name: "{{ ansible_user | default('vagrant') }}"
+        name: "{{ ansible_user | default('user') }}"
         groups: docker
         append: yes
+
+    - name: Проверить версию Docker Compose
+      ansible.builtin.command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    - name: Показать установленную версию Docker Compose
+      ansible.builtin.debug:
+        msg: "Docker Compose версия: {{ compose_version.stdout }}"
 
     - name: Перезапустить Docker
       ansible.builtin.systemd:
@@ -45,33 +86,50 @@
       community.docker.docker_network:
         name: wp_net
 
-    - name: Создать том для БД
+    - name: Создать Docker-тома
       community.docker.docker_volume:
-        name: mysql_data
+        name: "{{ item }}"
+      loop:
+        - mysql_master_data
+        - mysql_slave_data
+        - wordpress_data
 
-    - name: Создать том для WordPress
-      community.docker.docker_volume:
-        name: wordpress_data
-
-    - name: Запустить MySQL контейнер
+    - name: Запустить контейнер MySQL Master
       community.docker.docker_container:
-        name: mysql
-        image: mysql:latest
+        name: mysql_master
+        image: "{{ mysql_image }}"
+        env_file: "{{ env_path }}"
         restart_policy: always
-        env_file: /home/vagrant/.env
-        ports:
-          - "3306:3306"
         volumes:
-          - mysql_data:/var/lib/mysql
+          - mysql_master_data:/var/lib/mysql
+          - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
+          - /home/user/init-master.sh:/docker-entrypoint-initdb.d/init-master.sh
         networks:
           - name: wp_net
+        expose:
+          - 3306
+
+    - name: Запустить контейнер MySQL Slave
+      community.docker.docker_container:
+        name: mysql_slave
+        image: "{{ mysql_image }}"
+        env_file: "{{ env_path }}"
+        restart_policy: always
+        volumes:
+          - mysql_slave_data:/var/lib/mysql
+          - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
+          - /home/user/init-slave.sh:/docker-entrypoint-initdb.d/init-slave.sh
+        networks:
+          - name: wp_net
+        expose:
+          - 3306
 
     - name: Запустить WordPress контейнер
       community.docker.docker_container:
         name: wordpress
-        image: wordpress:latest
+        image: "{{ wordpress_image }}"
         restart_policy: always
-        env_file: /home/vagrant/.env
+        env_file: "{{ env_path }}"
         ports:
           - "80:80"
         volumes:

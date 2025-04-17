@@ -2,13 +2,14 @@
 
 ## Описание
 
-Этот проект использует VirtualBox, Vagrant и Ansible для автоматизированного развертывания WordPress с MySQL в контейнерах Docker
+Этот проект предоставляет Ansible Playbook для автоматического развертывания WordPress с использованием MySQL в Docker-контейнерах. В процессе установки на сервер будет настроена репликация между двумя экземплярами MySQL (Master и Slave). Проект доступен по следующему адресу: http://51.250.88.42
 
 ## Требования
 
-- **Vagrant** (>= 2.4.3)
-- **VirtualBox** (>= 7.1.4)
 - **Ansible** (>= 2.18.3)
+- **Docker** (>= 28.0.4)
+- **Docker Compose** (>= 2.34.0)
+- **Git** (для клонирования репозитория)
 
 ## Установка и запуск
 
@@ -22,23 +23,24 @@ cd distributed-computing-2025
 2. Создайте файл `.env`. Пример файла
 
 ```ini
-MYSQL_ROOT_PASSWORD=pass
-MYSQL_DATABASE=wordpress
-MYSQL_USER=user
-MYSQL_PASSWORD=pass
-WORDPRESS_DB_HOST=mysql:3306
-WORDPRESS_DB_USER=user
-WORDPRESS_DB_PASSWORD=pass
-WORDPRESS_DB_NAME=wordpress
+MYSQL_ROOT_PASSWORD=...
+MYSQL_DATABASE=...
+MYSQL_USER=...
+MYSQL_PASSWORD=...
+MYSQL_REPLICA_USER=...
+MYSQL_REPLICA_PASSWORD=...
+WORDPRESS_DB_HOST=...:3306
+WORDPRESS_DB_USER=...
+WORDPRESS_DB_PASSWORD=...
+WORDPRESS_DB_NAME=...
 ```
 
-3. Запустите виртуальную машину Vagrant:
+3. Настройте свой inventory.ini файл, указав правильные данные для подключения к серверу:
 
-```sh
-vagrant up
+```ini
+[web]
+<IP_сервера> ansible_port=22 ansible_user=user ansible_ssh_private_key_file=~/.ssh/distributed_computing/private_key
 ```
-
-Это создаст виртуальную машину на основе Ubuntu 24.04 (ARM64), настроит ресурсы и пробросит порт 80. Для AMD-процессоров используйте `config.vm.box = "ubuntu/focal64"` в `Vagrantfile`
 
 4. **Настройте Ansible и разверните WordPress:**
 
@@ -46,11 +48,11 @@ vagrant up
 ansible-playbook playbook.yml
 ```
 
-Этот шаг установит Docker и создаст необходимые контейнеры
+Этот шаг установит Docker, создаст необходимые контейнеры и настроит репликацию между двумя экземплярами MySQL
 
 5. **Откройте браузер и перейдите по адресу:**
 
-`http://localhost`
+`http://<IP_сервера>`
 
 Вы должны увидеть экран установки WordPress
 
@@ -58,25 +60,14 @@ ansible-playbook playbook.yml
 
 ```none
 /
-├── Vagrantfile            # Конфигурация виртуальной машины Vagrant
-├── playbook.yml           # Ansible Playbook для развертывания Docker и WordPress
-├── inventory.ini          # Инвентарь Ansible с настройками хоста
 ├── ansible.cfg            # Конфигурация Ansible
+├── .gitignore             # Игнорируемые файлы
 ├── .env                   # Переменные окружения для MySQL и WordPress
-├── .gitignore             # Файл исключений для Git
+├── inventory.ini          # Конфигурация хостов для Ansible
+├── init-master.sh         # Скрипт для настройки MySQL Master
+├── init-slave.sh          # Скрипт для настройки MySQL Slave
+├── master.cnf             # Конфигурация MySQL Master
+├── slave.cnf              # Конфигурация MySQL Slave
+└── playbook.yml           # Главный Ansible Playbook для развертывания
 └── README.md              # Описание проекта
-```
-
-## Остановка и удаление
-
-Для остановки виртуальной машины используйте:
-
-```sh
-vagrant halt
-```
-
-Для полного удаления виртуальной машины:
-
-```sh
-vagrant destroy -f
 ```
