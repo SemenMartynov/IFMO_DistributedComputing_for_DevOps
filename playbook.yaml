@@ -1,12 +1,15 @@
-- name: WordPress и MySQL
+- name: WordPress и MySQL Master-Slave кластер
   hosts: all
-  gather_facts: no
+  gather_facts: yes
   become: yes
   vars:
     mysql_root_password: "root1234"
+    mysql_repl_user: "repl_user"
+    mysql_repl_password: "repl_password"
     mysql_database: "wordpress_database"
     mysql_user: "wordpress_user"
     mysql_password: "wordpress_password"
+
   tasks:
     - name: Установка необходимых пакетов
       apt:
@@ -14,67 +17,116 @@
           - docker.io
           - python3-pip
           - python3-docker
+          - docker-compose
         state: present
         update_cache: yes
 
-    - name: Запущен ли Docker
+    - name: Запуск Docker
       systemd:
         name: docker
         state: started
-        enabled: true
+        enabled: yes
 
-    - name: Создание volume для MySQL
-      docker_volume:
-        name: mysql_data
-        state: present
+    - name: Создание сети для контейнеров
+      docker_network:
+        name: wp_network
+        driver: bridge
 
-    - name: Получение MySQL
-      docker_image:
-        name: mysql:5.7
-        source: pull
-
-    - name: Получение WordPress
-      docker_image:
-        name: wordpress:latest
-        source: pull
-
-    - name: Запуск MySQL в контейнере
+    # MySQL Master
+    - name: Запуск MySQL Master
       docker_container:
-        name: mysql
+        name: mysql_master
         image: mysql:5.7
+        network: wp_network
         restart_policy: always
-        state: started
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
           MYSQL_DATABASE: "{{ mysql_database }}"
           MYSQL_USER: "{{ mysql_user }}"
           MYSQL_PASSWORD: "{{ mysql_password }}"
+          MYSQL_REPLICATION_USER: "{{ mysql_repl_user }}"
+          MYSQL_REPLICATION_PASSWORD: "{{ mysql_repl_password }}"
+        command: >
+          --server-id=1
+          --log-bin=mysql-bin
+          --binlog-format=ROW
+          --binlog-do-db={{ mysql_database }}
+          --gtid-mode=ON
+          --enforce-gtid-consistency=ON
+          --log-slave-updates=ON
         volumes:
-          - mysql_data:/var/lib/mysql
+          - mysql_master_data:/var/lib/mysql
         ports:
           - "3306:3306"
 
-    - name: Ожидание доступности MySQL
+    - name: Ожидание готовности Master
       wait_for:
         host: "{{ ansible_host }}"
         port: 3306
         timeout: 60
 
-    - name: Запуск WordPress в контейнере
+    # MySQL Slave
+    - name: Запуск MySQL Slave
+      docker_container:
+        name: mysql_slave
+        image: mysql:5.7
+        network: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        command: >
+          --server-id=2
+          --log-bin=mysql-bin
+          --binlog-format=ROW
+          --gtid-mode=ON
+          --enforce-gtid-consistency=ON
+          --log-slave-updates=ON
+          --skip-slave-start
+        volumes:
+          - mysql_slave_data:/var/lib/mysql
+        ports:
+          - "3307:3306"
+
+    - name: Ожидание готовности Slave
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3307
+        timeout: 60
+
+    - name: Настройка репликации на Slave
+      shell: |
+        docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "
+        CHANGE MASTER TO
+        MASTER_HOST='mysql_master',
+        MASTER_USER='{{ mysql_repl_user }}',
+        MASTER_PASSWORD='{{ mysql_repl_password }}',
+        MASTER_AUTO_POSITION=1;
+        START SLAVE;"
+
+    - name: Проверка статуса репликации
+      shell: docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: replication_status
+      until: "'Slave_IO_Running: Yes' in replication_status.stdout and 'Slave_SQL_Running: Yes' in replication_status.stdout"
+      retries: 10
+      delay: 5
+
+    # WordPress
+    - name: Запуск WordPress
       docker_container:
         name: wordpress
         image: wordpress:latest
-        state: started
+        network: wp_network
         restart_policy: always
         published_ports:
           - "80:80"
         env:
-          WORDPRESS_DB_HOST: "{{ ansible_host }}:3306"
+          WORDPRESS_DB_HOST: "mysql_master:3306"
           WORDPRESS_DB_NAME: "{{ mysql_database }}"
           WORDPRESS_DB_USER: "{{ mysql_user }}"
           WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
-        links:
-          - mysql
+        depends_on:
+          - mysql_master
+          - mysql_slave
 
     - name: Проверка работы WordPress
       uri:
