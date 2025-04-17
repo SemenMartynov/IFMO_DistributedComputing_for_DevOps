@@ -1,0 +1,11 @@
+- name: Import dump WordPress DB
+  shell: |
+    docker exec mysql sh -c \
+    "mysql -uroot -pmysql_root_password mysql_db < /tmp/dump.sql"
+  args:
+    executable: /bin/bash
+
+- name: WordPress container start
+  docker_container:
+    name: wordpress
+    state: started

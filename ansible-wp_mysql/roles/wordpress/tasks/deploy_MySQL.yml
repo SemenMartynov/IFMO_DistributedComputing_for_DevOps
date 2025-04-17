@@ -15,6 +15,16 @@
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    command:
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog_do_db=mysql_db
+      --relay-log=relay-log
+      --gtid-mode=ON
+      --enforce-gtid-consistency=TRUE
+      --skip-host-cache
+      --skip-name-resolve
+
 
 - name: MySQL volume
   docker_volume:

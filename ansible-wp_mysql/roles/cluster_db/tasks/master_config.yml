@@ -1,0 +1,28 @@
+- name: WordPress container stop
+  docker_container:
+    name: wordpress
+    state: stopped
+
+- name: Dump WordPress DB
+  shell: |
+    docker exec mysql sh -c \
+    "mysqldump --set-gtid-purged=OFF -uroot -pmysql_root_password mysql_db > /tmp/dump.sql"
+  args:
+    executable: /bin/bash
+
+- name: Recreate WordPress DB
+  community.docker.docker_container_exec:
+    container: mysql
+    command: >
+      mysql -uroot -pmysql_root_password -e "
+      DROP DATABASE mysql_db;
+      CREATE DATABASE mysql_db;
+      "
+
+- name: Configure MysSQL master
+  shell: |
+    docker exec mysql mysql -uroot -pmysql_root_password -e "
+    CREATE USER IF NOT EXISTS 'replica'@'%' IDENTIFIED BY 'replica_pass';
+    GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%';
+    FLUSH PRIVILEGES;
+    "
