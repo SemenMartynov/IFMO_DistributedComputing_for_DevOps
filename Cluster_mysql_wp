@@ -75,6 +75,8 @@
        networks:
          - name: "{{ docker_network }}"
          - name: "{{ cluster_network }}"
+        published_ports:
+          - "3307:3306"
 
 
 
@@ -95,6 +97,8 @@
          - "/home/server/tmp/sql_confs/slave_user_init.sql:/docker-entrypoint-initdb.d/slave_user_init.sql:ro" запуск slave
        networks:
          - name: "{{ cluster_network }}"
+        published_ports:
+          - "3308:3306"
 
    - name: запускаю контейнер WordPress
      docker_container:
@@ -105,7 +109,7 @@
        published_ports:
          - "80:80"
        env:
-         WORDPRESS_DB_HOST: "wp_db:3306"
+         WORDPRESS_DB_HOST: "wp_db_master:3307"
          WORDPRESS_DB_USER: "{{ mysql_user }}"
          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
          WORDPRESS_DB_NAME: "{{ mysql_database }}"
