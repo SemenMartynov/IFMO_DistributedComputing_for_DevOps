@@ -61,10 +61,78 @@
           copy:
             src: docker-compose.yml
             dest: /opt/wordpress/docker-compose.yml
+        - name: Копирование master.cnf
+          copy:
+            src: master.cnf
+            dest: /opt/wordpress/master.cnf
+        - name: Копирование replica.cnf
+          copy:
+            src: replica.cnf
+            dest: /opt/wordpress/replica.cnf
+        - name: Копирование скрипта setup-replication.sh
+          copy:
+            src: setup-replication.sh
+            dest: /opt/wordpress/setup-replication.sh
+            mode: '0755'
 
     - name: Запуск контейнеров WordPress
       docker_compose:
         project_src: /opt/wordpress
         state: present
         remove_orphans: yes
-        build: no 
+        build: no
+
+    - name: Ожидание запуска контейнеров
+      wait_for:
+        timeout: 120
+
+    - name: Ожидание инициализации базы данных WordPress
+      shell: cd /opt/wordpress && docker-compose exec db mysql -u root -psomewordpress -e "SHOW TABLES FROM wordpress LIKE 'wp_options'" | grep -q "wp_options"
+      register: wp_init
+      retries: 30
+      delay: 10
+      until: wp_init.rc == 0
+
+    - name: Создание пользователя для репликации
+      shell: cd /opt/wordpress && docker-compose exec db mysql -u root -psomewordpress -e "CREATE USER IF NOT EXISTS 'repl_user'@'%' IDENTIFIED BY 'repl_password'; GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%'; FLUSH PRIVILEGES;"
+
+    - name: Остановка репликации на слейве
+      shell: cd /opt/wordpress && docker-compose exec db_replica mysql -u root -psomewordpress -e "STOP SLAVE; RESET SLAVE ALL;"
+
+    - name: Сброс бинарных логов на мастер-сервере
+      shell: cd /opt/wordpress && docker-compose exec db mysql -u root -psomewordpress -e "RESET MASTER;"
+
+    - name: Сброс GTID на реплике
+      shell: cd /opt/wordpress && docker-compose exec db_replica mysql -u root -psomewordpress -e "RESET MASTER; RESET SLAVE ALL;"
+
+    - name: Создание дампа базы данных
+      shell: cd /opt/wordpress && docker-compose exec db bash -c "mysqldump -u root -psomewordpress --all-databases --single-transaction --routines --triggers --events --set-gtid-purged=ON --skip-comments > /tmp/master_dump.sql"
+
+    - name: Копирование дампа на хост
+      shell: cd /opt/wordpress && docker cp wordpress_db_1:/tmp/master_dump.sql /tmp/master_dump.sql
+
+    - name: Копирование дампа в контейнер реплики
+      shell: cd /opt/wordpress && docker cp /tmp/master_dump.sql wordpress_db_replica_1:/tmp/master_dump.sql
+
+    - name: Восстановление дампа на реплике
+      shell: cd /opt/wordpress && docker-compose exec db_replica bash -c "mysql -u root -psomewordpress < /tmp/master_dump.sql"
+
+    - name: Удаление дампов
+      shell: cd /opt/wordpress && docker-compose exec db bash -c "rm -f /tmp/master_dump.sql" && docker-compose exec db_replica bash -c "rm -f /tmp/master_dump.sql" && rm -f /tmp/master_dump.sql
+
+    - name: Настройка репликации
+      shell: cd /opt/wordpress && docker-compose exec db_replica mysql -u root -psomewordpress -e "CHANGE MASTER TO MASTER_HOST='db', MASTER_PORT=3306, MASTER_USER='repl_user', MASTER_PASSWORD='repl_password', MASTER_AUTO_POSITION=1; START SLAVE;"
+
+    - name: Ожидание запуска репликации
+      wait_for:
+        timeout: 30
+
+    - name: Проверка статуса репликации
+      shell: cd /opt/wordpress && docker-compose exec db_replica mysql -u root -psomewordpress -e "SHOW SLAVE STATUS\G"
+      register: replication_status
+      retries: 3
+      delay: 10
+
+    - name: Показать статус репликации
+      debug:
+        var: replication_status 
