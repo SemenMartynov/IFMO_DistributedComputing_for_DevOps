@@ -71,6 +71,7 @@
          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
          - "/home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+         - "/home/server/tmp/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro" #Создание пользователя для реплики 
        networks:
          - name: "{{ docker_network }}"
          - name: "{{ cluster_network }}"
@@ -91,6 +92,7 @@
          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
          - "/home/server/tmp/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+         - "/home/server/tmp/sql_confs/slave_user_init.sql:/docker-entrypoint-initdb.d/slave_user_init.sql:ro" запуск slave
        networks:
          - name: "{{ cluster_network }}"
 
