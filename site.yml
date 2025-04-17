@@ -1,5 +1,5 @@
 - name: Deploy a Fully Containerized WordPress with Nginx and MySQL
-  hosts: local
+  hosts: wordpress_server
   become: yes
 
   roles:

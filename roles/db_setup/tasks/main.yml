@@ -1,7 +1,121 @@
-- name: Wait for MySQL service on port 3306
-  wait_for:
-    port: 3306
-    delay: 10
-    timeout: 60
+- name: Wait until MySQL master is healthy
+  community.docker.docker_container_info:
+    name: mysql_master
+  register: master_info
+  until: master_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 10
+
+- name: Ensure replication user exists on master
+  community.docker.docker_container_exec:
+    container: mysql_master
+    command: >
+      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
+      -e "CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
+          IDENTIFIED BY '{{ replication_password }}';
+          GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+          FLUSH PRIVILEGES;"
+  register: create_repl_user
+  changed_when: "'already exists' not in create_repl_user.stdout"
+
+- name: Check if legacy volume db_data exists
+  community.docker.docker_volume_info:
+    name: db_data
+  register: legacy_vol
+  failed_when: false
+
+- name: Start temporary legacy MySQL container
+  community.docker.docker_container:
+    name: mysql_legacy
+    image: mysql:8.4.4
+    detach: true
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - name: "{{ docker_network }}"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p{{ mysql_root_password }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     state: started
+  when: legacy_vol.exists | default(false)
+
+- name: Wait until legacy container is healthy
+  community.docker.docker_container_info:
+    name: mysql_legacy
+  register: legacy_info
+  until: legacy_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 10
+  when: legacy_vol.exists | default(false)
+- name: Dump all databases from legacy and import into master
+  community.docker.docker_container_exec:
+    container: mysql_legacy
+    command: >
+      sh -c "
+      mysqldump -uroot -p{{ mysql_root_password }} --all-databases
+        --single-transaction --set-gtid-purged=OFF |
+      mysql -h mysql_master -uroot -p{{ mysql_root_password }} "
+  when: legacy_vol.exists | default(false)
+  changed_when: legacy_vol.exists | default(false)
+
+- name: Stop and remove legacy container
+  community.docker.docker_container:
+    name: mysql_legacy
+    state: absent
+    force_kill: true
+  when: legacy_vol.exists | default(false)
+
+- name: Wait until MySQL slave1 is healthy
+  community.docker.docker_container_info:
+    name: mysql_slave1
+  register: slave1_info
+  until: slave1_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 10
+
+- name: Wait until MySQL slave2 is healthy
+  community.docker.docker_container_info:
+    name: mysql_slave2
+  register: slave2_info
+  until: slave2_info.container.State.Health.Status == 'healthy'
+  retries: 20
+  delay: 10
+
+- name: Configure replication on slave1
+  community.docker.docker_container_exec:
+    container: mysql_slave1
+    command: >
+      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
+      -e "STOP REPLICA;
+          RESET REPLICA ALL;
+          CHANGE REPLICATION SOURCE TO
+            SOURCE_HOST = 'mysql_master',
+            SOURCE_USER = '{{ replication_user }}',
+            SOURCE_PASSWORD = '{{ replication_password }}',
+            SOURCE_AUTO_POSITION = 1;
+          START REPLICA;"
+  changed_when: true
+
+- name: Configure replication on slave2
+  community.docker.docker_container_exec:
+    container: mysql_slave2
+    command: >
+      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
+      -e "STOP REPLICA;
+          RESET REPLICA ALL;
+          CHANGE REPLICATION SOURCE TO
+            SOURCE_HOST = 'mysql_master',
+            SOURCE_USER = '{{ replication_user }}',
+            SOURCE_PASSWORD = '{{ replication_password }}',
+            SOURCE_AUTO_POSITION = 1;
+          START REPLICA;"
+  changed_when: true
+
+- name: Display DB cluster ready message
+  debug:
+    msg: "Master-Replica-Replica replication configured successfully."
   changed_when: false
