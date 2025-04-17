@@ -109,7 +109,7 @@
        published_ports:
          - "80:80"
        env:
-         WORDPRESS_DB_HOST: "wp_db_master:3307"
+         WORDPRESS_DB_HOST: "wp_db_master:3306"
          WORDPRESS_DB_USER: "{{ mysql_user }}"
          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
          WORDPRESS_DB_NAME: "{{ mysql_database }}"
