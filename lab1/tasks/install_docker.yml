@@ -1,26 +1,45 @@
-- name: Create directory "keyrings"
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
+- name: Gather package facts
+  package_facts:
+    manager: auto
 
-- name: Download gpg
-  get_url:
-    url: https://download.docker.com/linux/debian/gpg
-    dest: '/etc/apt/keyrings/docker.asc'
-    mode: '0644'
+- block:
+    - name: Create directory "keyrings"
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-- name: Download apt sources list
-  shell:
-    cmd: 'echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null'
+    - name: Download gpg
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: '/etc/apt/keyrings/docker.asc'
+        mode: '0644'
 
-- name: Install Docker Engine
-  apt:
-    pkg:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
-    update_cache: yes
+    - name: Download apt sources list
+      shell:
+        cmd: 'echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null'
+      when: ansible_distribution == "Debian"
+
+    - name: Download apt sources list
+      shell:
+        cmd: 'echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null'
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Install Docker Engine
+      apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        update_cache: yes
+  when: "'docker-ce' not in ansible_facts.packages or 
+        'docker-compose-plugin' not in ansible_facts.packages"
+

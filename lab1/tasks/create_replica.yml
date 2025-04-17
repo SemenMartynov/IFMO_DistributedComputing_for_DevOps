@@ -1,0 +1,252 @@
+
+# Tasks for setting up MariaDB replication
+- tags: create_replica
+  block:
+    - name: Ensure backup directories exist
+      file:
+        path: "{{ item }}/backup"
+        state: directory
+        mode: '0777'
+      with_items:
+        - "{{ vol_db_data }}"
+        - "{{ vol_db_data_slave }}"
+
+    - name: Ensure mariadb.cnf slave
+      stat:
+        path: "{{ vol_db_conf_slave }}/mariadb.cnf"
+      register: mycnf_status
+
+    - name: Fail if mariadb.cnf does not exist
+      fail:
+        msg: "{{ vol_db_conf_slave }}/mariadb.cnf does not exist"
+      when: not mycnf_status.stat.exists
+
+    - name: Create backup MariaDB my.cnf to host machine
+      command: "cp {{ vol_db_conf_slave }}/mariadb.cnf {{ vol_db_conf_slave }}/mariadb.cnf.backup"
+
+    - name: Create replication user on master
+      command: >
+        docker exec db
+        mariadb -uroot -p{{ db_root_password }}
+        -e "GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; FLUSH PRIVILEGES;"
+
+    - name: Get binary log position
+      command: >
+        docker exec db
+        mariadb -uroot -p{{ db_root_password }}
+        -e "SHOW BINLOG STATUS;"
+      register: master_status
+
+    - name: Show binlog
+      debug:
+        var: master_status
+
+    - name: Parse binlog file and position
+      set_fact:
+        binlog_file: "{{ master_status.stdout | regex_search('mysql-bin\\.\\d+') }}"
+        binlog_pos: "{{ (master_status.stdout | regex_search('\\t\\d+\\t')) | trim }}"
+      when: master_status.stdout is defined
+
+    - name: Debug binlog file and position
+      debug:
+        msg:
+          - "Binlog File: {{ binlog_file }}"
+          - "Binlog Position: {{ binlog_pos }}"
+
+
+    - name: Cleanup old dumps
+      find:
+        paths: "{{ directory }}/backup"
+        patterns: "dump*.sql"
+        age: "2d"
+      register: old_dumps
+      loop:
+        - "{{ vol_db_data }}"
+        - "{{ vol_db_data_slave }}"
+      loop_control:
+        loop_var: directory
+
+    - name: Remove old dumps
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ old_dumps.results | map(attribute='files') | flatten | list }}"
+      when: old_dumps.results | map(attribute='matched') | sum > 1
+
+    - name: Set backup timestamp
+      set_fact:
+        backup_timestamp: "{{ '%Y%m%d%H%M%S' | strftime }}"
+
+    - name: Create master dump with position and timestamp
+      command: >
+        docker exec db
+        sh -c 'mariadb-dump -uroot -p{{ db_root_password }} 
+        --all-databases 
+        --master-data=2 > /var/lib/mysql/backup/dump_{{ backup_timestamp }}.sql'
+
+    - name: Set proper permissions for dump file
+      command: >
+        docker exec db
+        chmod 640 /var/lib/mysql/backup/dump_{{ backup_timestamp }}.sql
+
+    - name: Copy dump from master volume to slave volume
+      command: >
+        cp {{ vol_db_data }}/backup/dump_{{ backup_timestamp }}.sql 
+        {{ vol_db_data_slave }}/backup/dump_{{ backup_timestamp }}.sql
+
+    - name: Restore dump on slave
+      command: >
+        docker exec db_slave
+        sh -c "mariadb -uroot -p{{ db_root_password }} 
+        < /var/lib/mysql/backup/dump_{{ backup_timestamp }}.sql"
+
+    - name: Ensure [mysqld] section is present in mariadb.cnf
+      lineinfile:
+        path: "{{ vol_db_conf_slave }}/mariadb.cnf"
+        regexp: "^\\[mysqld\\]"
+        line: "[mysqld]"
+        insertbefore: "^# Import all .cnf files from configuration directory"
+
+    - name: Ensure replication parameters are in my.cnf
+      lineinfile:
+        path: "{{ vol_db_conf_slave }}/mariadb.cnf"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        insertafter: "[mysqld]"
+      with_items:
+        - { regexp: '^server-id=', line: 'server-id=2' }
+
+    - name: Backup .my-healthcheck.cnf on db_slave
+      command: "cp {{ vol_db_data_slave }}/.my-healthcheck.cnf {{ vol_db_data_slave }}/.my-healthcheck.cnf.bak"
+      become: yes
+
+    - name: Copy .my-healthcheck.cnf from master to db_slave
+      command: "cp {{ vol_db_data }}/.my-healthcheck.cnf {{ vol_db_data_slave }}/.my-healthcheck.cnf"
+      become: yes
+
+
+    - name: Restart MariaDB in the Docker container
+      community.docker.docker_container:
+        name: db_slave
+        state: started
+        restart: true
+
+    - name: Wait for MySQL to be ready
+      community.docker.docker_container_exec:
+        container: db_slave
+        command: healthcheck.sh --connect --innodb_initialized
+      register: mysql_ready
+      retries: 10
+      delay: 5
+      until: mysql_ready.rc == 0
+
+    - name: Execute CHANGE MASTER TO on slave
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "
+        STOP SLAVE;
+        RESET SLAVE ALL;
+        CHANGE MASTER TO
+          MASTER_HOST='db',
+          MASTER_USER='{{ replication_user }}',
+          MASTER_PASSWORD='{{ replication_password }}',
+          MASTER_LOG_FILE='{{ binlog_file }}',
+          MASTER_LOG_POS={{ binlog_pos }};
+        START SLAVE;
+        "
+
+    - name: Check replication status
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+
+    - name: Debug output
+      debug:
+        var: slave_status
+
+
+    - name: Check replication status
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+      until: >
+        "'Slave_IO_Running: Yes' in slave_status.stdout_lines and
+        'Slave_SQL_Running: Yes' in slave_status.stdout_lines and
+        not ('Last_IO_Error:' in slave_status.stdout_lines and 'Last_IO_Error: ' not in slave_status.stdout_lines) and
+        not ('Last_SQL_Error:' in slave_status.stdout_lines and 'Last_SQL_Error: ' not in slave_status.stdout_lines)"
+      retries: 5
+      delay: 10
+
+    - name: Display Seconds Behind Master
+      debug:
+        msg: "{{ slave_status.stdout_lines | select('search', 'Seconds_Behind_Master') | list }}"
+
+  rescue:
+    - name: Log failure
+      debug:
+        msg: "An error occurred during replication setup"
+
+    - name: Show error details
+      debug:
+        var: ansible_failed_result
+
+    - name: Stop slave on failure
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "STOP SLAVE;"
+      ignore_errors: yes
+
+    - name: Cleanup temporary dump files
+      file:
+        path: "{{ item }}/backup/dump_{{ backup_timestamp }}.sql"
+        state: absent
+      with_items:
+        - "{{ vol_db_data }}"
+        - "{{ vol_db_data_slave }}"
+      ignore_errors: yes
+
+    - name: Unlock master tables, if locked
+      command: >
+        docker exec db
+        mariadb -uroot -p{{ db_root_password }}
+        -e "UNLOCK TABLES;"
+      ignore_errors: yes
+
+    - name: Reset slave on failure
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "RESET SLAVE ALL;"
+      ignore_errors: yes
+
+    - name: Restore original MariaDB my.cnf from backup
+      command: "cp {{ vol_db_conf_slave }}/mariadb.cnf.backup {{ vol_db_conf_slave }}/mariadb.cnf"
+
+    - name: Restore original MariaDB my-healthcheck.cnf from backup
+      command: "cp {{ vol_db_data_slave }}/.my-healthcheck.cnf.bak {{ vol_db_data_slave }}/.my-healthcheck.cnf"
+      become: yes
+
+    - name: Restart MariaDB with original configuration
+      community.docker.docker_container:
+        name: db_slave
+        state: started
+        restart: true
+
+  always:
+    - name: Check final slave status
+      command: >
+        docker exec db_slave
+        mariadb -uroot -p{{ db_root_password }}
+        -e "SHOW SLAVE STATUS\G"
+      register: final_slave_status
+      ignore_errors: yes
+
+    - name: Display final status
+      debug:
+        msg: "{{ final_slave_status.stdout_lines | default(['Status unavailable']) }}"

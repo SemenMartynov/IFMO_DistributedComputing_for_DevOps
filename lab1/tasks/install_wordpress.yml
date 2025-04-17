@@ -1,50 +1,36 @@
-- name: Create directory nginx_www
+- name: Create necessary directories
   file:
-    path: "{{vol_nginx_www}}"
+    path: "{{ item.path }}"
     state: directory
-    mode: '0755'
+    mode: "{{ item.mode }}"
+  with_items:
+    - { path: "{{ vol_nginx_www }}", mode: '0755' }
+    - { path: "{{ vol_nginx_conf }}", mode: '0755' }
+    - { path: "{{ vol_db_data }}", mode: '0755' }
+    - { path: "{{ vol_db_conf }}", mode: '0755' }
+    - { path: "{{ vol_db_data_slave }}", mode: '0755' }
+    - { path: "{{ vol_db_conf_slave }}", mode: '0755' }
 
-- name: Create directory nginx_conf
-  file:
-    path: "{{vol_nginx_conf}}"
-    state: directory
-    mode: '0755'
-
-- name: Create directory db_data
-  file:
-    path: "{{vol_db_data}}"
-    state: directory
-    mode: '0755'
-
-- name: Copy Docker Compose files
-  copy:
-    src: files/docker-compose.yml
-    dest: /data/docker-compose.yml
 
 - name: Copy Nginx conf files
   copy:
     src: files/nginx.conf
     dest: "{{vol_nginx_conf}}"
 
-- name: Remove containers
-  community.docker.docker_compose_v2:
-    project_src: "/data"
-    state: absent
+- name: Create Docker network app_network
+  community.docker.docker_network:
+    name: app_network
+    driver: bridge
+    state: present
 
-- name: Run docker compose
-  community.docker.docker_compose_v2:
-    project_src: "/data"
-    files:
-      - docker-compose.yml
-    remove_volumes: true
-  environment:
-    - MARIADB_ROOT_PASSWORD: "{{db_root_password}}"
-    - WORDPRESS_DB_USER: "{{db_wordpress_user}}"
-    - MARIADB_USER: "{{db_wordpress_user}}"
-    - WORDPRESS_DB_PASSWORD: "{{db_wordpress_password}}"
-    - MARIADB_PASSWORD: "{{db_wordpress_password}}"
-    - WORDPRESS_DB_NAME: "{{wordpress_database}}"
-    - MARIADB_DATABASE: "{{wordpress_database}}"
-    - VOL_NGINX_WWW: "{{vol_nginx_www}}"
-    - VOL_NGINX_CONF: "{{vol_nginx_conf}}"
-    - VOL_DB_DATA: "{{vol_db_data}}"
+- name: Copy Docker Compose files
+  copy:
+    src: files/docker-compose.yml
+    dest: /data/docker-compose.yml
+  notify: "restart docker-compose"
+
+- name: Copy Docker Compose slave sql files
+  copy:
+    src: files/docker-compose-slave-sql.yml
+    dest: /data/docker-compose-slave-sql.yml
+  notify: "restart docker-compose-slave-sql"

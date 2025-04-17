@@ -1,0 +1,6 @@
+- name: Copy Nginx conf files
+  copy:
+    src: files/nginx.conf
+    dest: "{{vol_nginx_conf}}"
+  notify: "restart nginx"
+  tag: setup_nginx

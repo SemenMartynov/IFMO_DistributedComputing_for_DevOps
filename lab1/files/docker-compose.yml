@@ -9,6 +9,7 @@ services:
       MARIADB_PASSWORD: ${MARIADB_PASSWORD}
     volumes:
       - DB:/var/lib/mysql:Z
+      - DB_CONF:/etc/mysql
     command: '--default-authentication-plugin=mysql_native_password'
     healthcheck:
       test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
@@ -19,7 +20,7 @@ services:
       retries: 3
     restart: always
     networks:
-      - app-network
+      - app_network
 
   wordpress:
     image: wordpress:php8.1-fpm
@@ -36,7 +37,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - app-network
+      - app_network
 
   nginx:
     image: nginx:1.27-perl
@@ -51,7 +52,7 @@ services:
       wordpress:
         condition: service_started
     networks:
-      - app-network
+      - app_network
 
 volumes:
   NGINX_WWW:
@@ -72,7 +73,13 @@ volumes:
       type: none
       device: ${VOL_DB_DATA}
       o: bind
+  DB_CONF:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${VOL_DB_CONF}
+      o: bind
 
 networks:
-  app-network:
-    driver: bridge
+  app_network:
+    external: true
