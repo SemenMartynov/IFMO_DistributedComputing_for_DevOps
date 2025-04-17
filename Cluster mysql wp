@@ -14,7 +14,7 @@
   hosts: all
   become: yes
   vars:
-    mysql_root_password: "my_root_password" 
+    mysql_root_password: "my_root_password"
     mysql_database: "wordpress_db"
     mysql_user: "wp_user"
     mysql_password: "wp_password"
@@ -23,6 +23,13 @@
 
 
   tasks:
+   - name: Clone a repo with separate git directory
+     ansible.builtin.git:
+      repo: "https://github.com/pashkami/Tazetdinov-Pavel_IFMO_DistributedComputing_for_DevOps"
+      dest: /home/server/tmp
+      single_branch: yes
+      version: "add-cluster"
+
     - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
       apt:
         name:
