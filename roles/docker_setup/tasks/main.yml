@@ -67,6 +67,27 @@
     mode: '0644'
   become: yes
 
+- name: Copy MySQL master config
+  copy:
+    src: master.cnf
+    dest: "{{ project_root }}/master.cnf"
+    mode: '0644'
+  become: yes
+
+- name: Copy MySQL slave1 config
+  copy:
+    src: slave1.cnf
+    dest: "{{ project_root }}/slave1.cnf"
+    mode: '0644'
+  become: yes
+
+- name: Copy MySQL slave2 config
+  copy:
+    src: slave2.cnf
+    dest: "{{ project_root }}/slave2.cnf"
+    mode: '0644'
+  become: yes
+
 - name: Create dedicated Docker network
   community.docker.docker_network:
     name: "{{ docker_network }}"
@@ -77,3 +98,4 @@
     project_src: "{{ project_root }}"
     state: present
     pull: missing
+    remove_orphans: true
