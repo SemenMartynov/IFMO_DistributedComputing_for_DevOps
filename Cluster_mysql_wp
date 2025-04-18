@@ -146,6 +146,13 @@
          - name: "{{ cluster_network }}"
        published_ports:
           - "3308:3306"
+   - name: Проверяю статус реплики
+     command: docker exec wp_db_slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+     register: replica_status
+     changed_when: false
+   - debug:
+       msg: "{{ replica_status.stdout }}"
+
 
    - name: запускаю контейнер WordPress
      docker_container:
