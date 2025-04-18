@@ -19,7 +19,7 @@
     - name: Install required by Ansible package
       apt: pkg={{ item }} state=present
       with_items:
-        - python-pymysql
+        - python3-pymysql
 
     - name: Create MySQL container for slave
       community.docker.docker_container:
