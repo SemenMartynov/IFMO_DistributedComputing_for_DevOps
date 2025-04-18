@@ -80,30 +80,6 @@
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
           - FLUSH PRIVILEGES 
 
-    - name: Create MySQL container for slave
-      community.docker.docker_container:
-        name: "{{ db_container_name }}-slave"
-        image: "{{ db_container_image }}"
-        state: started
-        restart: yes
-        restart_policy: always
-        networks:
-          - name: "{{ wp_int_network }}"
-            aliases: "{{ db_container_name }}-slave"
-            ipv4_address: "10.16.1.4"
-        exposed_ports:
-          - 3306
-          - 33060
-        volumes:
-          - db_slave:/var/lib/mysql
-        env:
-          MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
-#          MYSQL_RANDOM_ROOT_PASSWORD: '1'
-          MYSQL_DATABASE: "{{ wp_dbname }}"
-          MYSQL_USER: "{{ wp_dbuser }}"
-          MYSQL_PASSWORD: "{{ mysql_passwd }}"
-#          mysql_server_id: "2"
-
     - name: Install CLONE plugin and create replication user on SLAVE
       community.mysql.mysql_query:
         login_db: mysql
