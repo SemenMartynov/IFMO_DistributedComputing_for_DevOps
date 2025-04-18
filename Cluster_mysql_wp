@@ -34,6 +34,7 @@
       dest: "{{ playbook_dir }}/project"
       single_branch: yes
       version: "add-cluster"
+      force: yes
 
    - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
      apt:
