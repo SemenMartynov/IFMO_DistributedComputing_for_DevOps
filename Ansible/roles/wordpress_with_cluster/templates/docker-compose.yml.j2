@@ -14,6 +14,13 @@ services:
       - ./master_database.cnf:/etc/mysql/my.cnf
       - ./master_init.sql:/docker-entrypoint-initdb.d/init.sql
       - master_data:/var/lib/mysql
+    healthcheck:
+      test: >
+        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' &&
+        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW MASTER STATUS'
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   replica_database:
     image: {{ mysql_image }}
@@ -26,6 +33,16 @@ services:
       - ./replica_database.cnf:/etc/mysql/my.cnf
       - ./replica_init.sql:/docker-entrypoint-initdb.d/init.sql
       - replica_data:/var/lib/mysql
+    depends_on:
+      master_databse:
+        condition: service_healthy
+    healthcheck:
+      test: >
+        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' &&
+        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW REPLICA STATUS' | grep -q 'Waiting for source to send event'
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
   wordpress:
     image: {{ wordpress_image }}
