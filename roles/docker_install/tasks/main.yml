@@ -1,39 +1,34 @@
 ---
-# Роль: Установка Docker и Docker Compose
-- name: Проверка наличия Docker
-  ansible.builtin.command: which docker
-  register: docker_check
-  changed_when: false
-  failed_when: false
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
 
-- name: Установка Docker
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu jammy stable
+    state: present
+
+- name: Install Docker CE and Compose plugin
   ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: latest
     update_cache: yes
-    name: docker.io
-    state: present
-  when: docker_check.rc != 0
 
-- name: Проверка наличия Docker Compose
-  ansible.builtin.command: which docker-compose
-  register: compose_check
-  changed_when: false
-  failed_when: false
-
-- name: Установка Docker Compose
-  ansible.builtin.apt:
-    name: docker-compose
-    state: present
-  when: compose_check.rc != 0
-
-- name: Добавление пользователя в группу docker
-  user:
-    name: "{{ ansible_user }}"
-    groups: docker
-    append: yes
-  become: yes
-
-- name: Запуск и включение Docker
+- name: Ensure Docker daemon is running
   ansible.builtin.service:
     name: docker
     state: started
     enabled: yes
+  become: yes
+
+- name: Add user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: yes
