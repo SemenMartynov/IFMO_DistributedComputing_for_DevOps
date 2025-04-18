@@ -149,7 +149,7 @@
           - "3308:3306"
 
    - name: Проверяю статус реплики
-     command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SHOW SLAVE STATUS\G"'
+     command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -h127.0.0.1 -e "SHOW SLAVE STATUS\G"'
      register: replica_status
      changed_when: false
    - debug:
