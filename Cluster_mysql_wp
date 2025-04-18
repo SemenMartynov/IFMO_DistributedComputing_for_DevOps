@@ -23,7 +23,7 @@
     cluster_network: "ms_network"
     replica_user: "replica_user"
     replica_password: "password"
-    playbook_dir: "./"
+#    playbook_dir: "./"
 
 
 
