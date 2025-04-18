@@ -63,6 +63,13 @@
           --server-id=1
           --bind-address=0.0.0.0
 
+    - name: wait a bit
+      wait_for:
+        port: 3306
+        host: "{{ ansible_host }}"
+        delay: 10
+        timeout: 60
+
     - name: Configure Master replication
       command: >
         docker exec mariadb_master mysql -uroot -p{{ mariadb_root_password }} -e "
@@ -88,6 +95,13 @@
           --server-id=2
           --relay-log=slave-relay-bin
           --bind-address=0.0.0.0
+
+    - name: wait again
+      wait_for:
+        port: 3306
+        host: "{{ ansible_host }}"
+        delay: 10
+        timeout: 60
 
     - name: Configure Slave replication
       command: >
