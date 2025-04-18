@@ -5,7 +5,7 @@ Playbook для установки wordpress с mysql БД.
 
 Запуск установки:
 ```bash
-ansible-playbook playbook.yml
+ansible-playbook playbook.yaml
 ```
 
 В файле hosts нужно указать ip адреса и приватные ключи серверов, на которые будет производиться установка. Указать путь к приватным ключам можно в ansible.cfg, либо в hosts файле.
