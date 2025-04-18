@@ -1,0 +1,117 @@
+---
+- name: Установка Docker и запуск Wordpress с отдельной БД
+  hosts: all
+  become: yes
+  vars:                                                                                                                                                                                                                                                                                                                                                                                                           
+    docker_users: [server]
+    mysql_root_password: root
+
+  tasks:
+    - name: Установить Docker
+      import_tasks: ./install_docker.yml
+
+    - name: Создать Docker-сеть для связи контейнеров с БД и контейнера с Wordpress
+      docker_network:
+        name: wordpress_network
+      
+
+    - name: Запустить контейнер mysql_master 
+      docker_container:
+          name: mysql_master
+          image: mysql:8.0
+          restart_policy: always
+          env:
+            MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+            MYSQL_DATABASE: wordpress
+            MASTER_USER: wp_user
+            MASTER_PASSWORD: wp_password
+          ports:
+            - "3307:3306"
+          networks:
+            - name: wordpress_network
+          volumes:
+            - "{{ lookup('pipe', 'realpath ../master.cnf') }}:/etc/mysql/conf.d/master.cnf"
+          state: started
+          recreate: yes
+   
+
+    - name: Запустить контейнер mysql_slave 
+      docker_container:
+          name: mysql_slave
+          image: mysql:8.0
+          restart_policy: always
+          env:
+            MYSQL_ROOT_PASSWORD: root
+          ports:
+            - "3308:3306"
+          volumes:
+            - "{{ lookup('pipe', 'realpath ../slave.cnf') }}:/etc/mysql/conf.d/slave.cnf"
+          networks:
+            - name: wordpress_network
+          state: started
+          recreate: yes
+            
+
+    - name: Запустить контейнер с WordPress
+      docker_container: 
+          name: wordpress
+          image: wordpress:latest
+          restart_policy: always
+          env:
+            WORDPRESS_DB_HOST: mysql_master:3306
+            WORDPRESS_DB_NAME: wordpress
+            WORDPRESS_DB_USER: wp_user
+            WORDPRESS_DB_PASSWORD: wp_password
+          ports:
+            - "8080:80"
+          networks:
+            - name: wordpress_network
+          volumes:
+            - wordpress_data:/var/www/html
+          state: started
+          recreate: yes
+
+    - name: Создать пользователя для репликации на мастере
+      shell: |
+          docker exec mysql_master mysql -uroot -p{{ mysql_root_password }} -e "
+          DROP USER IF EXISTS 'repl_user'@'%';
+          CREATE USER 'repl_user'@'%' IDENTIFIED WITH mysql_native_password BY 'repl_pass';
+          GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%';
+          FLUSH PRIVILEGES;"
+      changed_when: true
+        
+    - name: Остановить slave-репликацию
+          shell: docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "STOP SLAVE;"
+          changed_when: false
+          ignore_errors: true
+        
+    - name: Назначить master-сервер на slave
+      shell: |
+          docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "
+          CHANGE MASTER TO
+            MASTER_HOST='mysql_master',
+            MASTER_PORT=3306,
+            MASTER_USER='repl_user',
+            MASTER_PASSWORD='repl_pass',
+            MASTER_LOG_FILE='mysql-bin.000002',
+            MASTER_LOG_POS=157;"
+      changed_when: true
+        
+    - name: Запустить slave-репликацию
+          shell: docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "START SLAVE;"
+          changed_when: true
+        
+        - name: Проверка статуса репликации
+          shell: docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+          register: replication_status
+        
+    - name: Вывести статус
+      debug:
+            msg: "{{ replication_status.stdout }}"
+
+
+
+      
+
+        
+
