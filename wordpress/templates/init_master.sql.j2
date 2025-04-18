@@ -1,0 +1,3 @@
+CREATE USER IF NOT EXISTS '{{ replica_db_user }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ replica_db_password }}';
+GRANT REPLICATION SLAVE ON *.* TO '{{ replica_db_user }}'@'%';
+FLUSH PRIVILEGES;

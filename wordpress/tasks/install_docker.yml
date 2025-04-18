@@ -33,3 +33,9 @@
     name: docker
     state: started
     enabled: true
+
+- name: Add user to the Docker group
+  user:
+    name: user
+    groups: docker
+    append: yes
