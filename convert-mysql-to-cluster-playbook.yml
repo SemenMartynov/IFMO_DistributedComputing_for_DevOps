@@ -39,11 +39,11 @@
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
-            aliases: "{{ db_container_name }}-slave"
+            aliases: "{{ db_container_name }}slave"
             ipv4_address: "10.16.1.4"
         exposed_ports:
-          - 3306
-          - 33060
+          - 3307
+          - 33070
         volumes:
           - db2:/var/lib/mysql
         env:
@@ -84,7 +84,7 @@
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.4
-        login_port: 3306
+        login_port: 3307
         login_password: "{{ mysql_root_pw }}"
         query:
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
