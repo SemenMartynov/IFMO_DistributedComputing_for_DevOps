@@ -16,6 +16,15 @@
     mysql_root_pw: "MySQL s3cret pas3w0rd"
 
   tasks:
+    - name: Generate MySQL password
+      ansible.builtin.set_fact: mysql_passwd="{{ pwd_alias }}"
+
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+        
     - name: Install required by Ansible package
       apt: pkg={{ item }} state=present
       with_items:
