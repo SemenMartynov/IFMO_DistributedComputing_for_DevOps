@@ -51,7 +51,7 @@
           MYSQL_DATABASE: "{{ mariadb_database }}"
           MYSQL_USER: "{{ mariadb_user }}"
           MYSQL_PASSWORD: "{{ mariadb_password }}"
-          SERVER_ID: 1
+          SERVER_ID: "1"
         volumes:
           - mariadb_master_data:/var/lib/mysql
         networks:
@@ -78,7 +78,7 @@
         restart_policy: unless-stopped
         env:
           MYSQL_ROOT_PASSWORD: "{{ mariadb_root_password }}"
-          SERVER_ID: 2
+          SERVER_ID: "2"
         volumes:
           - mariadb_slave_data:/var/lib/mysql
         networks:
@@ -107,7 +107,7 @@
         state: started
         restart_policy: unless-stopped
         ports:
-          - "8081:80"
+          - "8081:81"
         env:
           WORDPRESS_DB_HOST: "mariadb_master:3306"
           WORDPRESS_DB_USER: "{{ mariadb_user }}"
