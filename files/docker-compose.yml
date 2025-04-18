@@ -1,15 +1,38 @@
 version: '3.8'
 
 services:
-  db:
+  mysql-master:
     image: mysql:5.7
+    container_name: mysql-master
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_USER: "${DB_USER}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_master_data:/var/lib/mysql
+      - ./mysql-master/conf.d:/etc/mysql/conf.d
+    command: 
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-do-db=${DB_NAME}
+    restart: always
+    networks:
+      - wp_network
+
+  mysql-slave:
+    image: mysql:5.7
+    container_name: mysql-slave
+    depends_on:
+      - mysql-master
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    volumes:
+      - db_slave_data:/var/lib/mysql
+      - ./mysql-slave/conf.d:/etc/mysql/conf.d
+    command: 
+      - --server-id=2
     restart: always
     networks:
       - wp_network
