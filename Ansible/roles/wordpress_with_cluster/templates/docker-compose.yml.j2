@@ -17,7 +17,7 @@ services:
     healthcheck:
       test: >
         mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' &&
-        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW MASTER STATUS'
+        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW BINARY LOG STATUS'
       interval: 10s
       timeout: 5s
       retries: 5
