@@ -64,13 +64,26 @@
      community.docker.docker_volume:
        name: mysql_master_data
 
-   - name: Создать Docker-том для мастера
+   - name: Создать Docker-том для реплики
      community.docker.docker_volume:
        name: mysql_slave_data
 
-   - name: Создать Docker-том для мастера
+   - name: Создать Docker-том для wp
      community.docker.docker_volume:
        name: wp_data
+
+   - name: Сгенерировать SQL-файл для инициализации мастера
+     template:
+       src: templates/user_init_master.sql.j2
+       dest: /home/server/tmp/sql_confs/user_init_master.sql
+       mode: '0644'
+
+   - name: Сгенерировать SQL-файл для инициализации реплики
+     template:
+       src: templates/user_init_slave.sql.j2
+       dest: /home/server/tmp/sql_confs/user_init_slave.sql
+       mode: '0644'
+
 
    - name: запускаю контейнер базы данных MySQL -master
      docker_container:
@@ -83,7 +96,7 @@
          MYSQL_DATABASE: "{{ mysql_database }}"
          MYSQL_USER: "{{ mysql_user }}"
          MYSQL_PASSWORD: "{{ mysql_password }}"
-         MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+#         MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
          - mysql_master_data: /var/lib/mysql 
          - /home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
@@ -94,21 +107,24 @@
        published_ports:
           - "3307:3306"
 
-   - name: Получить статус мастера
-     command: >
-        docker exec wp_db_master
-        mysql -h127.0.0.1 -P3306 -uroot -p{{ mysql_root_password }}
-        -e "SHOW MASTER STATUS\G"
-     register: master_status
-     changed_when: false
+  #  - name: Получить статус мастера
+  #    command: >
+  #       docker exec wp_db_master
+  #       mysql -h127.0.0.1 -P3306 -uroot -p{{ mysql_root_password }}
+  #       -e "SHOW MASTER STATUS\G"
+  #    register: master_status
+  #    changed_when: false
 
-   - name: Вытащить лог-файл мастера
-     set_fact:
-        master_log_file: "{{ master_status.stdout | regex_search('File: (.*)', '\\1') }}"
 
-   - name: Вытащить позицию лога
-     set_fact:
-       master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+  #  - name: Вытащить лог-файл мастера
+  #    set_fact:
+  #       master_log_file: "{{ master_status.stdout | regex_search('File: (.*)', '\\1') }}"
+
+  #  - name: Вытащить позицию лога
+  #    set_fact:
+  #      master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+  #    ansible.builtin.debug:
+  #      msg: "позиция лога: {{ master_log_pos }}"      
 
 
    - name: запускаю контейнер базы данных MySQL - slave
@@ -119,10 +135,12 @@
        restart_policy: always
        env:
          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+         MYSQL_DATABASE: "{{ mysql_database }}"
 
        volumes:
+         - mysql_slave_data: /var/lib/mysql
          - "/home/server/tmp/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
-         - "/home/server/tmp/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"#запуск slave
+         - "/home/server/tmp/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:rw"
        networks:
          - name: "{{ cluster_network }}"
        published_ports:
@@ -141,5 +159,8 @@
          WORDPRESS_DB_USER: "{{ mysql_user }}"
          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+        
+       volumes:
+          - wp_data:/var/www/html
        networks:
          - name: "{{ docker_network }}"
