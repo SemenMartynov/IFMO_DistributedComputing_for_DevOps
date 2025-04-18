@@ -12,6 +12,8 @@
     networks:
       - name: "{{ docker_network }}"
     state: started
+    volumes:
+      - /opt/mysql/data:/var/lib/mysql
 
 - name: Проверка запущенного котнейнера
   ansible.builtin.command: docker ps -q --filter "name={{ mysql_container_name }}"
@@ -43,4 +45,10 @@
     src: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
     dest: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
     flat: true
+  when: dump_result.changed
+
+-name: Остановка контейнера
+  community.docker.docker_container:
+    name: "{{ mysql_container_name }}"
+    state: stopped
   when: dump_result.changed
