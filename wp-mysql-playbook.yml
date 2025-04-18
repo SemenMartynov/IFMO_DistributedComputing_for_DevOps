@@ -12,6 +12,7 @@
     wp_int_network: wp_int_network
     wp_ext_network: wp_ext_network
     pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+    mysql_root_pw: "MySQL s3cret pas3w0rd
 
   tasks:
 
@@ -106,8 +107,8 @@
         volumes:
           - db:/var/lib/mysql
         env:
-#          MYSQL_ROOT_PASSWORD: "{{ mysql_passwd }}"
-          MYSQL_RANDOM_ROOT_PASSWORD: '1'
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
+#          MYSQL_RANDOM_ROOT_PASSWORD: '1'
           MYSQL_DATABASE: "{{ wp_dbname }}"
           MYSQL_USER: "{{ wp_dbuser }}"
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
