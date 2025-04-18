@@ -1,0 +1,68 @@
+---
+# MySQL InnoDB Cluster
+# https://dev.mysql.com/doc/mysql-shell/8.4/en/mysql-innodb-cluster.html
+- hosts: all
+  become: true
+  vars:
+    db_container_name: db
+    db_container_image: mysql:lts
+    wp_container_name: wp
+    wp_container_image: wordpress
+    wp_dbname: wp_dbname
+    wp_dbuser: wp_dbuser
+    wp_int_network: wp_int_network
+    wp_ext_network: wp_ext_network
+    pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+    mysql_root_pw: "MySQL s3cret pas3w0rd"
+
+  tasks:
+    - name: Install required packages
+      apt: pkg={{ item }} state=installed
+      with_items:
+        - python-pymysql
+
+    - name: Create MySQL container for slave
+      community.docker.docker_container:
+        name: "{{ db_container_name }}-slave"
+        image: "{{ db_container_image }}"
+        state: stoped
+        restart: yes
+        restart_policy: always
+        networks:
+          - name: "{{ wp_int_network }}"
+            aliases: "{{ db_container_name }}-slave"
+            ipv4_address: "10.16.1.4"
+        exposed_ports:
+          - 3307
+        volumes:
+          - db_slave:/var/lib/mysql
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
+#          MYSQL_RANDOM_ROOT_PASSWORD: '1'
+          MYSQL_DATABASE: "{{ wp_dbname }}"
+          MYSQL_USER: "{{ wp_dbuser }}"
+          MYSQL_PASSWORD: "{{ mysql_passwd }}"
+
+    - name: Stop WP container
+      community.docker.docker_container:
+        name: "{{ wp_container_name }}"
+        state: stoped
+
+    - name: Backup current WP databases
+      mysql_db:
+        state: dump
+        name: all
+        target: /tmp/dump.sql
+        login_host: 10.16.1.3
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+
+    - name: Backup current WP databases
+      mysql_db:
+        state: dump
+        name: all
+        target: /tmp/dump.sql
+        login_host: 10.16.1.3
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        
