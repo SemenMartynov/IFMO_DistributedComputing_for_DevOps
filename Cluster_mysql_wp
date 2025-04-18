@@ -30,7 +30,7 @@
    - name: Clone a repo with separate git directory
      ansible.builtin.git:
       repo: "https://github.com/pashkami/Tazetdinov-Pavel_IFMO_DistributedComputing_for_DevOps"
-      dest: /home/server/tmp
+      dest: ./project
       single_branch: yes
       version: "add-cluster"
 
@@ -74,14 +74,14 @@
 
    - name: Сгенерировать SQL-файл для инициализации мастера
      template:
-       src: templates/user_init_master.sql.j2
-       dest: /home/server/tmp/sql_confs/user_init_master.sql
+       src: ./project/templates/user_init_master.sql.j2
+       dest: ./project/sql_confs/user_init_master.sql
        mode: '0644'
 
    - name: Сгенерировать SQL-файл для инициализации реплики
      template:
-       src: templates/user_init_slave.sql.j2
-       dest: /home/server/tmp/sql_confs/user_init_slave.sql
+       src: ./project/templates/user_init_slave.sql.j2
+       dest: ./project/sql_confs/user_init_slave.sql
        mode: '0644'
 
 
@@ -99,8 +99,8 @@
 #         MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
          - mysql_master_data: /var/lib/mysql 
-         - /home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
-         - /home/server/tmp/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:rw #Создание пользователя для реплики 
+         - ./project/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
+         - ./project/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:rw #Создание пользователя для реплики 
        networks:
          - name: "{{ docker_network }}"
 #         - name: "{{ cluster_network }}"
@@ -139,8 +139,8 @@
 
        volumes:
          - mysql_slave_data: /var/lib/mysql
-         - "/home/server/tmp/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
-         - "/home/server/tmp/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:rw"
+         - "./project/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+         - "./project/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:rw"
        networks:
          - name: "{{ cluster_network }}"
        published_ports:
