@@ -1,6 +1,13 @@
 ---
 - name: Запуск Wordpress с базой данных с использованием docker-compose
   hosts: all
+  vars:
+    mysql_root_password: "test_db_root_password"
+    master_container_name: "mysql-master"
+    slave_container_name: "mysql-slave"
+    replication_user: "test_db_replication_user"
+    replication_password: "test_db_replication_password"
+
   tasks:
     - name: Создать каталог для приложения
       ansible.builtin.file:
@@ -22,3 +29,89 @@
       community.docker.docker_compose_v2:
         project_src: ~/app
         state: present
+
+    - name: Ожидание готовности Master (первый раз поднимается долго!)
+      become: yes
+      community.docker.docker_container_exec:
+        container: "{{ master_container_name }}"
+        command: "mysql -uroot -p{{ mysql_root_password }} -e 'SELECT 1'"
+      register: mysql_check
+      until: mysql_check.rc == 0
+      retries: 40
+      delay: 3
+
+    - name: Ожидание готовности Master (проверка результата)
+      ansible.builtin.assert:
+        that:
+          - mysql_check.rc == 0
+        success_msg: "MySQL Master готов к работе"
+        fail_msg: "MySQL Master не ответил на ping за 2 минуты"
+
+    - name: Ожидание готовности Slave (первый раз поднимается долго!)
+      become: yes
+      community.docker.docker_container_exec:
+        container: "{{ slave_container_name }}"
+        command: "mysql -uroot -p{{ mysql_root_password }} -e 'SELECT 1'"
+      register: mysql_check
+      until: mysql_check.rc == 0
+      retries: 40
+      delay: 3
+
+    - name: Ожидание готовности Slave (проверка результата)
+      ansible.builtin.assert:
+        that:
+          - mysql_check.rc == 0
+        success_msg: "MySQL Slave готов к работе"
+        fail_msg: "MySQL Slave не ответил на ping за 2 минуты"
+
+    - name: На master создать пользователя для репликации
+      become: yes
+      community.docker.docker_container_exec:
+        container: "{{ master_container_name }}"
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e
+          "CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ replication_password }}';
+          GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+          FLUSH PRIVILEGES;"
+
+    - name: Получить информацию о репликации (может она уже работает)
+      community.docker.docker_container_exec:
+        container: "{{ slave_container_name }}"
+        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+      register: replication_status
+
+    - name: Парсинг статуса репликации (для проверки, нужно ли ее запускать)
+      set_fact:
+        replica_io_running: "{{ 'Replica_IO_Running: Yes' in replication_status.stdout }}"
+        replica_sql_running: "{{ 'Replica_SQL_Running: Yes' in replication_status.stdout }}"
+
+    - name: На slave настроить репликацию (только если она еще не настроена)
+      community.docker.docker_container_exec:
+        container: "{{ slave_container_name }}"
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e "
+          CHANGE REPLICATION SOURCE TO
+          SOURCE_HOST='{{ master_container_name }}',
+          SOURCE_USER='{{ replication_user }}',
+          SOURCE_PASSWORD='{{ replication_password }}',
+          SOURCE_AUTO_POSITION=1;
+          START REPLICA;"
+      when: not replica_io_running and not replica_sql_running
+
+    - name: Получить информацию о репликации еще раз
+      community.docker.docker_container_exec:
+        container: "{{ slave_container_name }}"
+        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+      register: replication_status
+
+#    - name: Посмотреть вывод информации о репликации
+#      debug:
+#        var: replication_status.stdout_lines
+
+    - name: Убедиться, что репликация работает
+      assert:
+        that:
+          - "'Replica_IO_Running: Yes' in replication_status.stdout"
+          - "'Replica_SQL_Running: Yes' in replication_status.stdout"
+        success_msg: "Репликация работает!"
+        fail_msg: "Репликация работает некорректно"

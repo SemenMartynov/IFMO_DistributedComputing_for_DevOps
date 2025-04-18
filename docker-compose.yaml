@@ -2,28 +2,71 @@ services:
 
   wordpress:
     image: wordpress
+    container_name: wordpress
     ports:
       - "8080:80"
     environment:
-      WORDPRESS_DB_HOST: ${DB_HOST}
+      WORDPRESS_DB_HOST: mysql-master
       WORDPRESS_DB_USER: ${DB_USER}
       WORDPRESS_DB_PASSWORD: ${DB_PASS}
       WORDPRESS_DB_NAME: ${DB_NAME}
     volumes:
       - wordpress:/var/www/html
+    networks:
+      - mysql-net
 
-  db:
+  mysql-master:
     image: mysql:8.0
+    container_name: mysql-master
     environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
     volumes:
-      - db:/var/lib/mysql
+      - master-data:/var/lib/mysql
     ports:
       - "3306:3306"
+    networks:
+      - mysql-net
+    command: |
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --binlog-do-db=app_db
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --default-authentication-plugin=mysql_native_password
+
+  mysql-slave:
+    image: mysql:8.0
+    container_name: mysql-slave
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - slave-data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - mysql-net
+    depends_on:
+      - mysql-master
+    command: |
+      --server-id=2
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --skip-replica-start
+      --relay-log=mysql-relay-bin
+      --read-only=1
+      --default-authentication-plugin=mysql_native_password
+
+networks:
+  mysql-net:
+    driver: bridge
 
 volumes:
   wordpress:
-  db:
+  master-data:
+  slave-data:
