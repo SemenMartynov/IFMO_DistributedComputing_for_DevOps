@@ -1,12 +1,18 @@
 ---
-# Переменные по умолчанию для деплоя WordPress
 wordpress_image: "wordpress:latest"
 mysql_image: "mysql:5.7"
+wordpress_port: 80
 
+# Параметры WordPress DB
 db_name: "wordpress"
 db_user: "wordpress"
-db_password: "wordpress_password"
+db_password: "wordpress"
 mysql_root_password: "somewordpress"
 
-host_http_port: 80
+# Репликация
+master_server_id: 1
+slave_server_id: 2
+replication_password: "repl_pass"
+
+# Директория для docker-compose
 wp_install_dir: "/opt/wordpress"

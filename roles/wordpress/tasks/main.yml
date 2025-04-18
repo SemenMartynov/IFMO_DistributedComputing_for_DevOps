@@ -10,10 +10,44 @@
     src: docker-compose.yml.j2
     dest: "{{ wp_install_dir }}/docker-compose.yml"
 
-- name: Ensure WordPress containers are running
+- name: Remove old master and slave DB volumes
+  community.docker.docker_volume:
+    name: '{{ item }}'
+    state: absent
+  loop:
+    - wordpress_db_master_data
+    - wordpress_db_slave_data
+  become: yes
+
+# Разделяем запуск: сначала БД, потом WP
+- name: Start DB services (master & slave)
   community.docker.docker_compose:
     project_src: "{{ wp_install_dir }}"
     state: present
+    services:
+      - db-master
+      - db-slave
     pull: true
-    recreate: smart
+    recreate: always
     remove_orphans: true
+
+- name: Install PyMySQL for Ansible MySQL modules
+  apt:
+    name: python3-pymysql
+    state: present
+    update_cache: yes
+
+- name: Wait for MySQL master port 3306
+  wait_for:
+    host: localhost
+    port: 3306
+    state: started
+    delay: 10
+    timeout: 120
+
+- name: Start WordPress service
+  community.docker.docker_compose:
+    project_src: "{{ wp_install_dir }}"
+    state: present
+    services:
+      - wordpress

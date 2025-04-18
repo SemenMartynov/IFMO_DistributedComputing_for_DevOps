@@ -1,8 +1,19 @@
 ---
-- name: Установка Docker и развертывание WordPress
+- name: Установка Docker и запуск БД MySQL и WordPress
   hosts: wordpress_servers
   become: yes
-
   roles:
     - docker_install
     - wordpress
+
+  tasks:
+    - name: Wait for MySQL master port 3306
+      wait_for:
+        host: localhost
+        port: 3306
+        state: started
+        delay: 10
+        timeout: 120
+
+    - name: Настройка MySQL master-slave репликации
+      import_tasks: roles/wordpress/tasks/replication.yml

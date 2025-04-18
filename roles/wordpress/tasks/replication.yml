@@ -1,0 +1,58 @@
+---
+- name: Wait for MySQL master port 3306
+  wait_for:
+    host: localhost
+    port: 3306
+    state: started
+    delay: 10
+    timeout: 120
+
+- name: Create replication user on master
+  community.mysql.mysql_user:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: 3306
+    user: replicator
+    host: '%'
+    password: "{{ replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    state: present
+
+- name: Get master binlog status
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: 3306
+    query: SHOW MASTER STATUS;
+  register: master_status
+
+- name: Set facts for replication
+  ansible.builtin.set_fact:
+    master_log_file: "{{ master_status.results[0].File }}"
+    master_log_pos: "{{ master_status.results[0].Position }}"
+
+- name: Configure slave replication
+  community.mysql.mysql_replication:
+    mode: slave
+    master_host: "db-master"
+    master_port: 3306
+    master_user: replicator
+    master_password: "{{ replication_password }}"
+    master_log_file: "{{ master_log_file }}"
+    master_log_pos: "{{ master_log_pos }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: 3307
+    state: present
+
+- name: Ensure slave is read-only
+  community.mysql.mysql_variables:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: 3307
+    variable: read_only
+    value: 'ON'
