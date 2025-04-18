@@ -1,5 +1,10 @@
 ---
-- name: Create & start mysql master container
+- name: Remove old mysql_db container
+  community.docker.docker_container:
+    name: mysql_db
+    state: absent
+
+- name: Restart mysql_db container as mysql_db_master
   community.docker.docker_container:
     name: mysql_db_master
     image: mysql:latest
@@ -11,14 +16,20 @@
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     command: --server-id=1 --log-bin=mysql-bin
+    volumes:
+      - mysql_data:/var/lib/mysql #keep data
     networks:
       - name: "{{ wp_network }}"
+
+- name: Create mysql replica docker volume
+  community.docker.docker_volume:
+    name: mysql_replica_data
 
 - name: Create & start mysql replica container
   community.docker.docker_container:
     name: mysql_db_replica
     image: mysql:latest
-    state: started
+    state: stopped
     restart_policy: always
     env:
       MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
@@ -26,20 +37,55 @@
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     command: --server-id=2 --log-bin=mysql-bin
+    volumes:
+      - mysql_replica_data:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
 
-- name: Wait for mysql_db_master and mysql_db_replica to be ready before running other mysql commands
+- name: Wait for mysql_db_master container to be ready
+  include_tasks: containers_ready.yml
+  vars:
+    mysql_containers:
+      - mysql_db_master
+
+- name: Dump mysql data, copy to replica and clean
   shell: >
-    until docker exec {{ item }} mysqladmin ping -uroot -p{{ mysql_root_password }} --silent;
-    do sleep 2; done
-  with_items:
-    - mysql_db_master
-    - mysql_db_replica
-  retries: 20
-  delay: 3
-  register: mysql_ready
-  until: mysql_ready.rc == 0
+    docker exec mysql_db_master sh -c 'mysqldump -uroot -p{{ mysql_root_password }} --all-databases > /tmp/db_dump.sql' &&
+    docker cp mysql_db_master:/tmp/db_dump.sql /tmp/db_dump.sql &&
+    docker cp /tmp/db_dump.sql mysql_db_replica:/tmp/db_dump.sql &&
+    docker exec mysql_db_master rm /tmp/db_dump.sql &&
+    rm /tmp/db_dump.sql
+
+- name: Start replica for import
+  community.docker.docker_container:
+    name: mysql_db_replica
+    state: started
+    restart_policy: always
+
+- name: Wait for mysql_db_replica container to be ready
+  include_tasks: containers_ready.yml
+  vars:
+    mysql_containers:
+      - mysql_db_replica
+
+- name: Import data to replica
+  shell: >
+    docker exec mysql_db_replica sh -c 'mysql -uroot -p{{ mysql_root_password }} < /tmp/db_dump.sql' &&
+    docker exec mysql_db_replica rm /tmp/db_dump.sql
+
+- name: Restart replica as replica
+  community.docker.docker_container:
+    name: mysql_db_replica
+    state: started
+    restart_policy: always
+    command: --server-id=2 --log-bin=mysql-bin
+
+- name: Wait for all mysql containers to be ready
+  include_tasks: containers_ready.yml
+  vars:
+    mysql_containers:
+      - mysql_db_master
+      - mysql_db_replica
 
 - name: Create replication user in master
   shell: >
@@ -65,7 +111,7 @@
 - name: Configure replication on replica
   shell: >
     docker exec mysql_db_replica mysql -uroot -p{{ mysql_root_password }} -e
-    "STOP REPLICA;
+    "STOP REPLICA; RESET REPLICA ALL;
      CHANGE REPLICATION SOURCE TO
        SOURCE_HOST='mysql_db_master',
        SOURCE_USER='{{ mysql_replica_user }}',

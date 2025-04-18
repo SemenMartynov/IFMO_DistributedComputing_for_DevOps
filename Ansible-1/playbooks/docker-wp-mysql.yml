@@ -4,5 +4,6 @@
   become: true
   roles:
     - docker
-    - mysql_cluster_db
+    - network
+    - mysql_db
     - wordpress

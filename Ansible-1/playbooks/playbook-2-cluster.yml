@@ -1,0 +1,7 @@
+---
+- name: Set up MySQL cluster
+  hosts: webservers
+  become: true
+  roles:
+    - mysql_cluster_db  # create mysql cluster
+    - wp_use_cluster    # modify wp to use cluster

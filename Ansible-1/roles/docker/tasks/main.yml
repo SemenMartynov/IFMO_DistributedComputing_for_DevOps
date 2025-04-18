@@ -31,8 +31,3 @@
     name: docker
     state: started
     enabled: yes
-
-- name: Create Docker network
-  docker_network:
-    name: "{{ wp_network }}"
-    state: present
