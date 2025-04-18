@@ -79,13 +79,13 @@
        published_ports:
           - "3307:3306"
 
-    - name: Получить статус мастера
-      command: >
+   - name: Получить статус мастера
+     command: >
         docker exec wp_db_master
-        mysql -uroot -p{{ mysql_root_password }}
+        mysql -h127.0.0.1 -P3306 -uroot -p{{ mysql_root_password }}
         -e "SHOW MASTER STATUS\G"
-      register: master_status
-      changed_when: false
+     register: master_status
+     hanged_when: false
 
    - name: Вытащить лог-файл мастера
      set_fact:
