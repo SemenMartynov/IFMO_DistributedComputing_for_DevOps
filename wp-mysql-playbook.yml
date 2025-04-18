@@ -72,6 +72,7 @@
         ipam_config:
           - subnet:  10.16.1.0/29
             gateway: 10.16.1.1
+            iprange: 10.16.1.0/29
 
     - name: Create WP docker network
       community.docker.docker_network:
