@@ -25,6 +25,5 @@
     networks:
       - name: "{{ docker_network }}"
     volumes:
-      - /var/www:/usr/share/nginx/html
       - /opt/nginx/conf.d:/etc/nginx/conf.d:ro
-      - "{{ worpress_volume }}:/var/www/html:ro"
+      - "{{ wordpress_volume }}:/var/www/html:ro"

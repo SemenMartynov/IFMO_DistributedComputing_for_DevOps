@@ -16,12 +16,27 @@ Vagrant.configure("2") do |config|
   config.vm.define "lemp" do |lemp|
     lemp.vm.box = "ubuntu/jammy64"
     lemp.vm.network "private_network", ip: "192.168.56.56"
-
-    lemp.vm.provision "ansible" do |ansible|
-      ansible.playbook = "./ansible/playbook.yaml"
-      ansible.inventory_path = "./ansible/inventory.ini"
-    end
   end
+
+  config.vm.define "mysql-master" do |master|
+    master.vm.box = "ubuntu/jammy64"
+    master.vm.network "private_network", ip: "192.168.56.57"
+    master.vm.hostname = "mysql-master"
+  
+  end 
+
+  config.vm.define "mysql-slave" do |slave|
+    slave.vm.box = "ubuntu/jammy64"
+    slave.vm.network "private_network", ip: "192.168.56.58"
+    slave.vm.hostname = "mysql-slave"
+  end
+
+  # config.vm.provision "ansible" do |ansible|
+  #   ansible.playbook = "./ansible/playbook.yml"
+  #   ansible.inventory_path = "./ansible/inventory.ini"
+  #   ansible.vault_password_file = "/home/art/.etc/ansible_pass"
+  #   ansible.limit = "all"
+
   
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at

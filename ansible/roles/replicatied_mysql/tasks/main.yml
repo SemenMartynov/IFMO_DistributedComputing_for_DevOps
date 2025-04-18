@@ -1,0 +1,8 @@
+---
+- name: Include master tasks
+  ansible.builtin.include_tasks: master.yml
+  when: inventory_hostname == 'mysql-master'
+
+- name: Include slave tasks
+  ansible.builtin.include_tasks: slave.yml
+  when: inventory_hostname == 'mysql-slave'
