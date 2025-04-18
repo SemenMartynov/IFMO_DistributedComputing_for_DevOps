@@ -34,7 +34,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}-slave"
         image: "{{ db_container_image }}"
-        state: stoped
+        state: stopped
         restart: yes
         restart_policy: always
         networks:
@@ -51,11 +51,12 @@
           MYSQL_DATABASE: "{{ wp_dbname }}"
           MYSQL_USER: "{{ wp_dbuser }}"
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
+#          mysql_server_id: "1"
 
     - name: Stop WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
-        state: stoped
+        state: stopped
 
     - name: Backup current WP databases
       mysql_db:
