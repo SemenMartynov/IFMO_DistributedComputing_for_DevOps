@@ -56,7 +56,7 @@ services:
     depends_on:
       master_database:
         condition: service_healthy
-      replica_database
+      replica_database:
         condition: service_healthy
 
 volumes:
