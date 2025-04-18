@@ -30,21 +30,22 @@
       with_items:
         - python3-pymysql
         
-    - name: Create MySQL container for slave
+    - name: Create MySQL container for SLAVE
       community.docker.docker_container:
-        name: "{{ db_container_name }}-slave"
+        name: "{{ db_container_name }}"
         image: "{{ db_container_image }}"
         state: started
         restart: yes
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
-            aliases: "{{ db_container_name }}slave"
+            aliases: "{{ db_container_name }}"
             ipv4_address: "10.16.1.4"
         exposed_ports:
-          - 3307
+          - 3306
+          - 33060
         volumes:
-          - db_slave:/var/lib/mysql
+          - db2:/var/lib/mysql
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
@@ -83,7 +84,7 @@
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.4
-        login_port: 3307
+        login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
