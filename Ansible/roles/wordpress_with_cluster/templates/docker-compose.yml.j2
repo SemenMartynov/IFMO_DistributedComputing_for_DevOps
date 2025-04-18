@@ -34,7 +34,7 @@ services:
       - ./replica_init.sql:/docker-entrypoint-initdb.d/init.sql
       - replica_data:/var/lib/mysql
     depends_on:
-      master_databse:
+      master_database:
         condition: service_healthy
     healthcheck:
       test: >
