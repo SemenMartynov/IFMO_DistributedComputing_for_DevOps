@@ -1,3 +1,3 @@
-CREATE USER 'replication'@'%' identified by 'password';
-GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%';
+CREATE USER '{{ replica_user }}'@'%' identified by 'password';
+GRANT REPLICATION SLAVE ON *.* TO '{{ replica_user }}'@'%';
 flush privileges;
