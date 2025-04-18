@@ -1,7 +1,9 @@
-CHANGE MASTER TO 
-MASTER_HOST = 'wp_db_master',
-MASTER_PORT=3306,
-MASTER_USER='{{ replica_user }}',
-MASTER_PASSWORD='{{ replica_password }}',
-MASTER_LOG_FILE='{{ master_log_file }}',
-START SLAVE;
+CHANGE REPLICATION SOURCE TO
+  SOURCE_HOST='wp_db_master',
+  SOURCE_PORT= 3306,
+  SOURCE_USER='{{ replica_user }}',
+  SOURCE_PASSWORD='{{ replica_password }}',
+  SOURCE_AUTO_POSITION=1,
+  GET_SOURCE_PUBLIC_KEY=1;
+
+START REPLICA;
