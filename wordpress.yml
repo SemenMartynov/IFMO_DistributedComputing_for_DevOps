@@ -31,7 +31,7 @@
         internal: "{{ item.internal }}"
       loop:
         - { name: frontend, internal: no }
-        - { name: backend, internal: yes }
+        - { name: backend, internal: yes }  # Изолированная сеть без интернета
 
     - name: CreateDB volumes
       docker_volume:
@@ -55,7 +55,7 @@
         volumes:
           - mariadb_master_data:/var/lib/mysql
         networks:
-          - name: backend
+          - name: backend  # Только внутренняя сеть
         command: >
           mysqld
           --log-bin=mysql-bin
@@ -63,28 +63,16 @@
           --server-id=1
           --bind-address=0.0.0.0
 
-    - name: Wait
-      community.docker.docker_container_exec:
-        container: mariadb_master
-        command: mysqladmin ping -uroot -p{{ mariadb_root_password }}
-        retries: 10
-        delay: 10
+    - name: just wait
+      ansible.builtin.pause:
+        seconds: 90
 
     - name: Configure Master replication
-      community.docker.docker_container_exec:
-        container: mariadb_master
-        command: >
-          mysql -uroot -p{{ mariadb_root_password }} -e
-          "CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mariadb_repl_password }}';
-          GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
-          FLUSH PRIVILEGES;"
-
-    - name: Master Log
-      community.docker.docker_container_exec:
-        container: mariadb_master
-        command: >
-          mysql -uroot -p{{ mariadb_root_password }} -e "SHOW MASTER STATUS\G"
-      register: master_status
+      command: >
+        docker exec mariadb_master mysql -uroot -p{{ mariadb_root_password }} -e "
+        CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mariadb_repl_password }}';
+        GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+        FLUSH PRIVILEGES;"
 
     - name: StartDB Slave
       docker_container:
@@ -98,32 +86,27 @@
         volumes:
           - mariadb_slave_data:/var/lib/mysql
         networks:
-          - name: backend
+          - name: backend  # Только внутренняя сеть
         command: >
           mysqld
           --server-id=2
           --relay-log=slave-relay-bin
           --bind-address=0.0.0.0
 
-    - name: Wait Slave
-      community.docker.docker_container_exec:
-        container: mariadb_slave
-        command: mysqladmin ping -uroot -p{{ mariadb_root_password }}
-        retries: 10
-        delay: 10
-
+    - name: just wait2
+      ansible.builtin.pause:
+        seconds: 90
+ 
     - name: Configure Slave replication
-      community.docker.docker_container_exec:
-        container: mariadb_slave
-        command: >
-          mysql -uroot -p{{ mariadb_root_password }} -e
-          "CHANGE MASTER TO
-          MASTER_HOST='mariadb_master',
-          MASTER_USER='repl',
-          MASTER_PASSWORD='{{ mariadb_repl_password }}',
-          MASTER_LOG_FILE='{{ master_status.stdout | regex_search('File: (\\S+)') | default('mysql-bin.000001') }}',
-          MASTER_LOG_POS={{ master_status.stdout | regex_search('Position: (\\d+)') | default(4) }};
-          START SLAVE;"
+      command: >
+        docker exec mariadb_slave mysql -uroot -p{{ mariadb_root_password }} -e "
+        CHANGE MASTER TO
+        MASTER_HOST='mariadb_master',
+        MASTER_USER='repl',
+        MASTER_PASSWORD='{{ mariadb_repl_password }}',
+        MASTER_LOG_FILE='mysql-bin.000001',
+        MASTER_LOG_POS=4;
+        START SLAVE;"
 
     - name: StartWP
       docker_container:
@@ -132,7 +115,7 @@
         state: started
         restart_policy: unless-stopped
         ports:
-          - "8081:80"  # Исправлен порт 80 вместо 81
+          - "8081:80"
         env:
           WORDPRESS_DB_HOST: "mariadb_master:3306"
           WORDPRESS_DB_USER: "{{ mariadb_user }}"
@@ -140,5 +123,5 @@
           WORDPRESS_DB_NAME: "{{ mariadb_database }}"
         networks:
           - name: frontend
-          - name: backend
+          - name: backend 
         force_kill: yes
