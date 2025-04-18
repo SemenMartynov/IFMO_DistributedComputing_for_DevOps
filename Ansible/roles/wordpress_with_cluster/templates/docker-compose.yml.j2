@@ -15,12 +15,11 @@ services:
       - ./master_init.sql:/docker-entrypoint-initdb.d/init.sql
       - master_data:/var/lib/mysql
     healthcheck:
-      test: >
-        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' &&
-        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW BINARY LOG STATUS'
+      test: ["CMD", "mysqladmin"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   replica_database:
     image: {{ mysql_image }}
@@ -38,7 +37,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: >
-        mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' &&
         mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW REPLICA STATUS' | grep -q 'Waiting for source to send event'
       interval: 15s
       timeout: 10s
