@@ -23,6 +23,7 @@
     cluster_network: "ms_network"
     replica_user: "replica_user"
     replica_password: "password"
+    playbook_dir: "./"
 
 
 
@@ -30,7 +31,7 @@
    - name: Clone a repo with separate git directory
      ansible.builtin.git:
       repo: "https://github.com/pashkami/Tazetdinov-Pavel_IFMO_DistributedComputing_for_DevOps"
-      dest: ./project
+      dest: {{ playbook_dir }}/project
       single_branch: yes
       version: "add-cluster"
 
@@ -55,10 +56,10 @@
        name: "{{ docker_network }}"
        state: present
 
-#   - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
-#     docker_network:
-#       name: "{{ cluster_network }}"
-#       state: present
+   - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
+     docker_network:
+       name: "{{ cluster_network }}"
+       state: present
 
    - name: Создать Docker-том для мастера
      community.docker.docker_volume:
@@ -74,14 +75,14 @@
 
    - name: Сгенерировать SQL-файл для инициализации мастера
      template:
-       src: ./project/templates/user_init_master.sql.j2
-       dest: ./project/sql_confs/user_init_master.sql
+       src: {{ playbook_dir }}/project/templates/user_init_master.sql.j2
+       dest: {{ playbook_dir }}/project/sql_confs/user_init_master.sql
        mode: '0644'
 
    - name: Сгенерировать SQL-файл для инициализации реплики
      template:
-       src: ./project/templates/user_init_slave.sql.j2
-       dest: ./project/sql_confs/user_init_slave.sql
+       src: {{ playbook_dir }}/project/templates/user_init_slave.sql.j2
+       dest: {{ playbook_dir }}/project/sql_confs/user_init_slave.sql
        mode: '0644'
 
 
@@ -98,12 +99,12 @@
          MYSQL_PASSWORD: "{{ mysql_password }}"
 #         MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
-         - mysql_master_data: /var/lib/mysql 
-         - ./project/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
-         - ./project/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:rw #Создание пользователя для реплики 
+         - mysql_master_data:/var/lib/mysql
+         - {{ playbook_dir }}/project/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
+         - {{ playbook_dir }}/project/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:rw #Создание пользователя для реплики 
        networks:
          - name: "{{ docker_network }}"
-#         - name: "{{ cluster_network }}"
+         - name: "{{ cluster_network }}"
        published_ports:
           - "3307:3306"
 
@@ -138,9 +139,9 @@
          MYSQL_DATABASE: "{{ mysql_database }}"
 
        volumes:
-         - mysql_slave_data: /var/lib/mysql
-         - "./project/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
-         - "./project/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:rw"
+         - mysql_slave_data:/var/lib/mysql
+         - "{{ playbook_dir }}/project/sql_confs/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+         - "{{ playbook_dir }}/project/sql_confs/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:rw"
        networks:
          - name: "{{ cluster_network }}"
        published_ports:
