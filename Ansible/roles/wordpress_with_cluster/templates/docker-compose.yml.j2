@@ -15,11 +15,11 @@ services:
       - ./master_init.sql:/docker-entrypoint-initdb.d/init.sql
       - master_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin"]
-      interval: 10s
+      test: ["CMD", "mysqladmin", "ping"]
+      interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 20
+      start_period: 20s
 
   replica_database:
     image: {{ mysql_image }}
@@ -39,8 +39,9 @@ services:
       test: >
         mysql -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SHOW REPLICA STATUS' | grep -q 'Waiting for source to send event'
       interval: 15s
-      timeout: 10s
-      retries: 10
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
   wordpress:
     image: {{ wordpress_image }}
@@ -53,8 +54,10 @@ services:
       WORDPRESS_DB_PASSWORD: {{ db_password }}
       WORDPRESS_DB_NAME: {{ db_name }}
     depends_on:
-      - master_database
-      - replica_database
+      master_database:
+        condition: service_healthy
+      replica_database
+        condition: service_healthy
 
 volumes:
   master_data:
