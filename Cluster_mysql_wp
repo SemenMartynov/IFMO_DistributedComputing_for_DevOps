@@ -22,6 +22,8 @@
     docker_network: "wp_network"
     cluster_network: "ms_network"
     replica_user: "replica_user"
+    replica_password: "password"
+
 
 
   tasks:
@@ -38,6 +40,7 @@
          - docker.io
          - python3-pip
          - python3-docker
+         - docker-compose
        state: present
        update_cache: yes
 
@@ -52,11 +55,22 @@
        name: "{{ docker_network }}"
        state: present
 
-   - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
-     docker_network:
-       name: "{{ cluster_network }}"
-       state: present
+#   - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
+#     docker_network:
+#       name: "{{ cluster_network }}"
+#       state: present
 
+   - name: Создать Docker-том для мастера
+     community.docker.docker_volume:
+       name: mysql_master_data
+
+   - name: Создать Docker-том для мастера
+     community.docker.docker_volume:
+       name: mysql_slave_data
+
+   - name: Создать Docker-том для мастера
+     community.docker.docker_volume:
+       name: wp_data
 
    - name: запускаю контейнер базы данных MySQL -master
      docker_container:
@@ -71,11 +85,12 @@
          MYSQL_PASSWORD: "{{ mysql_password }}"
          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
-         - "/home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
-         - "/home/server/tmp/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro" #Создание пользователя для реплики 
+         - mysql_master_data: /var/lib/mysql 
+         - /home/server/tmp/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro
+         - /home/server/tmp/sql_confs/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:rw #Создание пользователя для реплики 
        networks:
          - name: "{{ docker_network }}"
-         - name: "{{ cluster_network }}"
+#         - name: "{{ cluster_network }}"
        published_ports:
           - "3307:3306"
 
