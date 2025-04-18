@@ -39,7 +39,7 @@
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
-            aliases: "{{ db_container_name }}"
+            aliases: "{{ db_container_name }}-slave"
             ipv4_address: "10.16.1.4"
         exposed_ports:
           - 3306
