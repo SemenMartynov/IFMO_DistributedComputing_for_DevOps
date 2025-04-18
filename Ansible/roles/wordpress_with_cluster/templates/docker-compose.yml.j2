@@ -26,11 +26,10 @@ services:
       - ./replica_database.cnf:/etc/mysql/my.cnf
       - ./replica_init.sql:/docker-entrypoint-initdb.d/init.sql
       - replica_data:/var/lib/mysql
-    depends_on:
-      - master_database
 
   wordpress:
     image: {{ wordpress_image }}
+    restart: unless-stopped
     ports:
       - "{{ wp_port }}:80"
     environment:

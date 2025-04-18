@@ -1,7 +1,7 @@
 ---
 - name: Create config directories
   file:
-    path: "../playbook_files/wordpress_with_cluster"
+    path: "/opt/wordpress_with_cluster"
     state: directory
     owner: user
     group: user
@@ -10,7 +10,7 @@
 - name: Generate MySQL configs
   template:
     src: "{{ item }}"
-    dest: "../playbook_files/wordpress_with_cluster/{{ (item | basename).split('.j2')[0] }}"
+    dest: "/opt/wordpress_with_cluster/{{ (item | basename).split('.j2')[0] }}"
     owner: user
     group: user
     mode: '0644'
@@ -23,16 +23,16 @@
 - name: Generate docker-compose
   template:
     src: docker-compose.yml.j2
-    dest: ../playbook_files/wordpress_with_cluster/docker-compose.yml
+    dest: /opt/wordpress_with_cluster/docker-compose.yml
     owner: user
     group: user
     mode: '0644'
 
 - name: Start containers
   community.docker.docker_compose_v2:
-    project_src: ../playbook_files/wordpress_with_cluster/
+    project_src: /opt/wordpress_with_cluster/
     state: present
-    recreate: always
+    recreate: auto
     pull: missing
   register: output
 
