@@ -1,5 +1,5 @@
 [mysqld]
-server-id=2
+server_id=2
 relay-log=relay-log
 bind-address=0.0.0.0
 gtid-mode=ON
