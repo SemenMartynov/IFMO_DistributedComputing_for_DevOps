@@ -1,5 +1,4 @@
 [mysqld]
-server_id = 2  # указываем идентификатор сервера
-log_bin = mysql-bin  # указываем слейву вести собственный двоичный журнал
-relay-log=relay-log # указываем расположение журнала ретрансляции
-read_only = 1  # переводим слейв в режим “только чтение”
+server-id=2
+relay-log=relay-log
+bind-address=0.0.0.0
