@@ -30,7 +30,7 @@ jobs:
     - name: "Generate localhost inventory"
       run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
 
-    - name: Run Ansible Playbook locally
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
       run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
 
     - name: Testing docker containers are running
@@ -44,3 +44,6 @@ jobs:
         sleep 30 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
+    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
+  
