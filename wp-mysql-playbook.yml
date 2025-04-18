@@ -4,7 +4,7 @@
   vars:
     container_count: 1
     db_container_name: db
-    db_container_image: mysql:8.4
+    db_container_image: mysql:8.4.5
     wp_container_name: wp
     wp_container_image: wordpress
     wp_dbname: wp_dbname
