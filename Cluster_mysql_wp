@@ -85,7 +85,7 @@
         mysql -h127.0.0.1 -P3306 -uroot -p{{ mysql_root_password }}
         -e "SHOW MASTER STATUS\G"
      register: master_status
-     hanged_when: false
+     changed_when: false
 
    - name: Вытащить лог-файл мастера
      set_fact:
@@ -94,13 +94,6 @@
    - name: Вытащить позицию лога
      set_fact:
        master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
-   - name: Сгенерировать SQL-файл для реплики
-     template:
-       src: templates/user_init_slave.sql.j2
-       dest: /home/server/tmp/sql_confs/user_init_slave.sql
-       mode: '0644'
-
-
 
 
    - name: запускаю контейнер базы данных MySQL - slave
