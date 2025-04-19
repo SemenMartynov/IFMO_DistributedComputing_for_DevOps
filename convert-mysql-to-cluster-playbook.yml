@@ -141,8 +141,8 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
-          - CHANGE SOURCE TO SOURCE_HOST='10.16.1.3', SOURCE_PORT=3306, MASTER_USER='replica_user', SOURCE_AUTO_POSITION = 1, FOR CHANNEL 'db1s'
-          - START REPLICA USER = 'replica_user' PASSWORD = '{{ mysql_root_pw }}' FOR CHANNEL 'db1s'
+          - CHANGE REPLICATION SOURCE TO SOURCE_HOST='10.16.1.3', SOURCE_PORT=3306, SOURCE_USER='replica_user', SOURCE_PASSWORD = '{{ mysql_root_pw }}', SOURCE_AUTO_POSITION = 1 FOR CHANNEL 'db1s'
+          - START REPLICA FOR CHANNEL 'db1s'
 
     - name: Start WP container
       community.docker.docker_container:
