@@ -87,8 +87,12 @@
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
-          - FLUSH PRIVILEGES 
-
+          - FLUSH PRIVILEGES
+          
+    - name: Pause for 15s to start SLAVE
+      ansible.builtin.pause:
+        seconds: 15
+    
     - name: Install CLONE plugin and create replication user on SLAVE
       community.mysql.mysql_query:
         login_db: mysql
