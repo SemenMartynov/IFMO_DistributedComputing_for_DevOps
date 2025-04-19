@@ -55,15 +55,6 @@
     - name: Pause for 15s to start SLAVE
       ansible.builtin.pause:
         seconds: 15
-        
-    - name: Set mysql_server_id on SLAVE
-      community.mysql.mysql_variables:
-        variable: server_id
-        value: 2
-        mode: persist
-        login_host: "10.16.1.4"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"
 
     - name: Prepare SLAVE for replication
       community.mysql.mysql_query:
@@ -72,20 +63,15 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
-          - SET @@GLOBAL.enforce_gtid_consistency = ON
-          - SET @@GLOBAL.gtid_mode = OFF_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON
+          - SET PERSIST_ONLY server_id = 2
+          - SET PERSIST_ONLY enforce_gtid_consistency = ON
+          - SET PERSIST_ONLY gtid_mode = ON
 
-    - name: Stop MySQL SLAVE container
-      community.docker.docker_container:
-        name: "{{ db_container_name }}slave"
-        state: stopped
-
-    - name: Start MySQL SLAVE container
+    - name: ReStart MySQL SLAVE container
       community.docker.docker_container:
         name: "{{ db_container_name }}slave"
         state: started
+        restart: true
         
     - name: Stop WP container
       community.docker.docker_container:
@@ -108,24 +94,18 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
-          - SET @@GLOBAL.enforce_gtid_consistency = ON
-          - SET @@GLOBAL.gtid_mode = OFF_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON
+          - SET PERSIST_ONLY enforce_gtid_consistency = ON
+          - SET PERSIST_ONLY gtid_mode = ON
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
           - FLUSH PRIVILEGES
 
-    - name: Stop MySQL MASTER container
-      community.docker.docker_container:
-        name: "{{ db_container_name }}"
-        state: stopped
-
-    - name: Start MySQL MASTER container
+    - name: Restart MySQL MASTER container
       community.docker.docker_container:
         name: "{{ db_container_name }}"
         state: started
+        restart: true
 
     - name: Pause for 15s to start MASTER
       ansible.builtin.pause:
