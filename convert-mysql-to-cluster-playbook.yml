@@ -96,8 +96,10 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
-          - SET @@GLOBAL.GTID_MODE = ON
           - SET @@GLOBAL.enforce_gtid_consistency = ON
+          - SET @@GLOBAL.gtid_mode = OFF_PERMISSIVE
+          - SET @@GLOBAL.gtid_mode = ON_PERMISSIVE
+          - SET @@GLOBAL.gtid_mode = ON
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
@@ -118,7 +120,7 @@
         seconds: 15
         
     - name: Install CLONE plugin and create replication user on SLAVE
-      ignore_errors: true
+      ignore_errors: true # mysql will restart after after clone completed
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.4"
