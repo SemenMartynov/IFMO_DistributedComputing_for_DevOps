@@ -42,7 +42,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - my{{ item }}.cnf:/etc/my.cnf:ro
+          - ./my{{ item }}.cnf:/etc/my.cnf:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
