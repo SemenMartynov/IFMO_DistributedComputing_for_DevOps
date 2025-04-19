@@ -159,6 +159,10 @@
      delay: 5
      until: mysql_ready.rc == 0
 
+   - name: Задержка 30 секунд для запуска сервиса
+     pause:
+      seconds: 30
+
    - name: Проверяю статус реплики
      command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SHOW SLAVE STATUS\G"'
      register: replica_status
