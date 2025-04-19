@@ -60,13 +60,13 @@ wp_server ansible_connection={Ip-адрес целевой машины}
 
 Если выполняется от root:
 ```bash
-ansible-playbook -i inventory.ini ans.yml
+ansible-playbook -i inventory.ini Cluster_mysql_wp.yml
 ```
 
 Если выполняется от обычного пользователя:
 
 ```bash
-ansible-playbook -i inventory.ini ans.yml --ask-become-pass
+ansible-playbook -i inventory.ini Cluster_mysql_wp.yml --ask-become-pass
 ```
 Плейбук запросит пароль sudo 
 
