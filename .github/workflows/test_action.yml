@@ -33,19 +33,19 @@ jobs:
     - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
       run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
 
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 5 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
+
     - name: Testing docker containers are running
       run: |
         sudo docker ps
         sudo docker volume ls
         sudo docker network ls
-
-    - name: Testing wordpress container is serving HTTP port
-      run: |
-        sleep 15 # need some time for docker containers to start properly
-        curl -v "http://127.0.0.1/" || true
-
-    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
 
     - name: Testing wordpress container is serving HTTP port
       run: |
