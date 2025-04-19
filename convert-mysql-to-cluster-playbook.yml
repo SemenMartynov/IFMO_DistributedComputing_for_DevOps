@@ -131,6 +131,10 @@
           - SET GLOBAL clone_valid_donor_list = '10.16.1.3:3306'
           - CLONE INSTANCE FROM 'replica_user'@'10.16.1.3':3306 IDENTIFIED BY '{{ mysql_root_pw }}'
 
+    - name: Pause for 15s to start MASTER
+      ansible.builtin.pause:
+        seconds: 15
+        
     - name: Start replication on SLAVE
       community.mysql.mysql_query:
         login_db: mysql
