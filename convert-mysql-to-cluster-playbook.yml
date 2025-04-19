@@ -25,7 +25,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --enforce-gtid-consistency='ON' --gtid-mode='ON' --plugin-load='group_replication.so' --group-replication-start-on-boot='OFF' --group-replication-group-name='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' --group-replication-local-address="{{ db_container_name }}{{ item }}:3306" --group-replication-group-seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306' --loose-group-replication-single-primary-mode='OFF' --loose-group-replication-enforce-update-everywhere-checks='ON'
+        command: --server-id={{ item }} --enforce-gtid-consistency=ON --gtid-mode=ON --plugin-load='group_replication.so' --group-replication-start-on-boot=OFF --group-replication-group-name='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' --group-replication-local-address="{{ db_container_name }}{{ item }}:3306" --group-replication-group-seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306' --loose-group-replication-single-primary-mode=OFF --loose-group-replication-enforce-update-everywhere-checks=ON
         state: started
         restart: yes
         restart_policy: "unless-stopped"
