@@ -43,11 +43,11 @@
           MYSQL_DATABASE: "{{ wp_dbname }}"
           MYSQL_USER: "{{ wp_dbuser }}"
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
-      with_sequence: count=3
+      with_sequence: start=1 end=3
 
-    - name: Pause for 15s to start MySQL instances
+    - name: Pause for 30s to start MySQL instances
       ansible.builtin.pause:
-        seconds: 15
+        seconds: 30
 
     - name: 'Node #1 will bootstrap the group'
       community.mysql.mysql_query:
@@ -75,9 +75,7 @@
         query:
           - CHANGE MASTER TO MASTER_USER='repl', MASTER_PASSWORD = '{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - START GROUP_REPLICATION
-      loop:
-        - 2
-        - 3
+      with_sequence: start=2 end=3
       
     - name: Stop WP container
       community.docker.docker_container:
