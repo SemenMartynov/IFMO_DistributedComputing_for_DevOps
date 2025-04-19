@@ -4,16 +4,6 @@
 - hosts: all
   become: true
   vars:
-    db_container_name: db
-    db_container_image: mysql:lts
-    wp_container_name: wp
-    wp_container_image: wordpress
-    wp_dbname: wp_dbname
-    wp_dbuser: wp_dbuser
-    wp_int_network: wp_int_network
-    wp_ext_network: wp_ext_network
-    pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
-    mysql_root_pw: "{{ lookup('env','MYSQL_ROOT_PASSWORD') or 'MySQL_s3cret_Pas3w0rD' }}"
 
   tasks:
     - name: Generate MySQL password
