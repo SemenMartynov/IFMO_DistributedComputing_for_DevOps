@@ -3,7 +3,8 @@
 # https://dev.mysql.com/doc/mysql-shell/8.4/en/mysql-innodb-cluster.html
 - hosts: all
   become: true
-  vars:
+  vars_files:
+    - defaults/main.yml
 
   tasks:
     - name: Generate MySQL password
