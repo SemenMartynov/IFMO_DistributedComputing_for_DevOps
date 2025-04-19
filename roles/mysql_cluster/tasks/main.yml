@@ -50,6 +50,11 @@
     driver: bridge
     state: present
 
+- name: Остановка старых контейнеров
+  community.docker.docker_compose_v2:
+    project_src: "/opt/wordpress/"
+    state: absent
+
 - name: Запуск контейнеров кластера через Docker Compose
   community.docker.docker_compose_v2:
     project_src: "{{ mysql_cluster_dir }}/"
