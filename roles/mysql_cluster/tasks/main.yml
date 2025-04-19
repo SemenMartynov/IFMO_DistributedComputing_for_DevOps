@@ -67,22 +67,15 @@
   delay: 60
   until: result.rc == 0
 
-- name: Выборка информации о бинарном логе
-  shell: |
-    docker exec mysql_node_1 mysql -uroot -p"{{ mysql_root_password }}" \
-      -e "SHOW MASTER STATUS\G" | grep "File\|Position" | awk '{print $2}'
-  register: log_info
+- name: Get primary binlog file name and binlog position
+  community.mysql.mysql_replication:
+    mode: getprimary
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: primary_status
   changed_when: false
-  failed_when: false
-
-- name: Получение имени файла и позиции
-  set_fact:
-    master_log_file: "{{ log_info.stdout_lines[0] }}"
-    master_log_pos: "{{ log_info.stdout_lines[1] }}"
-
-- name: Вывод информации о параметрах репликации
-  debug:
-    msg: "Log File: {{ master_log_file }}, Position: {{ master_log_pos }}"
 
 - name: Остановка репликации на вторичных узлах перед настройкой
   community.mysql.mysql_replication:
@@ -101,8 +94,8 @@
     primary_port: 3306
     primary_user: "{{ repl_user }}"
     primary_password: "{{ repl_password }}"
-    primary_log_file: "{{ master_log_file }}"
-    primary_log_pos: "{{ master_log_pos }}"
+    primary_log_file: "{{ primary_status.File }}"
+    primary_log_pos: "{{ primary_status.Position }}"
     login_host: localhost
     login_port: "{{ 3307 + item - 2 }}"
     login_user: root
