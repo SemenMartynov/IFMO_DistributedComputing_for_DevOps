@@ -27,8 +27,8 @@
         image: "{{ db_container_image }}"
         command: --server-id={{ item }} --enforce-gtid-consistency=ON --gtid-mode=ON --plugin-load-add='group_replication.so' --group-replication-start-on-boot=OFF --group-replication-group-name='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' --group-replication-local-address="{{ db_container_name }}{{ item }}:3306" --group-replication-group-seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306' --loose-group-replication-single-primary-mode=OFF --loose-group-replication-enforce-update-everywhere-checks=ON
         state: started
-        restart: yes
-        restart_policy: "unless-stopped"
+#        restart: yes
+        restart_policy: "on-failure"
         networks:
           - name: "{{ wp_int_network }}"
             ipv4_address: "10.16.1.1{{ item }}"
@@ -45,9 +45,9 @@
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
-    - name: Pause for 40s to start MySQL instances
+    - name: Pause for 30s to start MySQL instances
       ansible.builtin.pause:
-        seconds: 40
+        seconds: 30
 
     - name: 'Node #1 will bootstrap the group'
       ignore_errors: true
