@@ -49,7 +49,7 @@ jobs:
         
     - name: Testing MySQL replication is running
       run: |    
-        sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
+        sudo docker exec db mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
         sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICA STATUS\G;'
 
     - name: Testing wordpress container is serving HTTP port
