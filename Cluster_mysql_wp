@@ -1,16 +1,12 @@
 #запуск с запросом на рута 
 #ansible-playbook -i inventory.ini ans.yml --ask-become-pass
-
-
-#установка ansible на ubuntu
-
-#sudo apt install ansible-core
-#Разварачивать буду mysql прописываем хосты, и переменные для бд и общее название сети для докера.
-
-# https://habr.com/ru/articles/532216/
+#ссылки, которые использовал как опорный материал
+#https://habr.com/ru/articles/532216/
 #https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_variables_module.html#ansible-collections-community-mysql-mysql-variables-module
 #https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-howto.html
 ---
+
+
 - name: Развертывание WordPress с Docker
   hosts: all
   become: yes
@@ -23,10 +19,10 @@
     cluster_network: "ms_network"
     replica_user: "replica_user"
     replica_password: "password"
-#    playbook_dir: "./"
+#    playbook_dir: "./" #если нужно сменить рабочую дириккторию
 
 
-
+## Клонирование репозитория с шаблонамиИспользуется модуль ansible.builtin.git для загрузки ветки add-cluster:
   tasks:
    - name: Clone a repo with separate git directory
      ansible.builtin.git:
@@ -36,6 +32,7 @@
       version: "add-cluster"
       force: yes
 
+## Обновление кеша apt и установка Docker, Python-пакетов и Docker Compose:
    - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
      apt:
        name:
@@ -46,22 +43,26 @@
        state: present
        update_cache: yes
 
+## Запуск серивиса Docker
    - name: запускаю сервис Docker
      service:
        name: docker
        state: started
        enabled: true
 
+## Создание docker  сети для связи контейнера WP и Мастера mysql
    - name: Создаю Docker-сеть для WP и БД
      docker_network:
        name: "{{ docker_network }}"
        state: present
 
+## Создание docker  сети для связи контейнера Мастера mysql и реплики
    - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
      docker_network:
        name: "{{ cluster_network }}"
        state: present
 
+## Создание Docker-томов (volumes), без них образы поднимаются слишком долго
    - name: Создать Docker-том для мастера
      community.docker.docker_volume:
        name: mysql_master_data
@@ -73,6 +74,9 @@
    - name: Создать Docker-том для wp
      community.docker.docker_volume:
        name: wp_data
+
+##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
+
 
    - name: Сгенерировать SQL-файл для инициализации мастера
      template:
@@ -86,7 +90,7 @@
        dest: "{{ playbook_dir }}/project/sql_confs/user_init_slave.sql"
        mode: '0644'
 
-
+## Запуск MySQL Master Порт на хосте: 3307, добавляем и настраиваем стартогого пользователя для репликации, меняем конфиги.
    - name: запускаю контейнер базы данных MySQL -master
      docker_container:
        name: wp_db_master
@@ -98,7 +102,6 @@
          MYSQL_DATABASE: "{{ mysql_database }}"
          MYSQL_USER: "{{ mysql_user }}"
          MYSQL_PASSWORD: "{{ mysql_password }}"
-#         MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
        volumes:
          - mysql_master_data:/var/lib/mysql
          - "{{ playbook_dir }}/project/sql_confs/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
@@ -109,6 +112,7 @@
        published_ports:
           - "3307:3306"
 
+## Использовал до того как узнал про GTID в MySQL
   #  - name: Получить статус мастера
   #    command: >
   #       docker exec wp_db_master
@@ -147,6 +151,7 @@
          - name: "{{ cluster_network }}"
        published_ports:
           - "3308:3306"
+
    - name: Проверка готовности MySQL в wp_db_slave
      command: docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SELECT 1"
      register: mysql_ready
