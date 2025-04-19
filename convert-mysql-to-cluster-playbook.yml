@@ -31,7 +31,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --gtid-mode=ON --enforce-gtid-consistency=ON
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --group-replication-group-name="{{ pwd_alias | to_uuid }}"
         state: started
         restart_policy: "on-failure"
         networks:
