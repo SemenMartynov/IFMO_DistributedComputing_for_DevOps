@@ -58,7 +58,7 @@
         
     - name: Set mysql_server_id on SLAVE
       community.mysql.mysql_variables:
-        variable: mysql_server_id
+        variable: server_id
         value: 2
         mode: persist
         login_host: "10.16.1.4"
@@ -101,6 +101,16 @@
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
           - FLUSH PRIVILEGES
+
+    - name: Stop MySQL MASTER container
+      community.docker.docker_container:
+        name: "{{ db_container_name }}"
+        state: stopped
+
+    - name: Start MySQL MASTER container
+      community.docker.docker_container:
+        name: "{{ db_container_name }}"
+        state: started
 
     - name: Install CLONE plugin and create replication user on SLAVE
       community.mysql.mysql_query:
