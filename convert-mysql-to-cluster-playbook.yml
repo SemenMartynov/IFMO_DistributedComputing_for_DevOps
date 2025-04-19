@@ -31,7 +31,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --group-replication-group-name="{{ pwd_alias | to_uuid }}"
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON
         state: started
         restart_policy: "on-failure"
         networks:
@@ -42,7 +42,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - my{{ item }}.cnf:/etc/mysql/conf.d/my.cnf:ro
+          - my{{ item }}.cnf:/etc/my.cnf:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
