@@ -122,7 +122,6 @@
         login_host: "10.16.1.4"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
-        single_transaction: true
         query:
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
@@ -131,7 +130,7 @@
           - SET GLOBAL clone_valid_donor_list = '10.16.1.3:3306'
           - CLONE INSTANCE FROM 'replica_user'@'10.16.1.3':3306 IDENTIFIED BY '{{ mysql_root_pw }}'
 
-    - name: Pause for 15s to start MASTER
+    - name: Pause for 15s to start SLAVE
       ansible.builtin.pause:
         seconds: 15
         
@@ -141,6 +140,12 @@
         login_host: "10.16.1.4"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
-        single_transaction: true
         query:
-          - CHANGE MASTER TO MASTER_HOST='10.16.1.3', MASTER_PORT=3306, MASTER_USER='replica_user', MASTER_PASSWORD='{{ mysql_root_pw }}', MASTER_AUTO_POSITION = 1
+          - CHANGE SOURCE TO SOURCE_HOST='10.16.1.3', SOURCE_PORT=3306, MASTER_USER='replica_user', SOURCE_AUTO_POSITION = 1, FOR CHANNEL 'db1s'
+          - START REPLICA USER = 'replica_user' PASSWORD = '{{ mysql_root_pw }}' FOR CHANNEL 'db1s'
+
+    - name: Start WP container
+      community.docker.docker_container:
+        name: "{{ wp_container_name }}"
+        state: statred
+
