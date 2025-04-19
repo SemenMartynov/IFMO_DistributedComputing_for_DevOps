@@ -1,0 +1,56 @@
+---
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ monitoring_dir }}/mysql-exporter"
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0755'
+
+- name: Configure exporter connection to db
+  ansible.builtin.copy:
+    dest: "{{ monitoring_dir }}/mysql-exporter/config.my-cnf"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+    content: |
+      [client]
+      user = {{ mysql_exporter_user }}
+      password = {{ mysql_exporter_password }}
+
+- name: Add mysql-exporter to docker-compose
+  ansible.builtin.blockinfile:
+    path: "{{ project_dir }}/docker-compose.yml"
+    insertafter: 'services:'
+    block: |
+      {% filter indent(width=2, first=true) %}
+      mysql-exporter:
+        image: prom/mysqld-exporter:latest
+        restart: always
+        command: '--config.my-cnf=/cfg/config.my-cnf --web.config.file=/webconfig/config.yml'
+        volumes:
+          - {{ monitoring_dir }}/mysql-exporter/config.my-cnf:/cfg/config.my-cnf:ro
+          - {{ monitoring_dir }}/common:/webconfig:ro
+        ports:
+          - 9104:9104
+        depends_on:
+          - db
+      {% endfilter %}
+
+- name: Set up monitoring user in db
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c "mariadb -uroot -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER IF NOT EXISTS '{{ mysql_exporter_user }}'@'%' IDENTIFIED BY '{{ mysql_exporter_password }}' WITH MAX_USER_CONNECTIONS 3; \
+        GRANT PROCESS, REPLICATION CLIENT, SLAVE MONITOR, SELECT ON *.* TO '{{ mysql_exporter_user }}'@'%'; \
+        FLUSH PRIVILEGES;\""
+
+- name: Create and start apps
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+  register: output
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output

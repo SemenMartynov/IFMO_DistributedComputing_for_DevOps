@@ -1,6 +1,5 @@
 ---
 - name: Change single database to cluster and sync data
-  hosts: remote
-  #become: true
+  hosts: blog
   roles:
-    - mysql-replication
+    - wordpress-mysql-replication

@@ -1,3 +1,5 @@
 ---
+master_server_id: 3000
+replica_server_id: 3001
 replication_user: replicator
 replication_password: replicatorpassword

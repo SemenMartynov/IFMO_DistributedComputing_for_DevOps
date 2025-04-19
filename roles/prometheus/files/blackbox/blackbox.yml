@@ -1,0 +1,13 @@
+{% raw %}
+modules:
+  http_2xx:
+    http:
+      follow_redirects: true
+      ip_protocol_fallback: false
+      preferred_ip_protocol: ip4
+      valid_http_versions:
+      - HTTP/1.1
+      - HTTP/2.0
+    prober: http
+    timeout: 15s
+{% endraw %}

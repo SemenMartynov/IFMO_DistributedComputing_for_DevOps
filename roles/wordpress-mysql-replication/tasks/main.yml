@@ -1,12 +1,26 @@
-#SPDX-License-Identifier: MIT-0
 ---
+
+# Создание и восстановление дампа будет выполнено только в том случае, если бинарный лог не включен ранее.
+# Это позволит избежать потери данных при повторном запуске плейбука.
+- name: Check if binlog is already enabled
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c "mariadb -uroot -p$MYSQL_ROOT_PASSWORD -s -N --execute='SELECT @@log_bin';"
+  register: binlog_status
+
+- name: Show binlog status
+  ansible.builtin.debug:
+    var: binlog_status
 
 - name: Dump all databases
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
     service: db
     command: >
-      sh -c 'mariadb-dump --add-drop-database -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE > /var/lib/mysql/dump.sql'
+      sh -c 'mariadb-dump --add-drop-database -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE > /var/lib/mysql/dump.sql'
+  when: binlog_status.stdout == "0"
 
 - name: Create directories
   ansible.builtin.file:
@@ -37,7 +51,7 @@
       content: |
         [mariadb]
         log-bin
-        server_id=3000
+        server_id={{ master_server_id}}
         log-basename=my-mariadb
         binlog-format=MIXED             
 
@@ -49,7 +63,7 @@
       group: "{{ ansible_ssh_user }}"
       content: |
         [mariadb]
-        server_id=3001
+        server_id={{ replica_server_id }}
         log-basename=my-mariadb
         binlog-format=MIXED
 
@@ -66,6 +80,14 @@
           MASTER_PASSWORD='{{ replication_password }}',
           MASTER_PORT=3306,
           MASTER_CONNECT_RETRY=10;
+
+- name: Upload environment variables
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
 
 - name: Apply updated compose file
   community.docker.docker_compose_v2:
@@ -95,7 +117,7 @@
     project_src: "{{ project_dir }}"
     service: db
     command: >
-      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='select 1;' --skip-column-names -s;"
+      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='select 1;' --skip-column-names -s;"
   register: result
   retries: 5
   delay: 30
@@ -108,7 +130,7 @@
     project_src: "{{ project_dir }}"
     service: db
     command: >
-      sh -c "mariadb -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; \
+      sh -c "mariadb -uroot -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; \
         GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%'; \
         FLUSH PRIVILEGES;\""
 
@@ -117,14 +139,15 @@
     project_src: "{{ project_dir }}"
     service: db
     command: >
-      sh -c 'mariadb -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
+      sh -c 'mariadb -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
+  when: binlog_status.stdout == "0"
 
 - name: Wait until replication starts
   community.docker.docker_compose_v2_exec:
     project_src: "{{ project_dir }}"
     service: db-replica
     command: >
-      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;' | grep -E 'Slave_IO_Running:|Slave_SQL_Running:' | tr -d '[:space:]'"
+      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;' | grep -E 'Slave_IO_Running:|Slave_SQL_Running:' | tr -d '[:space:]'"
   register: result
   retries: 5
   delay: 30
@@ -137,7 +160,7 @@
     project_src: "{{ project_dir }}"
     service: db-replica
     command: >
-      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;'"
+      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;'"
   register: result
 
 - name: Show replication status

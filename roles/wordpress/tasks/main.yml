@@ -1,8 +1,8 @@
 #SPDX-License-Identifier: MIT-0
 ---
-- name: Create project directory
+- name: Create directories
   ansible.builtin.file:
-    path: "{{ project_dir }}"
+    path: "{{ project_dir }}/mariadb-master"
     state: directory
     owner: "{{ ansible_ssh_user }}"
     group: "{{ ansible_ssh_user }}"
@@ -17,8 +17,8 @@
     mode: '0644'
 
 - name: Upload environment variables
-  ansible.builtin.copy:
-    src: "{{ role_path }}/files/.env"
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
     dest: "{{ project_dir }}/.env"
     owner: "{{ ansible_ssh_user }}"
     group: "{{ ansible_ssh_user }}"

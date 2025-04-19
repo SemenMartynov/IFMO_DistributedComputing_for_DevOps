@@ -1,0 +1,4 @@
+---
+certificate_common_name: Exporter
+monitoring_user: prometheus
+monitoring_password: prompassword

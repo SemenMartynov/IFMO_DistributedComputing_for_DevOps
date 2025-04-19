@@ -1,0 +1,6 @@
+---
+project_dir: /srv/docker/wp
+db_root_password: "{{ vault_db_root_password }}"
+db_name: "{{ vault_db_name }}"
+db_user: "{{ vault_db_user }}"
+db_password: "{{ vault_db_password }}"

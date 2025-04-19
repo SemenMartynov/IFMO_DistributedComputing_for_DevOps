@@ -1,0 +1,28 @@
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: default-receiver
+receivers:
+  - name: default-receiver
+    telegram_configs:
+    - bot_token: {{ bot_token }}
+      chat_id: {{ chat_id }}
+      message: |
+        {% raw %}{{ if gt (len .Alerts.Firing) 0 }}🔥 <b>FIRING</b> 🔥
+        {{ range .Alerts.Firing }}
+        <b>{{ .Labels.alertname }}</b>
+        <b>Description:</b> {{ .Annotations.description }}
+        <b>Summary:</b> {{ .Annotations.summary }}
+        <b>Start:</b> {{ .StartsAt }}
+        {{ end }}{{ end }}
+        {{ if gt (len .Alerts.Resolved) 0 }}✅ <b>RESOLVED</b> ✅
+        {{ range .Alerts.Resolved }}
+        <b>{{ .Labels.alertname }}</b> 
+        <b>Description:</b> {{ .Annotations.description }}
+        <b>Summary:</b> {{ .Annotations.summary }}
+        <b>Start:</b> {{ .StartsAt }}
+        <b>End:</b> {{ .EndsAt }}
+        {{ end }}{{ end }}
+        {% endraw %}

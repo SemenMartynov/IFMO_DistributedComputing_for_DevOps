@@ -1,0 +1,87 @@
+---
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0755'
+  loop:
+    - "{{ monitoring_dir }}/prometheus"
+    - "{{ monitoring_dir }}/alertmanager"
+    - "{{ monitoring_dir }}/blackbox"
+    - "{{ monitoring_dir }}/grafana"
+
+- name: Upload files
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/{{ item }}"
+    dest: "{{ monitoring_dir }}/{{ item }}"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+  loop:
+    - "docker-compose.yml"
+    - "prometheus/prometheus.yml"
+    - "prometheus/rules.yml"
+    - "alertmanager/alertmanager.yml"
+    - "blackbox/blackbox.yml"
+    - "grafana/ds.yaml"
+
+- name: Add node_exporter prometheus scrape config
+  ansible.builtin.blockinfile:
+    path: "{{ monitoring_dir }}/prometheus/prometheus.yml"
+    insertafter: 'scrape_configs:'
+    marker: "# {mark} NODE_EXPORTER ANSIBLE MANAGED BLOCK"
+    block: |
+      {% filter indent(width=2, first=true) %}
+      - job_name: "node_exporter"  
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+          ca_file: /webconfig/exporter.crt
+        basic_auth:
+          username: {{ monitoring_user }}
+          password: {{ monitoring_password }}
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["{{ hostvars['blog'].ansible_host }}:9100"]
+      {% endfilter %}
+
+- name: Add mysql_exporter prometheus scrape config
+  ansible.builtin.blockinfile:
+    path: "{{ monitoring_dir }}/prometheus/prometheus.yml"
+    insertafter: 'scrape_configs:'
+    marker: "# {mark} MYSQL_EXPORTER ANSIBLE MANAGED BLOCK"
+    block: |
+      {% filter indent(width=2, first=true) %}
+      - job_name: "mysql_exporter"  
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+          ca_file: /webconfig/exporter.crt
+        basic_auth:
+          username: {{ monitoring_user }}
+          password: {{ monitoring_password }}
+        metrics_path: /metrics
+        static_configs:
+        - targets:
+          - db:3306
+          - db-replica:3306
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            # The mysqld_exporter host:port
+            replacement: {{ hostvars['blog'].ansible_host }}:9104
+      {% endfilter %}
+
+- name: Create and start apps
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+  register: output
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output

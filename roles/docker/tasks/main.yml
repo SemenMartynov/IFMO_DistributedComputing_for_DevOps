@@ -41,3 +41,11 @@
     append: yes
   loop: "{{ docker_users }}"
   when: docker_users | length > 0
+
+- name: Create directory for docker services
+  ansible.builtin.file:
+    path: "/srv/docker"
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0755'
