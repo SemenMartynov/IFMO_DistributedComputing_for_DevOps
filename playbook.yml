@@ -1,5 +1,5 @@
 ---
-- name: Deploy WordPress with Docker
+- name: Deploy WordPress with Docker and MySQL Replication
   hosts: wordpress
   become: yes
   vars_files:
@@ -50,36 +50,31 @@
         append: yes
       notify: restart sshd
 
-    - name: Create replication directories
+    - name: Create application directory
       file:
-        path: "{{ item }}"
+        path: /opt/wordpress
         state: directory
         mode: 0755
-      loop:
-        - /opt/wordpress/mysql-master
-        - /opt/wordpress/mysql-slave
-    
-    - name: Deploy Docker Compose with replication
+
+    - name: Deploy MySQL master configuration
+      copy:
+        src: files/master.cnf
+        dest: /opt/wordpress/master.cnf
+        mode: 0644
+
+    - name: Deploy MySQL replica configuration
+      copy:
+        src: files/replica.cnf
+        dest: /opt/wordpress/replica.cnf
+        mode: 0644
+
+    - name: Deploy Docker Compose file with replication
       template:
-        src: templates/docker-compose-replication.yml.j2
+        src: templates/docker-compose.yml.j2
         dest: /opt/wordpress/docker-compose.yml
         mode: 0644
 
-    - name: Create database snapshot
-      command: |
-        docker exec {{ item }} mysqldump -uroot -p{{ DB_ROOT_PASSWORD }} --all-databases --single-transaction --flush-logs --master-data=2 > /opt/wordpress/db_snapshot.sql
-      register: snapshot_result
-      changed_when: false
-      loop: "{{ ansible_play_hosts }}"
-      when: inventory_hostname == ansible_play_hosts[0]  # Выполняем только на первом хосте
-      delegate_to: "{{ item }}"
-      run_once: true
-
-    - name: Stop old DB container
-      command: docker stop db
-      ignore_errors: yes
-
-    - name: Start WordPress with replication
+    - name: Start WordPress containers with replication
       command: docker compose -f /opt/wordpress/docker-compose.yml up -d
       args:
         chdir: /opt/wordpress
@@ -88,52 +83,20 @@
         DB_NAME: "{{ DB_NAME }}"
         DB_USER: "{{ DB_USER }}"
         DB_PASSWORD: "{{ DB_PASSWORD }}"
-        MYSQL_MASTER_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
-        MYSQL_SLAVE_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
+        DB_REPLICATION_USER: "{{ DB_REPLICATION_USER }}"
+        DB_REPLICATION_PASSWORD: "{{ DB_REPLICATION_PASSWORD }}"
 
-    - name: Restore snapshot to master
-      command: |
-        docker exec -i mysql-master mysql -uroot -p{{ DB_ROOT_PASSWORD }} < /opt/wordpress/db_snapshot.sql
-      when: snapshot_result is succeeded and inventory_hostname == ansible_play_hosts[0]
-
-    # Настраиваем репликацию
-    - name: Configure replication user on master
-      command: |
-        docker exec mysql-master mysql -uroot -p{{ DB_ROOT_PASSWORD }} -e "
-        CREATE USER 'repl'@'%' IDENTIFIED BY 'repl_password';
-        GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
-        FLUSH PRIVILEGES;"
-      register: master_setup
+    - name: Verify containers are running
+      command: docker ps --filter name=wordpress
+      register: container_status
       changed_when: false
 
-
-    - name: Get master status
-      command: |
-        docker exec mysql-master mysql -uroot -p{{ DB_ROOT_PASSWORD }} -e "SHOW MASTER STATUS\G"
-      register: master_status
-      changed_when: false
-
-
-    - name: Configure slave replication
-      command: |
-        docker exec mysql-slave mysql -uroot -p{{ DB_ROOT_PASSWORD }} -e "
-        CHANGE MASTER TO
-        MASTER_HOST='mysql-master',
-        MASTER_USER='repl',
-        MASTER_PASSWORD='repl_password',
-        MASTER_LOG_FILE='{{ master_status.stdout | regex_search('File: (.*)', '\1') | first }}',
-        MASTER_LOG_POS={{ master_status.stdout | regex_search('Position: (.*)', '\1') | first }};
-        START SLAVE;"
-      when: master_status is succeeded
-
-    - name: Verify replication status
-      command: docker exec mysql-slave mysql -uroot -p{{ DB_ROOT_PASSWORD }} -e "SHOW SLAVE STATUS\G"
-      register: slave_status
-      changed_when: false
-
-    - name: Show replication status
+    - name: Show containers status
       debug:
-        var: slave_status.stdout_lines
+        var: container_status.stdout_lines
 
   handlers:
-    - import_tasks: handlers/main.yml
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
