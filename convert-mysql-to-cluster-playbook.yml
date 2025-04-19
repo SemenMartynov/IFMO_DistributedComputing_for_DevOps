@@ -22,6 +22,10 @@
         - python3-pymysql
 
     - name: Init MySQL instances
+      template:
+        src: templates/my.cnf.j2
+        dest: my{{ item }}.cnf
+    
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
@@ -35,6 +39,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
+          - my{{ item }}.cnf:/etc/mysql/conf.d/my.cnf:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
