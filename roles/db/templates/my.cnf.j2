@@ -1,0 +1,19 @@
+[mysqld]
+# General settings
+server_id={{ server_id }}
+gtid_mode=ON
+enforce_gtid_consistency=ON
+binlog_checksum=NONE
+
+# Group Replication settings
+transaction_write_set_extraction=XXHASH64
+group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+group_replication_start_on_boot=off
+group_replication_local_address="{{ hostname }}:33061"
+group_replication_group_seeds="{{ group_seeds }}"
+group_replication_bootstrap_group=off
+group_replication_single_primary_mode=on
+group_replication_enforce_update_everywhere_checks=off
+
+# Plugin settings
+plugin_load_add='group_replication.so' 
