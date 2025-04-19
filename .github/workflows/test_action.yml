@@ -51,3 +51,8 @@ jobs:
       run: |
         ls -al /tmp/dump.sql
   
+    - name: Testing docker containers are running
+      run: |
+        sudo docker ps
+        sudo docker volume ls
+        sudo docker network ls
