@@ -45,9 +45,9 @@
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
-    - name: Pause for 30s to start MySQL instances
+    - name: Pause for 40s to start MySQL instances
       ansible.builtin.pause:
-        seconds: 30
+        seconds: 40
 
     - name: 'Node #1 will bootstrap the group'
       ignore_errors: true
