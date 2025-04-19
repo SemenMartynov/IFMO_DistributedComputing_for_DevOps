@@ -34,7 +34,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}slave"
         image: "{{ db_container_image }}"
-        state: stopped
+        state: started
         restart: yes
         restart_policy: always
         networks:
@@ -52,11 +52,11 @@
           MYSQL_USER: "{{ wp_dbuser }}"
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
 
-    - name: Set mysql_server_id on SLAVE
-      community.mysql.mysql_variables:
-        variable: mysql_server_id
-        value: 2
-        mode: persist
+#    - name: Set mysql_server_id on SLAVE
+#      community.mysql.mysql_variables:
+#        variable: mysql_server_id
+#        value: 2
+#        mode: persist
 
     - name: Start MySQL SLAVE container
       community.docker.docker_container:
