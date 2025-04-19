@@ -65,12 +65,12 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
 
-    - name: Remove rpl_semi_sync_master_enabled on SLAVE
+    - name: SET rpl_semi_sync_master_enabled on MASTER
       community.mysql.mysql_variables:
         variable: rpl_semi_sync_master_enabled
-        value: 0
+        value: 1
         mode: persist
-        login_host: "10.16.1.4"
+        login_host: "10.16.1.3"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         
