@@ -1,0 +1,89 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Install packages
+  ansible.builtin.apt:
+    pkg:
+      - mysql-server
+      - mysql-client
+      - python3-pip
+
+- name: Install PyMySQL
+  ansible.builtin.pip:
+    name: PyMySQL
+
+- name: Copy mysql.cnf
+  ansible.builtin.template:
+    src: mysql.cnf.j2
+    dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+
+- name: Mysql restart
+  ansible.builtin.systemd_service:
+    name: mysql
+    state: restarted
+
+- name: Create user
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: CREATE USER 'replica_user'@'{{ hostvars[groups['slave'][0]]['ansible_ssh_host'] }}' IDENTIFIED WITH mysql_native_password BY '{{ password.stdout }}';
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Create superuser
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: CREATE USER 'out'@'{{ ansible_ssh_host }}' IDENTIFIED WITH mysql_native_password BY '{{ password.stdout }}';
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Grant priveleges superuser
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: GRANT ALL PRIVILEGES ON *.* TO 'out'@'{{ ansible_ssh_host }}' WITH GRANT OPTION;
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Create database wordpress
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: CREATE DATABASE wordpress;
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Create wordpress user
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: CREATE USER 'wordpress'@'{{ hostvars[groups['wordpress'][0]]['ansible_ssh_host'] }}' IDENTIFIED WITH mysql_native_password BY '{{ wordpress_pass.stdout }}';
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Grant priveleges superuser to wp
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: GRANT ALL PRIVILEGES ON *.* TO 'wordpress'@'{{ hostvars[groups['wordpress'][0]]['ansible_ssh_host'] }}' WITH GRANT OPTION;
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Grant priveleges
+  community.mysql.mysql_query:
+    login_db: mysql
+    query: GRANT REPLICATION SLAVE ON *.* TO 'replica_user'@'{{ hostvars[groups['slave'][0]]['ansible_ssh_host'] }}';
+    login_unix_socket: /run/mysqld/mysqld.sock
+  ignore_errors: true
+
+- name: Get primary binlog file name and binlog position
+  community.mysql.mysql_replication:
+    login_host: "{{ ansible_ssh_host }}"
+    login_password: "{{ password.stdout }}"
+    login_user: out
+    mode: getprimary
+  register: binlog
+
+- name: bitlog name
+  debug: 
+    msg: "{{ binlog['File'] }}"
+  register: binlog_name
+
+- name: bitlog state
+  debug: 
+    msg: "{{ binlog['Position'] }}"
+  register: binlog_state

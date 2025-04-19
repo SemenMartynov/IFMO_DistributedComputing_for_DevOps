@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  nginx:
+    image: nginx:1.27.4
+    hostname: nginx
+    container_name: nginx
+    networks:
+      - lab1
+    depends_on:
+      - apache
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/wordpress.conf
+      - ./localhost.crt:/etc/nginx/ssl/localhost.crt
+      - ./localhost.key:/etc/nginx/ssl/localhost.key
+    ports:
+      - 80:80
+      - 443:443
+  
+  apache:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: apache
+    hostname: apache
+    networks:
+      - lab1
+
+networks:
+  lab1:
+    name: lab1
+    driver: bridge

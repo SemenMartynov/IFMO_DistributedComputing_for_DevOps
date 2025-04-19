@@ -1,0 +1,36 @@
+- name: generate password
+  hosts: localhost
+  tasks:
+    - name: gen pass
+      ansible.builtin.shell: openssl rand -base64 16
+      register: gen_password
+    - name: gen pass
+      ansible.builtin.shell: openssl rand -base64 16
+      register: wp_password
+- name: prepare master mysql
+  hosts: master
+  gather_facts: true
+  vars:
+    password: "{{ hostvars.localhost.gen_password }}"
+    wordpress_pass: "{{ hostvars.localhost.wp_password  }}"
+  become: true
+  roles:
+    - lab2/master
+- name: prepare slave
+  hosts: slave
+  gather_facts: true
+  become: true
+  vars:
+    password: "{{ hostvars.localhost.gen_password }}"
+  roles:
+    - lab2/slave
+- name: deploy
+  hosts: wordpress
+  gather_facts: true
+  become: true
+  vars:
+    password: "{{ hostvars.localhost.gen_password }}"
+    wordpress_pass: "{{ hostvars.localhost.wp_password  }}"
+  roles:
+    - prepare
+    - lab2/wordpress
