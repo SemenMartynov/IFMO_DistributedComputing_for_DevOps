@@ -29,10 +29,10 @@
 - name: Copy docker-compose.yml template
   template:
     src: docker-compose.yml.j2
-    dest: "{{ playbook_dir }}/docker-compose.yml"
+    dest: "~/docker-compose.yml"
   become: yes
 
 - name: Start Docker containers
   command: docker-compose up -d
   args:
-    chdir: "{{ playbook_dir }}"
+    chdir: "~"

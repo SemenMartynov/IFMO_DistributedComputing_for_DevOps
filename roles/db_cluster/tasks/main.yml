@@ -1,17 +1,33 @@
 ---
+- name: Remove existing containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+    force_kill: true
+  loop:
+    - root-wordpress-1
+    - root-db-1
+
 - name: Create network for database cluster
   docker_network:
     name: db_cluster_network
     state: present
 
+- name: Copy my.cnf template
+  template:
+    src: my.cnf
+    dest: /tmp/my.cnf
+
 - name: Create primary database node
   docker_container:
     name: mysql_primary
     image: mysql:8.0
-    state: present
+    state: started
     restart_policy: always
     networks:
       - name: db_cluster_network
+    published_ports:
+      - 3306:3306
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
@@ -24,17 +40,19 @@
         SET GLOBAL group_replication_bootstrap_group=OFF;
     volumes:
       - primary_db_data:/var/lib/mysql
-      - ./templates/my.cnf:/etc/mysql/conf.d/my.cnf
+      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
     command: --default-authentication-plugin=mysql_native_password --server-id=1 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_bootstrap_group=on --loose-group_replication_single_primary_mode=on
 
 - name: Create secondary database node 1
   docker_container:
     name: mysql_secondary1
     image: mysql:8.0
-    state: present
+    state: started
     restart_policy: always
     networks:
       - name: db_cluster_network
+    published_ports:
+      - 3307:3306
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
@@ -45,17 +63,19 @@
         START GROUP_REPLICATION;
     volumes:
       - secondary1_db_data:/var/lib/mysql
-      - ./templates/my.cnf:/etc/mysql/conf.d/my.cnf
+      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
     command: --default-authentication-plugin=mysql_native_password --server-id=2 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_single_primary_mode=on
 
 - name: Create secondary database node 2
   docker_container:
     name: mysql_secondary2
     image: mysql:8.0
-    state: present
+    state: started
     restart_policy: always
     networks:
       - name: db_cluster_network
+    published_ports:
+      - 3308:3306
     env:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: wordpress_db
@@ -66,7 +86,7 @@
         START GROUP_REPLICATION;
     volumes:
       - secondary2_db_data:/var/lib/mysql
-      - ./templates/my.cnf:/etc/mysql/conf.d/my.cnf
+      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
     command: --default-authentication-plugin=mysql_native_password --server-id=3 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_single_primary_mode=on
 
 - name: Wait for primary MySQL to be ready
@@ -75,15 +95,20 @@
     delay: 10
     timeout: 300
     state: started
-    host: mysql_primary
+    host: "127.0.0.1"
 
-- name: Wait for secondary MySQL nodes to be ready
+- name: Wait for 1st secondary MySQL node to be ready
   wait_for:
-    port: 3306
+    port: 3307
     delay: 10
     timeout: 300
     state: started
-    host: "{{ item }}"
-  with_items:
-    - mysql_secondary1
-    - mysql_secondary2 
+    host: "127.0.0.1"
+
+- name: Wait for 2nd secondary MySQL node to be ready
+  wait_for:
+    port: 3308
+    delay: 10
+    timeout: 300
+    state: started
+    host: "127.0.0.1"

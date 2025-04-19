@@ -2,6 +2,6 @@
   hosts: webservers
   become: yes
   roles:
-    - docker
+    - docker_and_wp
     - db_cluster
     - wordpress

@@ -1,30 +1,29 @@
-- name: Create Docker network
+- name: Ensure Docker network exists
   docker_network:
     name: wordpress-network
     state: present
 
 - name: Create Docker volumes
   docker_volume:
-    name: "{{ item }}"
+    name: wordpress_data
     state: present
-  loop:
-    - wordpress_data
+
+- name: Copy wp-config.php from template
+  template:
+    src: wp-config.php.j2
+    dest: /tmp/wp-config.php
 
 - name: Create WordPress container
   docker_container:
     name: wordpress
     image: wordpress:latest
-    state: present
+    state: started
     restart_policy: always
     networks:
-      - wordpress-network
-      - db_cluster_network
-    env:
-      WORDPRESS_DB_HOST: mysql_primary
-      WORDPRESS_DB_NAME: wordpress_db
-      WORDPRESS_DB_USER: wordpress_user
-      WORDPRESS_DB_PASSWORD: wordpress_password
+      - name: wordpress-network
+      - name: db_cluster_network
+    published_ports:
+      - 8080:80
     volumes:
       - wordpress_data:/var/www/html
-    ports:
-      - "8080:80"
+      - /tmp/wp-config.php:/var/www/html/wp-config.php

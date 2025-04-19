@@ -9,7 +9,7 @@ IFMO_DistributedComputing_for_DevOps
 ├── host_vars
 │   └── wordpress.yml
 ├── roles
-│   ├── docker
+│   ├── docker_and_wp
 │   │   ├── tasks
 │   │   │   └── main.yml
 │   │   └── templates
@@ -85,4 +85,9 @@ docker exec -it mysql_primary mysql -uroot -proot_password
 
 # Внутри MySQL выполните:
 SELECT * FROM performance_schema.replication_group_members;
+```
+## Завершение работы
+Для остановки веб-приложения, выполните:
+```bash
+sudo docker rm -f $(sudo docker ps -aq) ; sudo docker system prune -a
 ```
