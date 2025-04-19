@@ -2,6 +2,10 @@
 
 Этот проект содержит Ansible роли и playbook для замены стандартной базы данных MySQL для WordPress на отказоустойчивый кластер MySQL с поддержкой репликации данных и автоматической синхронизацией.
 
+## Особенности
+
+- Использует модуль `community.mysql.mysql_replication` для автоматической настройки репликации
+
 ## Использование
 
 1. Добавьте хост в inventory.ini:
@@ -16,9 +20,10 @@
    mysql_database: "wordpress"
    mysql_user: "wordpress"
    mysql_password: "secure_password"
+   repl_user: "repl_user"
+   repl_password: "secure_repl_password"
    wp_table_prefix: "wp_"
    ```
-   При необходимости замените также `repl_user` и `repl_password`
 
 3. Запустите playbook:
    ```bash
