@@ -50,6 +50,7 @@
         seconds: 30
 
     - name: 'Node #1 will bootstrap the group'
+      ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.1{{ item }}"
@@ -67,6 +68,7 @@
         - 1
 
     - name: 'Add nodes #2 and #3 to the group'
+      ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.1{{ item }}"
