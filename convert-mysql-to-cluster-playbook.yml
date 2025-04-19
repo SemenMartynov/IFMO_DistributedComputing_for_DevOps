@@ -52,6 +52,10 @@
           MYSQL_USER: "{{ wp_dbuser }}"
           MYSQL_PASSWORD: "{{ mysql_passwd }}"
 
+    - name: Pause for 15s to start SLAVE
+      ansible.builtin.pause:
+        seconds: 15
+        
     - name: Set mysql_server_id on SLAVE
       community.mysql.mysql_variables:
         variable: mysql_server_id
@@ -97,11 +101,7 @@
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
           - FLUSH PRIVILEGES
-          
-    - name: Pause for 15s to start SLAVE
-      ansible.builtin.pause:
-        seconds: 15
-    
+
     - name: Install CLONE plugin and create replication user on SLAVE
       community.mysql.mysql_query:
         login_db: mysql
