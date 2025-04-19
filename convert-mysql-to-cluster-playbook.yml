@@ -69,6 +69,7 @@
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - SET GLOBAL group_replication_bootstrap_group=ON
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
           - SET GLOBAL group_replication_bootstrap_group=OFF
@@ -89,6 +90,7 @@
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
       
