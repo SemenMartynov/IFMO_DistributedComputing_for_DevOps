@@ -116,13 +116,13 @@
         seconds: 15
         
     - name: Install CLONE plugin and create replication user on SLAVE
+      ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.4"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         single_transaction: true
-        ignore_errors: true
         query:
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
