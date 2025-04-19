@@ -38,11 +38,11 @@
     dest: "{{ mysql_cluster_dir }}/init-primary.sql"
     mode: '0644'
 
-- name: Копирование init-secondary.sql
-  template:
-    src: mysql_cluster/init-secondary.sql.j2
-    dest: "{{ mysql_cluster_dir }}/init-secondary.sql"
-    mode: '0644'
+- name: Установка Python-модуля pymysql для community.mysql.mysql_replication
+  apt:
+    name: python3-pymysql
+    state: present
+  become: true
 
 - name: Создание сети Docker для кластера MySQL
   docker_network:
@@ -60,10 +60,74 @@
     project_src: "{{ mysql_cluster_dir }}/"
     state: present
 
-- name: Вывод информации о статусе кластера
+- name: Проверка доступности MySQL
+  shell: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
+  register: result
+  retries: 10
+  delay: 60
+  until: result.rc == 0
+
+- name: Выборка информации о бинарном логе
   shell: |
     docker exec mysql_node_1 mysql -uroot -p"{{ mysql_root_password }}" \
-      -e "SHOW MASTER STATUS;"
-  register: cluster_status
+      -e "SHOW MASTER STATUS\G" | grep "File\|Position" | awk '{print $2}'
+  register: log_info
   changed_when: false
-  failed_when: false 
+  failed_when: false
+
+- name: Получение имени файла и позиции
+  set_fact:
+    master_log_file: "{{ log_info.stdout_lines[0] }}"
+    master_log_pos: "{{ log_info.stdout_lines[1] }}"
+
+- name: Вывод информации о параметрах репликации
+  debug:
+    msg: "Log File: {{ master_log_file }}, Position: {{ master_log_pos }}"
+
+- name: Остановка репликации на вторичных узлах перед настройкой
+  community.mysql.mysql_replication:
+    mode: stopreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+  ignore_errors: true
+
+- name: Настройка репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: changeprimary
+    primary_host: mysql_node_1
+    primary_port: 3306
+    primary_user: "{{ repl_user }}"
+    primary_password: "{{ repl_password }}"
+    primary_log_file: "{{ master_log_file }}"
+    primary_log_pos: "{{ master_log_pos }}"
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Запуск репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: startreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Проверка статуса репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: replica_status
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Вывести статус репликации
+  debug:
+    msg: "{{ replica_status }}"

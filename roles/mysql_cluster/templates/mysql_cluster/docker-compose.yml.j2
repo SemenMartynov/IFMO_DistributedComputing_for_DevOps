@@ -49,7 +49,7 @@ services:
       - MYSQL_MASTER_HOST=mysql_node_1
       - MYSQL_MASTER_PORT_NUMBER=3306
     ports:
-      - "330{{ i + 5 }}:3306"
+      - "{{ 3307 + i - 2 }}:3306"
     command: ["mysqld",
       "--server-id={{ i }}",
       "--relay-log=relay-bin",
@@ -57,7 +57,6 @@ services:
       "--log_bin=mysql-bin"]
     volumes:
       - ./mysql_data_{{ i }}:/var/lib/mysql
-      - ./init-secondary.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - {{ wp_mysql_cluster_name }}
     depends_on:
