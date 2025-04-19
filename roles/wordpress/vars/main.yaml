@@ -1,6 +1,6 @@
-wp_download_url: https://wordpress.org/latest.tar.gz
+user_login: wordpress
+user_group: wordpress
 dependencies:
-  - apache2
   - mysql-client
   - php
   - php-mysql

@@ -1,0 +1,66 @@
+---
+- name: Add Grafana APT key
+  apt_key:
+    url: https://packages.grafana.com/gpg.key
+    state: present
+
+- name: Add Grafana APT repository
+  apt_repository:
+    repo: deb https://packages.grafana.com/oss/deb stable main
+    state: present
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    state: present
+    update_cache: yes
+
+- name: Enable and start Grafana service
+  systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Setup Grafana configuration
+  template:
+    src: grafana.ini.j2
+    dest: "{{ grafana_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Grafana
+
+- name: Setup Grafana datasource
+  template:
+    src: datasources.yaml.j2
+    dest: "{{ grafana_datasource_file }}"
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  notify: Restart Grafana
+
+- name: Setup Grafana dashboards config
+  template:
+    src: dashboards.yaml.j2
+    dest: "{{ grafana_dashboards_file }}"
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  notify: Restart Grafana
+
+- name: Create dashboards directory
+  file:
+    path: "{{ grafana_dashboards_dir }}"
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: '0755'
+
+- name: Copy dashboards
+  copy:
+    src: dashboards/
+    dest: "{{ grafana_dashboards_dir }}/"
+    owner: grafana
+    group: grafana
+    mode: '0644'

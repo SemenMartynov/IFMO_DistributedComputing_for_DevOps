@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          group: "prometheus"
+
+{% if node_exporter_targets | length > 0 %}
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: 
+        {{ node_exporter_targets | to_nice_yaml(indent=8) | indent(8) }}
+        labels:
+          group: "node_exporter"
+{% endif %}

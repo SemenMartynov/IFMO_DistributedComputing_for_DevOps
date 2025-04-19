@@ -1,0 +1,26 @@
+---
+- name: Install dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items: "{{ dependencies }}"
+
+- name: Create mysql configuration file
+  template:
+    src: mysqld.cnf.j2
+    dest: "{{ db_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart MySQL
+
+- name: Start MySQL
+  service:
+    name: mysql
+    state: started
+
+- name: Enable MySQL
+  systemd:
+    name: mysql
+    enabled: yes

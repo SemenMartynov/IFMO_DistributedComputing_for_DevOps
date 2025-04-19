@@ -1,0 +1,49 @@
+---
+- name: Create MySQL user
+  mysql_user:
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket}}"
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    state: present
+    host: "%"
+    priv: "*.*:ALL"
+
+- name: Create database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+
+- name: Create replication user
+  mysql_user:
+    name: "{{ repl_user }}"
+    password: "{{ repl_password }}"
+    host: '%'
+    priv: "*.*:ALL"
+    state: present
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket}}"
+
+- name: Get master status
+  mysql_replication:
+    mode: getprimary
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+  register: master_status
+
+- name: Set master status facts
+  set_fact:
+    master_log_file: "{{ master_status.File }}"
+    master_log_pos: "{{ master_status.Position }}"
+  delegate_to: localhost
+  run_once: true

@@ -1,0 +1,55 @@
+---
+- name: Restart MySQL
+  service:
+    name: mysql
+    state: restarted
+    enabled: true
+
+- name: Stop slave IO thread if running
+  mysql_replication:
+    mode: stopreplica
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+  ignore_errors: true
+
+- name: Configure slave replication
+  mysql_replication:
+    mode: changeprimary
+    master_host: "{{ master_host }}"
+    master_user: "{{ repl_user }}"
+    master_password: "{{ repl_password }}"
+    master_log_file: "{{ hostvars['beta'].master_log_file }}"
+    master_log_pos: "{{ hostvars['beta'].master_log_pos }}"
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+
+- name: Start slave
+  mysql_replication:
+    mode: startreplica
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+
+- name: Check slave status
+  mysql_replication:
+    mode: getreplica
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ db_login_unix_socket }}"
+  register: slave_status
+  failed_when: slave_status.Replica_IO_Running != 'Yes' or slave_status.Replica_SQL_Running != 'Yes'
+
+- name: Print slave status
+  debug:
+    msg:
+      - "Slave IO state: {{ slave_status.Replica_IO_State }}"
+      - "IO running: {{ slave_status.Replica_IO_Running }}"
+      - "SQL running: {{ slave_status.Replica_SQL_Running }}"
+      - "Last IO error: {{ slave_status.Last_Error }}"
+  when: slave_status is defined

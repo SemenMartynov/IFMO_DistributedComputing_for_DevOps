@@ -1,0 +1,5 @@
+---
+user_login: prometheus
+user_group: prometheus
+prometheus_config_file: /etc/prometheus/prometheus.yml
+prometheus_service_file: /etc/systemd/system/prometheus.service

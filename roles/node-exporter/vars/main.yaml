@@ -1,0 +1,4 @@
+---
+user_login: node_exporter
+user_group: node_exporter
+node_exporter_service_file: /etc/systemd/system/node_exporter.service
