@@ -1,0 +1,23 @@
+[mysqld]
+
+#
+# Disable other storage engines
+#
+disabled_storage_engines="MyISAM,BLACKHOLE,FEDERATED,ARCHIVE,MEMORY"
+
+#
+# Replication configuration parameters
+#
+server_id={{ mysql_server_id }}
+gtid_mode=ON
+enforce_gtid_consistency=ON
+
+#
+# Group Replication configuration
+#
+plugin_load_add='group_replication.so'
+group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+group_replication_start_on_boot=off
+group_replication_local_address= "{{ db_container_name }}{{ mysql_server_id }}:33061"
+group_replication_group_seeds= "{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061"
+group_replication_bootstrap_group=off
