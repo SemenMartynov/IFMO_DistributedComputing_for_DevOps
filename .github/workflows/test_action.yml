@@ -39,7 +39,7 @@ jobs:
         curl -v "http://127.0.0.1/" || true
 
     - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
+      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
 
     - name: Testing docker containers are running
       run: |
