@@ -1,5 +1,5 @@
 - name: Deploy WordPress with Docker
-  hosts: localhost
+  hosts: webservers
   become: yes
   roles:
     - docker
