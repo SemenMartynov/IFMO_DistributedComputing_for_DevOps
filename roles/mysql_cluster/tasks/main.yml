@@ -51,10 +51,9 @@
     state: present
 
 - name: Запуск контейнеров кластера через Docker Compose
-  docker_compose:
+  community.docker.docker_compose_v2:
     project_src: "{{ mysql_cluster_dir }}/"
     state: present
-  register: docker_compose_job
 
 - name: Вывод информации о статусе кластера
   shell: |
