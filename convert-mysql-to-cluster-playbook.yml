@@ -65,6 +65,18 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
 
+    - name: Prepare SLAVE for replication
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.4"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - SET @@GLOBAL.enforce_gtid_consistency = ON
+          - SET @@GLOBAL.gtid_mode = OFF_PERMISSIVE
+          - SET @@GLOBAL.gtid_mode = ON_PERMISSIVE
+          - SET @@GLOBAL.gtid_mode = ON
+
     - name: Stop MySQL SLAVE container
       community.docker.docker_container:
         name: "{{ db_container_name }}slave"
@@ -127,10 +139,6 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
-          - SET @@GLOBAL.enforce_gtid_consistency = ON
-          - SET @@GLOBAL.gtid_mode = OFF_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON_PERMISSIVE
-          - SET @@GLOBAL.gtid_mode = ON
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
           - CREATE USER 'replica_user'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE ON *.* TO 'replica_user'@'%'
