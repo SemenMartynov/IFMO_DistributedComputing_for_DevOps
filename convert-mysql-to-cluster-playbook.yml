@@ -21,11 +21,13 @@
       with_items:
         - python3-pymysql
 
-    - name: Init MySQL instances
+    - name: Generate MySQL configs
       template:
         src: templates/my.cnf.j2
         dest: my{{ item }}.cnf
+      with_sequence: start=1 end=3
     
+    - name: Init MySQL instances
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
