@@ -132,7 +132,7 @@
   #    ansible.builtin.debug:
   #      msg: "позиция лога: {{ master_log_pos }}"      
 
-
+## Порт на хосте: 3308
    - name: запускаю контейнер базы данных MySQL - slave
      docker_container:
        name: wp_db_slave
@@ -151,7 +151,7 @@
          - name: "{{ cluster_network }}"
        published_ports:
           - "3308:3306"
-
+## Обязательно ждем пока начнется реплликация, обычно начинается через 5-10 секунд
    - name: Проверка готовности MySQL в wp_db_slave
      command: docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SELECT 1"
      register: mysql_ready
@@ -166,7 +166,7 @@
    - debug:
        msg: "{{ replica_status.stdout }}"
 
-
+## Запуск WordPress, Доступ по HTTP на порту 80
    - name: запускаю контейнер WordPress
      docker_container:
        name: wordpress
