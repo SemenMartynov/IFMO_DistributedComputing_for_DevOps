@@ -50,7 +50,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --group-replication-single-primary-mode=OFF
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON
         state: started
         restart_policy: "on-failure"
         networks:
@@ -119,6 +119,7 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
+          - RESET BINARY LOGS AND GTIDS
           - SET SQL_LOG_BIN=0
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
@@ -129,8 +130,8 @@
           - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
           - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
-          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
           - CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
 
     - name: Start WP container
