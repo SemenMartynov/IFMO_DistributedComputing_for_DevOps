@@ -2,7 +2,6 @@
 container_count: 1
 db_container_name: db
 db_container_image: "mysql:8.4"
-#mysqlrouter_container_image: "percona/percona-mysql-router:8.4"
 mysqlrouter_container_image: "container-registry.oracle.com/mysql/community-router:8.4"
 wp_container_name: wp
 wp_container_image: wordpress
@@ -12,3 +11,4 @@ wp_int_network: wp_int_network
 wp_ext_network: wp_ext_network
 pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 mysql_root_pw: "{{ lookup('env','MYSQL_ROOT_PASSWORD') or 'MySQL_s3cret_Pas3w0rD' }}"
+clustername: "{{ lookup('env','MYSQL_CLUSTER_NAME') or 'WP_CLUSTER' }}"
