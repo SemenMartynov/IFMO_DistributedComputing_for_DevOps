@@ -147,7 +147,23 @@
         login_host: "10.16.1.11"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
-        
+
+    - name: Generate MySQL SHELL configs for InnoDB cluster
+      template:
+        src: templates/mysqlsh_create_cluster.js.j2
+        dest: create_cluster.js
+          
+    - name: Install MySQL SHELL
+      community.docker.docker_container:
+        name: "mysqlshell"
+        image: neumayer/mysql-shell-batch
+        state: started
+        networks:
+          - name: "{{ wp_int_network }}"
+            ipv4_address: "10.16.1.4"
+        volumes:
+          - create_cluster.js:/scripts/create_cluster.js
+
     - name: Install MySQLRouter
       community.docker.docker_container:
         name: "mysqlrouter"
@@ -177,9 +193,23 @@
     - name: Start WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
+        image: "{{ wp_container_image }}"
         state: started
+        recreate: true
+        restart: yes
+        restart_policy: always
+        networks:
+          - name: "{{ wp_int_network }}"
+            aliases: wpint
+            ipv4_address: "10.16.1.2"
+          - name: "{{ wp_ext_network }}"
+            aliases: wp
+        ports:
+          - "80:80"
+        volumes:
+          - wordpress:/var/www/html
         env:
-          WORDPRESS_DB_HOST: "10.16.1.11"
+          WORDPRESS_DB_HOST: "10.16.1.10:6446"
           WORDPRESS_DB_USER: "{{ wp_dbuser }}"
           WORDPRESS_DB_PASSWORD: "{{ mysql_passwd }}"
           WORDPRESS_DB_NAME: "{{ wp_dbname }}"
