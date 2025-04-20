@@ -91,8 +91,8 @@
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
-          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
-          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
+          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:3306'
+          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306'
           - SET GLOBAL group_replication_bootstrap_group=ON
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
           - SET GLOBAL group_replication_bootstrap_group=OFF
@@ -130,8 +130,8 @@
           - SET GLOBAL group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
-          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
-          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
+          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:3306'
+          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306'
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
 
