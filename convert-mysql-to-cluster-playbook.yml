@@ -175,4 +175,4 @@
         name: "{{ wp_container_name }}"
         state: started
         env:
-          WORDPRESS_DB_PORT: 6446
+          WORDPRESS_DB_PORT: "6446"
