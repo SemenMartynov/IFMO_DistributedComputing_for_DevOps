@@ -15,15 +15,17 @@
         name: aptitude
         state: latest
         update_cache: true
+
+    - name: Install MySQL SHELL
+      ansible.builtin.apt:
+        deb: https://dev.mysql.com/get/mysql-apt-config_0.8.34-1_all.deb
         
     - name: Install required by Ansible package
       apt: pkg={{ item }} state=present
       with_items:
         - python3-pymysql
+        - mysqlsh
         
-    - name: Install MySQL SHELL
-      ansible.builtin.apt:
-        deb: https://dev.mysql.com/get/Downloads/MySQL-Shell/mysql-shell_8.4.5-1ubuntu24.04_amd64.deb
 
     - name: Stop WP container
       community.docker.docker_container:
