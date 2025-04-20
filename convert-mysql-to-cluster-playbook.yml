@@ -35,10 +35,10 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
 
-    - name: Stop standalone MySQL instance
+    - name: Remove standalone MySQL instance
       community.docker.docker_container:
         name: "{{ db_container_name }}"
-        state: stopped
+        state: absent
 
 #    - name: Create MySQL conf dirs for InnoDB cluster
 #      ansible.builtin.file:
@@ -80,9 +80,9 @@
 #          MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
-    - name: Pause for 50s to start and init MySQL instances
+    - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
-        seconds: 50
+        seconds: 30
 
     - name: 'Node #1 will bootstrap the group'
       ignore_errors: true
@@ -144,11 +144,35 @@
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
 
-    - name: Pause for 15s to start MySQL instances
+    - name: Pause for to start and replicate MySQL instances
       ansible.builtin.pause:
-        seconds: 15
+        seconds: 30
+        
+    - name: Install MySQLRouter
+      community.docker.docker_container:
+        name: "mysqlrouter"
+        image: "container-registry.oracle.com/mysql/community-router:8.4"
+        state: started
+        restart_policy: "on-failure"
+        networks:
+          - name: "{{ wp_int_network }}"
+            ipv4_address: "10.16.1.10"
+        exposed_ports:
+          - 6446 # R/W connection port. Clients that connect to this port will be forwarded to the PRIMARY
+          - 6447 # R/O connection port. Clients that connect to this port will be forwarded to a SECONDARY
+          - 6448 # X Protocol R/W connection port. R/W port for X protocol client connections
+          - 6449 # X Protocol R/O connection port. R/O port for X protocol client connections
+          - 8443 # HTTPS REST interface port.
+        env:
+          MYSQL_HOST: "10.16.1.10"
+          MYSQL_PORT: 33060
+          MYSQL_USER: "root"
+          MYSQL_PASSWORD: "{{ mysql_root_pw }}"
+          MYSQL_INNODB_CLUSTER_MEMBERS: 3
 
     - name: Start WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
         state: started
+        env:
+          WORDPRESS_DB_PORT: 6446
