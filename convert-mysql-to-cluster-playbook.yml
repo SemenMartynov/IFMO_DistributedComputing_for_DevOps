@@ -16,16 +16,22 @@
         state: latest
         update_cache: true
 
-    - name: Install MySQL SHELL
-      ansible.builtin.apt:
-        deb: https://dev.mysql.com/get/mysql-apt-config_0.8.34-1_all.deb
-        
+    - name: Add MySQL GPG apt Key
+      apt_key:
+        keyserver: pgp.mit.edu
+        id: BCA43417C3B485DD128EC6D4B7B3B788A8D3785C
+        state: present
+
+    - name: Add MySQL Repository
+      apt_repository:
+        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-8.4-lts
+        state: present
+
     - name: Install required by Ansible package
       apt: pkg={{ item }} state=present
       with_items:
         - python3-pymysql
         - mysqlsh
-        
 
     - name: Stop WP container
       community.docker.docker_container:
