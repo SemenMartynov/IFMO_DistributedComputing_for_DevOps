@@ -113,15 +113,6 @@
       ansible.builtin.pause:
         seconds: 15
 
-    - name: 'Restore current WP database to node #1'
-      mysql_db:
-        state: import
-        name: "{{ wp_dbname }}"
-        target: /tmp/dump.sql
-        login_host: "10.16.1.11"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"
-
     - name: 'Add nodes #2 and #3 to the group'
       ignore_errors: true
       community.mysql.mysql_query:
@@ -147,6 +138,15 @@
     - name: Pause for to start and replicate MySQL instances
       ansible.builtin.pause:
         seconds: 30
+
+    - name: 'Restore current WP database to node #1'
+      mysql_db:
+        state: import
+        name: "{{ wp_dbname }}"
+        target: /tmp/dump.sql
+        login_host: "10.16.1.11"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
         
     - name: Install MySQLRouter
       community.docker.docker_container:
