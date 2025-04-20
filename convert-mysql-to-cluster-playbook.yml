@@ -64,6 +64,7 @@
         login_password: "{{ mysql_root_pw }}"
         query:
           - SET SQL_LOG_BIN=0
+          - SET GLOBAL group_replication_group_name="{{ pwd_alias | to_uuid }}"
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
           - FLUSH PRIVILEGES
@@ -85,6 +86,7 @@
         login_password: "{{ mysql_root_pw }}"
         query:
           - SET SQL_LOG_BIN=0
+          - SET GLOBAL group_replication_group_name="{{ pwd_alias | to_uuid }}"
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
           - FLUSH PRIVILEGES
