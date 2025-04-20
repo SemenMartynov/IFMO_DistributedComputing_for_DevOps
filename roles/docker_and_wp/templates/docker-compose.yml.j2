@@ -1,37 +1,47 @@
+version: '{{ docker_compose_version }}'
+
 services:
   wordpress:
     image: wordpress:latest
     ports:
-      - "8080:80"
+      - "{{ wordpress_port }}:80"
     depends_on:
       - db
     environment:
       WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress_user
-      WORDPRESS_DB_PASSWORD: wordpress_password
-      WORDPRESS_DB_NAME: wordpress_db
+      WORDPRESS_DB_USER: "{{ database_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ database_password }}"
+      WORDPRESS_DB_NAME: "{{ database_name }}"
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_SITEURL', '{{ wordpress_site_url }}');
+        define('WP_HOME', '{{ wordpress_site_url }}');
     volumes:
       - wordpress_data:/var/www/html
     networks:
-      - wordpress-network
+      - "{{ docker_network }}"
+    restart: unless-stopped
 
   db:
     image: mysql:5.7
     ports:
-      - "3306:3306"
+      - "{{ mysql_port }}:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: wordpress_db
-      MYSQL_USER: wordpress_user
-      MYSQL_PASSWORD: wordpress_password
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ database_name }}"
+      MYSQL_USER: "{{ database_user }}"
+      MYSQL_PASSWORD: "{{ database_password }}"
     volumes:
       - db_data:/var/lib/mysql
+      - ./mysql/conf.d:/etc/mysql/conf.d
     networks:
-      - wordpress-network
+      - "{{ docker_network }}"
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
 volumes:
   wordpress_data:
   db_data:
 
 networks:
-  wordpress-network:
+  "{{ docker_network }}":
+    driver: bridge

@@ -1,22 +1,32 @@
 ---
-- name: Remove existing containers
-  docker_container:
-    name: "{{ item }}"
-    state: absent
-    force_kill: true
-  loop:
-    - root-wordpress-1
-    - root-db-1
-
 - name: Create network for database cluster
   docker_network:
-    name: db_cluster_network
+    name: "{{ mysql_cluster_network }}"
     state: present
+
+- name: Create directory for MySQL configuration
+  file:
+    path: /opt/mysql/conf.d
+    state: directory
+    mode: '0755'
+  become: yes
 
 - name: Copy my.cnf template
   template:
     src: my.cnf
-    dest: /tmp/my.cnf
+    dest: /opt/mysql/conf.d/my.cnf
+    mode: '0644'
+  become: yes
+
+- name: Create replication user on primary
+  mysql_user:
+    name: "{{ mysql_replication_user }}"
+    password: "{{ mysql_replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    host: '%'
+    state: present
+  delegate_to: localhost
+  run_once: true
 
 - name: Create primary database node
   docker_container:
@@ -25,23 +35,43 @@
     state: started
     restart_policy: always
     networks:
-      - name: db_cluster_network
+      - name: "{{ mysql_cluster_network }}"
     published_ports:
-      - 3306:3306
+      - "{{ mysql_primary_port }}:3306"
     env:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: wordpress_db
-      MYSQL_USER: wordpress_user
-      MYSQL_PASSWORD: wordpress_password
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ database_name }}"
+      MYSQL_USER: "{{ database_user }}"
+      MYSQL_PASSWORD: "{{ database_password }}"
       MYSQL_INIT_COMMAND: |
         SET GLOBAL group_replication_bootstrap_group=ON;
-        CHANGE MASTER TO MASTER_USER='root', MASTER_PASSWORD='root_password' FOR CHANNEL 'group_replication_recovery';
+        CHANGE MASTER TO MASTER_USER='{{ mysql_replication_user }}', MASTER_PASSWORD='{{ mysql_replication_password }}' FOR CHANNEL 'group_replication_recovery';
         START GROUP_REPLICATION;
         SET GLOBAL group_replication_bootstrap_group=OFF;
     volumes:
       - primary_db_data:/var/lib/mysql
-      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
-    command: --default-authentication-plugin=mysql_native_password --server-id=1 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_bootstrap_group=on --loose-group_replication_single_primary_mode=on
+      - /opt/mysql/conf.d:/etc/mysql/conf.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --server-id={{ mysql_server_id_primary }}
+      --log-bin='mysql-bin'
+      --binlog_checksum=NONE
+      --gtid_mode=ON
+      --enforce-gtid-consistency=ON
+      --log-slave-updates=ON
+      --transaction-write-set-extraction=XXHASH64
+      --loose-group_replication_group_name="{{ mysql_group_replication_name }}"
+      --loose-group_replication_start_on_boot=on
+      --loose-group_replication_bootstrap_group=on
+      --loose-group_replication_single_primary_mode=on
+
+- name: Wait for primary MySQL to be ready
+  wait_for:
+    port: "{{ mysql_primary_port }}"
+    delay: 10
+    timeout: 300
+    state: started
+    host: "127.0.0.1"
 
 - name: Create secondary database node 1
   docker_container:
@@ -50,21 +80,40 @@
     state: started
     restart_policy: always
     networks:
-      - name: db_cluster_network
+      - name: "{{ mysql_cluster_network }}"
     published_ports:
-      - 3307:3306
+      - "{{ mysql_secondary1_port }}:3306"
     env:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: wordpress_db
-      MYSQL_USER: wordpress_user
-      MYSQL_PASSWORD: wordpress_password
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ database_name }}"
+      MYSQL_USER: "{{ database_user }}"
+      MYSQL_PASSWORD: "{{ database_password }}"
       MYSQL_INIT_COMMAND: |
-        CHANGE MASTER TO MASTER_USER='root', MASTER_PASSWORD='root_password' FOR CHANNEL 'group_replication_recovery';
+        CHANGE MASTER TO MASTER_USER='{{ mysql_replication_user }}', MASTER_PASSWORD='{{ mysql_replication_password }}' FOR CHANNEL 'group_replication_recovery';
         START GROUP_REPLICATION;
     volumes:
       - secondary1_db_data:/var/lib/mysql
-      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
-    command: --default-authentication-plugin=mysql_native_password --server-id=2 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_single_primary_mode=on
+      - /opt/mysql/conf.d:/etc/mysql/conf.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --server-id={{ mysql_server_id_secondary1 }}
+      --log-bin='mysql-bin'
+      --binlog_checksum=NONE
+      --gtid_mode=ON
+      --enforce-gtid-consistency=ON
+      --log-slave-updates=ON
+      --transaction-write-set-extraction=XXHASH64
+      --loose-group_replication_group_name="{{ mysql_group_replication_name }}"
+      --loose-group_replication_start_on_boot=on
+      --loose-group_replication_single_primary_mode=on
+
+- name: Wait for 1st secondary MySQL node to be ready
+  wait_for:
+    port: "{{ mysql_secondary1_port }}"
+    delay: 10
+    timeout: 300
+    state: started
+    host: "127.0.0.1"
 
 - name: Create secondary database node 2
   docker_container:
@@ -73,42 +122,49 @@
     state: started
     restart_policy: always
     networks:
-      - name: db_cluster_network
+      - name: "{{ mysql_cluster_network }}"
     published_ports:
-      - 3308:3306
+      - "{{ mysql_secondary2_port }}:3306"
     env:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: wordpress_db
-      MYSQL_USER: wordpress_user
-      MYSQL_PASSWORD: wordpress_password
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ database_name }}"
+      MYSQL_USER: "{{ database_user }}"
+      MYSQL_PASSWORD: "{{ database_password }}"
       MYSQL_INIT_COMMAND: |
-        CHANGE MASTER TO MASTER_USER='root', MASTER_PASSWORD='root_password' FOR CHANNEL 'group_replication_recovery';
+        CHANGE MASTER TO MASTER_USER='{{ mysql_replication_user }}', MASTER_PASSWORD='{{ mysql_replication_password }}' FOR CHANNEL 'group_replication_recovery';
         START GROUP_REPLICATION;
     volumes:
       - secondary2_db_data:/var/lib/mysql
-      - /tmp/my.cnf:/etc/mysql/conf.d/my.cnf
-    command: --default-authentication-plugin=mysql_native_password --server-id=3 --log-bin='mysql-bin' --binlog_checksum=NONE --gtid_mode=ON --enforce-gtid-consistency=ON --log-slave-updates=ON --transaction-write-set-extraction=XXHASH64 --loose-group_replication_group_name="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" --loose-group_replication_start_on_boot=on --loose-group_replication_single_primary_mode=on
-
-- name: Wait for primary MySQL to be ready
-  wait_for:
-    port: 3306
-    delay: 10
-    timeout: 300
-    state: started
-    host: "127.0.0.1"
-
-- name: Wait for 1st secondary MySQL node to be ready
-  wait_for:
-    port: 3307
-    delay: 10
-    timeout: 300
-    state: started
-    host: "127.0.0.1"
+      - /opt/mysql/conf.d:/etc/mysql/conf.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --server-id={{ mysql_server_id_secondary2 }}
+      --log-bin='mysql-bin'
+      --binlog_checksum=NONE
+      --gtid_mode=ON
+      --enforce-gtid-consistency=ON
+      --log-slave-updates=ON
+      --transaction-write-set-extraction=XXHASH64
+      --loose-group_replication_group_name="{{ mysql_group_replication_name }}"
+      --loose-group_replication_start_on_boot=on
+      --loose-group_replication_single_primary_mode=on
 
 - name: Wait for 2nd secondary MySQL node to be ready
   wait_for:
-    port: 3308
+    port: "{{ mysql_secondary2_port }}"
     delay: 10
     timeout: 300
     state: started
     host: "127.0.0.1"
+
+- name: Verify group replication status
+  mysql_query:
+    login_host: "127.0.0.1"
+    login_port: "{{ mysql_primary_port }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: SELECT * FROM performance_schema.replication_group_members;
+  register: replication_status
+  until: replication_status.rowcount == 3
+  retries: 10
+  delay: 10

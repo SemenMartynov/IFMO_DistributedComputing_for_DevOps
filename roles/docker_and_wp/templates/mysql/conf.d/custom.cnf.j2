@@ -1,0 +1,11 @@
+[mysqld]
+character-set-server = {{ mysql_character_set }}
+collation-server = {{ mysql_collation }}
+max_connections = {{ mysql_max_connections }}
+innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
+
+[client]
+default-character-set = {{ mysql_character_set }}
+
+[mysql]
+default-character-set = {{ mysql_character_set }} 

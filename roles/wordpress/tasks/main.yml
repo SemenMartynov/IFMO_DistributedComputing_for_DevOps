@@ -3,6 +3,13 @@
     name: wordpress-network
     state: present
 
+- name: Create directory for WordPress configuration
+  file:
+    path: /opt/wordpress
+    state: directory
+    mode: '0755'
+  become: yes
+
 - name: Create Docker volumes
   docker_volume:
     name: wordpress_data
@@ -11,7 +18,9 @@
 - name: Copy wp-config.php from template
   template:
     src: wp-config.php.j2
-    dest: /tmp/wp-config.php
+    dest: /opt/wordpress/wp-config.php
+    mode: '0644'
+  become: yes
 
 - name: Create WordPress container
   docker_container:
@@ -20,10 +29,28 @@
     state: started
     restart_policy: always
     networks:
-      - name: wordpress-network
-      - name: db_cluster_network
+      - name: "{{ docker_network }}"
+      - name: "{{ mysql_cluster_network }}"
     published_ports:
-      - 8080:80
+      - "{{ wordpress_port }}:80"
     volumes:
       - wordpress_data:/var/www/html
-      - /tmp/wp-config.php:/var/www/html/wp-config.php
+      - /opt/wordpress/wp-config.php:/var/www/html/wp-config.php
+    env:
+      WORDPRESS_DB_HOST: mysql_primary
+      WORDPRESS_DB_USER: "{{ database_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ database_password }}"
+      WORDPRESS_DB_NAME: "{{ database_name }}"
+      WORDPRESS_DEBUG: "false"
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_SITEURL', '{{ wordpress_site_url }}');
+        define('WP_HOME', '{{ wordpress_site_url }}');
+        define('WP_MEMORY_LIMIT', '256M');
+        define('WP_MAX_MEMORY_LIMIT', '512M');
+        define('WP_CACHE', true);
+        define('WP_AUTO_UPDATE_CORE', false);
+        define('DISALLOW_FILE_EDIT', true);
+        define('DISALLOW_FILE_MODS', true);
+        define('WP_POST_REVISIONS', 5);
+        define('EMPTY_TRASH_DAYS', 7);
+        define('WP_CRON_LOCK_TIMEOUT', 60);
