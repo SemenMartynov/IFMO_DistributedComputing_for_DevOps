@@ -37,7 +37,7 @@
 
     - name: Stop standalone MySQL instance
       community.docker.docker_container:
-        name: "{{ db_container_name }"
+        name: "{{ db_container_name }}"
         state: stopped
 
     - name: Generate MySQL startup configs for InnoDB cluster
