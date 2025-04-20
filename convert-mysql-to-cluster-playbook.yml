@@ -64,13 +64,13 @@
         login_password: "{{ mysql_root_pw }}"
         query:
           - SET SQL_LOG_BIN=0
-          - SET GLOBAL group_replication_group_name="{{ pwd_alias | to_uuid }}"
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET GLOBAL group_replication_group_name='{{ pwd_alias | to_uuid }}'
           - SET GLOBAL group_replication_bootstrap_group=ON
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
           - SET GLOBAL group_replication_bootstrap_group=OFF
@@ -86,13 +86,13 @@
         login_password: "{{ mysql_root_pw }}"
         query:
           - SET SQL_LOG_BIN=0
-          - SET GLOBAL group_replication_group_name="{{ pwd_alias | to_uuid }}"
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET GLOBAL group_replication_group_name='{{ pwd_alias | to_uuid }}'
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
       
