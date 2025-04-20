@@ -137,7 +137,6 @@
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
-          - SET GLOBAL group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - SET PERSIST group_replication_local_address='10.16.1.1{{ item }}:33061'
