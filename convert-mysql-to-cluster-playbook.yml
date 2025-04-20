@@ -57,7 +57,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --defaults-file=/etc/mysql/mysql.conf.d/my.cnf --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 # --defaults-file=/etc/mysql/mysql.conf.d/my.cnf
         state: started
         restart_policy: "on-failure"
         networks:
@@ -66,6 +66,7 @@
         exposed_ports:
           - 3306
           - 33060
+          - 33061
         volumes:
           - db{{ item }}:/var/lib/mysql
           - mysql{{ item }}.conf.d:/etc/mysql/mysql.conf.d:ro
