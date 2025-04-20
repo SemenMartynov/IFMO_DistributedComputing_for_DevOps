@@ -11,6 +11,7 @@ mysql_group_replication_name: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 mysql_primary_port: 3307
 mysql_secondary1_port: 3308
 mysql_secondary2_port: 3309
+mysql_group_replication_port: 33061
 mysql_server_id_primary: 1
 mysql_server_id_secondary1: 2
 mysql_server_id_secondary2: 3
