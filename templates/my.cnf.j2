@@ -15,9 +15,9 @@ enforce_gtid_consistency=ON
 #
 # Group Replication configuration
 #
+plugin_load_add='group_replication.so'
 group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
 group_replication_start_on_boot=OFF
-group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
-group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
+group_replication_local_address='{{ db_container_name }}{{ item }}:3306'
+group_replication_group_seeds='{{ db_container_name }}1:3306,{{ db_container_name }}2:3306,{{ db_container_name }}3:3306'
 group_replication_bootstrap_group=OFF
-plugin_load_add='group_replication.so'
