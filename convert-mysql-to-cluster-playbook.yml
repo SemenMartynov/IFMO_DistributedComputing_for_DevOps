@@ -175,4 +175,6 @@
         name: "{{ wp_container_name }}"
         state: started
         env:
+          WORDPRESS_DB_HOST: "10.16.1.10"
           WORDPRESS_DB_PORT: "6446"
+
