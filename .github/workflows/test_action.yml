@@ -47,11 +47,18 @@ jobs:
         sudo docker volume ls
         sudo docker network ls
         
-    - name: DEBUG show docker logs
+    - name: DEBUG show docker logs db1
       run: |    
         sudo docker logs db1
+
+    - name: DEBUG show docker logs db2
+      run: |    
         sudo docker logs db2
+
+    - name: DEBUG show docker logs db3
+      run: |    
         sudo docker logs db3
+
 
     - name: Testing MySQL replication is running
       run: |    
