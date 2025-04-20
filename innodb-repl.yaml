@@ -1,0 +1,222 @@
+---
+# MySQL InnoDB Cluster
+# https://dev.mysql.com/doc/mysql-shell/8.4/en/mysql-innodb-cluster.html
+- hosts: all
+  become: true
+  vars_files:
+    - defaults/main.yml
+
+  tasks:
+    - name: Generate MySQL password
+      ansible.builtin.set_fact: mysql_passwd="{{ pwd_alias }}"
+
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Add MySQL GPG apt Key
+      apt_key:
+        keyserver: pgp.mit.edu
+        id: BCA43417C3B485DD128EC6D4B7B3B788A8D3785C
+        state: present
+
+    - name: Add MySQL Repository
+      apt_repository:
+        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-8.4-lts
+        state: present
+
+    - name: Install required packages
+      apt:
+        pkg:
+          - python3-pymysql
+          - mysql-shell
+        state: latest
+        update_cache: true
+
+    - name: Stop WP container
+      community.docker.docker_container:
+        name: "{{ wp_container_name }}"
+        state: stopped
+
+    - name: Backup current WP databases
+      mysql_db:
+        state: dump
+        name: "{{ wp_dbname }}"
+        target: /tmp/dump.sql
+        login_host: "10.16.1.3"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+
+    - name: Remove standalone MySQL instance
+      community.docker.docker_container:
+        name: "{{ db_container_name }}"
+        state: absent
+
+#    - name: Create MySQL conf dirs for InnoDB cluster
+#      ansible.builtin.file:
+#        path: mysql{{ item }}.conf.d
+#        state: directory
+#        mode: '0755'
+#      with_sequence: start=1 end=3
+      
+    - name: Generate MySQL startup configs for InnoDB cluster
+      template:
+        src: templates/my.cnf.j2
+        dest: my{{ item }}.cnf
+      with_sequence: start=1 end=3
+    
+    - name: Init MySQL instances
+      community.docker.docker_container:
+        name: "{{ db_container_name }}{{ item }}"
+        image: "{{ db_container_image }}"
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 #--defaults-extra-file=/etc/mysql/mysql.conf.d/my-cluster.cnf
+        state: started
+        restart_policy: "on-failure"
+        networks:
+          - name: "{{ wp_int_network }}"
+            ipv4_address: "10.16.1.1{{ item }}"
+        exposed_ports:
+          - 3306
+          - 33060
+          - 33061
+        volumes:
+          - db{{ item }}:/var/lib/mysql
+          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my-cluster.cnf:ro
+        capabilities:
+          - SYS_NICE
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
+#          MYSQL_RANDOM_ROOT_PASSWORD: '1'
+          MYSQL_DATABASE: "{{ wp_dbname }}"
+          MYSQL_USER: "{{ wp_dbuser }}"
+          MYSQL_PASSWORD: "{{ mysql_passwd }}"
+      with_sequence: start=1 end=3
+
+    - name: Pause to start and init MySQL instances
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: 'Node #1 will bootstrap the group'
+      ignore_errors: true
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.1{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - RESET BINARY LOGS AND GTIDS
+          - SET SQL_LOG_BIN=0
+          - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
+          - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
+          - FLUSH PRIVILEGES
+          - SET SQL_LOG_BIN=1
+          - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='10.16.1.1{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='10.16.1.11:33061,10.16.1.12:33061,10.16.1.13:33061'
+          - SET GLOBAL group_replication_bootstrap_group=ON
+          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
+          - SET GLOBAL group_replication_bootstrap_group=OFF
+      loop:
+        - 1
+
+    - name: Pause for 15s to start MySQL instances
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: 'Add nodes #2 and #3 to the group'
+      ignore_errors: true
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.1{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - RESET BINARY LOGS AND GTIDS
+          - SET SQL_LOG_BIN=0
+          - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
+          - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
+          - FLUSH PRIVILEGES
+          - SET SQL_LOG_BIN=1
+          - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='10.16.1.1{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='10.16.1.11:33061,10.16.1.12:33061,10.16.1.13:33061'
+          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
+      with_sequence: start=2 end=3
+
+    - name: Pause for to start and replicate MySQL instances
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: 'Restore current WP database to node #1'
+      mysql_db:
+        state: import
+        name: "{{ wp_dbname }}"
+        target: /tmp/dump.sql
+        login_host: "10.16.1.11"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+
+    - name: Generate MySQL SHELL config
+      template:
+        src: templates/mysqlsh_create_cluster.js.j2
+        dest: create_cluster.js
+          
+    - name: Run MySQL SHELL
+      ansible.builtin.shell: mysqlsh --uri 'root@10.16.1.11' -p'{{ mysql_root_pw }}' -f create_cluster.js
+
+    - name: Install MySQLRouter
+      community.docker.docker_container:
+        name: "mysqlrouter"
+        image: "{{ mysqlrouter_container_image }}"
+        state: started
+        restart_policy: "on-failure"
+        networks:
+          - name: "{{ wp_int_network }}"
+            ipv4_address: "10.16.1.10"
+        exposed_ports:
+          - 6446 # R/W connection port. Clients that connect to this port will be forwarded to the PRIMARY
+          - 6447 # R/O connection port. Clients that connect to this port will be forwarded to a SECONDARY
+          - 6448 # X Protocol R/W connection port. R/W port for X protocol client connections
+          - 6449 # X Protocol R/O connection port. R/O port for X protocol client connections
+          - 8443 # HTTPS REST interface port.
+        env:
+          MYSQL_HOST: "10.16.1.11"
+          MYSQL_PORT: "3306"
+          MYSQL_USER: "root"
+          MYSQL_PASSWORD: "{{ mysql_root_pw }}"
+          MYSQL_INNODB_CLUSTER_MEMBERS: "3"
+
+    - name: Pause for to start MySQLRouter
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Start WP container
+      community.docker.docker_container:
+        name: "{{ wp_container_name }}"
+        image: "{{ wp_container_image }}"
+        state: started
+        recreate: true
+        restart: yes
+        restart_policy: always
+        networks:
+          - name: "{{ wp_int_network }}"
+            aliases: wpint
+            ipv4_address: "10.16.1.2"
+          - name: "{{ wp_ext_network }}"
+            aliases: wp
+        ports:
+          - "80:80"
+        volumes:
+          - wordpress:/var/www/html
+        env:
+          WORDPRESS_DB_HOST: "10.16.1.10:6446"
+          WORDPRESS_DB_USER: "{{ wp_dbuser }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_passwd }}"
+          WORDPRESS_DB_NAME: "{{ wp_dbname }}"
+          
