@@ -151,7 +151,7 @@
     - name: Install MySQLRouter
       community.docker.docker_container:
         name: "mysqlrouter"
-        image: "container-registry.oracle.com/mysql/community-router:8.4"
+        image: "{{ mysqlrouter_container_image }}"
         state: started
         restart_policy: "on-failure"
         networks:
