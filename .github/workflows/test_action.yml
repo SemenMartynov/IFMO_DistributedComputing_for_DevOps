@@ -35,7 +35,7 @@ jobs:
 
     - name: Testing wordpress container is serving HTTP port
       run: |
-        sleep 10 # need some time for docker containers to start properly
+        sleep 15 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
     - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
@@ -62,7 +62,8 @@ jobs:
 
     - name: Testing MySQL replication is running
       run: |    
-        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICA STATUS\G;' -e 'SELECT * FROM performance_schema.replication_group_members;' #-e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
+        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' #-e 'SHOW REPLICA STATUS\G;' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
+        sudo docker exec db2 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;'
 #        sudo docker exec db mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;' #-e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
 
     - name: Testing wordpress container is serving HTTP port
