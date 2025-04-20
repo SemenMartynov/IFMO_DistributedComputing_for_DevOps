@@ -42,7 +42,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - my{{ item }}.cnf:/etc/mysql/conf.d/my-innodb-cluster.cnf:ro
+#          - my{{ item }}.cnf:/etc/mysql/conf.d/my-innodb-cluster.cnf:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
@@ -70,14 +70,18 @@
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
-          - SET GLOBAL group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
-          - SET GLOBAL group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
-          - SET GLOBAL group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
           - SET GLOBAL group_replication_bootstrap_group=ON
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
           - SET GLOBAL group_replication_bootstrap_group=OFF
       loop:
         - 1
+
+    - name: Pause for 10s to start MySQL instances
+      ansible.builtin.pause:
+        seconds: 10
 
     - name: 'Add nodes #2 and #3 to the group'
       ignore_errors: true
@@ -94,9 +98,9 @@
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
-          - SET GLOBAL group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
-          - SET GLOBAL group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
-          - SET GLOBAL group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
       
