@@ -60,10 +60,14 @@ jobs:
         sudo docker logs db3
 
 
-    - name: Testing MySQL replication is running
+    - name: Testing MySQL replication is running on DB1
       run: |    
-        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' #-e 'SHOW REPLICA STATUS\G;' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
-        sudo docker exec db2 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;'
+        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' -e 'SHOW DATABASES'
+        #-e 'SHOW REPLICA STATUS\G;' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
+
+    - name: Testing MySQL replication is running on DB2
+      run: |    
+        sudo docker exec db2 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' -e 'SHOW DATABASES'
 #        sudo docker exec db mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;' #-e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
 
     - name: Testing wordpress container is serving HTTP port
