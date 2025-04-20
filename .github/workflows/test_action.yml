@@ -35,7 +35,7 @@ jobs:
 
     - name: Testing wordpress container is serving HTTP port
       run: |
-        sleep 15 # need some time for docker containers to start properly
+        sleep 5 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
     - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
@@ -59,6 +59,9 @@ jobs:
       run: |    
         sudo docker logs db3
 
+    - name: DEBUG show docker logs mysqlrouter
+      run: |    
+        sudo docker logs mysqlrouter
 
     - name: Testing MySQL replication is running on DB1
       run: |    
@@ -72,5 +75,5 @@ jobs:
 
     - name: Testing wordpress container is serving HTTP port
       run: |
-        sleep 15 # need some time for docker containers to start properly
+        sleep 5 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
