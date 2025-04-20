@@ -40,24 +40,24 @@
         name: "{{ db_container_name }}"
         state: stopped
 
-    - name: Create MySQL conf dirs for InnoDB cluster
-      ansible.builtin.file:
-        path: mysql{{ item }}.conf.d
-        state: directory
-        mode: '0755'
-      with_sequence: start=1 end=3
+#    - name: Create MySQL conf dirs for InnoDB cluster
+#      ansible.builtin.file:
+#        path: mysql{{ item }}.conf.d
+#        state: directory
+#        mode: '0755'
+#      with_sequence: start=1 end=3
       
     - name: Generate MySQL startup configs for InnoDB cluster
       template:
         src: templates/my.cnf.j2
-        dest: mysql{{ item }}.conf.d/my.cnf
+        dest: my{{ item }}.cnf
       with_sequence: start=1 end=3
     
     - name: Init MySQL instances
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 --defaults-extra-file=/etc/mysql/mysql.conf.d/my-cluster.cnf
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 --defaults-extra-file=/etc/mysql/mysql.conf.d/my-cl.cnf.cnf
         state: started
         restart_policy: "on-failure"
         networks:
@@ -69,7 +69,7 @@
           - 33061
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - mysql{{ item }}.conf.d/my.cnf:/etc/mysql/mysql.conf.d/my-cluster.cnf:ro
+          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my-cl.cnf:ro
         capabilities:
           - SYS_NICE
         env:
