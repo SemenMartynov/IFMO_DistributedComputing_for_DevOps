@@ -50,7 +50,6 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON
         state: started
         restart_policy: "on-failure"
         networks:
@@ -61,7 +60,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my.cnf:ro
+#          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my.cnf:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
@@ -70,10 +69,21 @@
 #          MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
-    - name: Pause for 50s to start MySQL instances
+    - name: Pause for 50s to start and init MySQL instances
       ansible.builtin.pause:
         seconds: 50
 
+    - name: Restart MySQL instances with new commands
+      community.docker.docker_container:
+        name: "{{ db_container_name }}"
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON
+        state: started
+        restart: true
+        volumes:
+          - db{{ item }}:/var/lib/mysql
+          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my.cnf:ro
+      with_sequence: start=1 end=3
+      
     - name: 'Node #1 will bootstrap the group'
       ignore_errors: true
       community.mysql.mysql_query:
