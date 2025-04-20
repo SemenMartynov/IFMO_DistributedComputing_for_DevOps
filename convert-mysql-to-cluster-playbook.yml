@@ -43,7 +43,7 @@
     - name: Generate MySQL startup configs for InnoDB cluster
       template:
         src: templates/my.cnf.j2
-        dest: my{{ item }}.cnf
+        dest: mysql{{ item }}.conf.d/my.cnf
       with_sequence: start=1 end=3
     
     - name: Init MySQL instances
@@ -61,7 +61,7 @@
           - 33060
         volumes:
           - db{{ item }}:/var/lib/mysql
-          - my{{ item }}.cnf:/etc/mysql/mysql.conf.d/my.cnf:ro
+          - mysql{{ item }}.conf.d:/etc/mysql/mysql.conf.d:ro
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
@@ -82,6 +82,7 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
+          - RESET BINARY LOGS AND GTIDS
           - SET SQL_LOG_BIN=0
           - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
           - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
@@ -126,11 +127,11 @@
           - FLUSH PRIVILEGES
           - SET SQL_LOG_BIN=1
           - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - SET GLOBAL group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
           - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
           - SET PERSIST group_replication_local_address='{{ db_container_name }}{{ item }}:33061'
           - SET PERSIST group_replication_group_seeds='{{ db_container_name }}1:33061,{{ db_container_name }}2:33061,{{ db_container_name }}3:33061'
-          - CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
 
