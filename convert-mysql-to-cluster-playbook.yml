@@ -180,3 +180,6 @@
         state: started
         env:
           WORDPRESS_DB_HOST: "10.16.1.11"
+          WORDPRESS_DB_USER: "{{ wp_dbuser }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_passwd }}"
+          WORDPRESS_DB_NAME: "{{ wp_dbname }}"
