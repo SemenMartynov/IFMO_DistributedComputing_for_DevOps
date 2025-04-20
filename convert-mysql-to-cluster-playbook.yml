@@ -27,11 +27,13 @@
         repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-8.4-lts
         state: present
 
-    - name: Install required by Ansible package
-      apt: pkg={{ item }} state=present
-      with_items:
-        - python3-pymysql
-        - mysqlsh
+    - name: Install required packages
+      apt:
+        pkg:
+          - python3-pymysql
+          - mysql-shell
+        state: latest
+        update_cache: true
 
     - name: Stop WP container
       community.docker.docker_container:
