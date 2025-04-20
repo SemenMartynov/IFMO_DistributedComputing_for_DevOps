@@ -70,6 +70,8 @@
         volumes:
           - db{{ item }}:/var/lib/mysql
           - mysql{{ item }}.conf.d:/etc/mysql/mysql.conf.d:ro
+        capabilities:
+          - SYS_NICE
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
