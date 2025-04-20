@@ -75,9 +75,9 @@
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
-#          MYSQL_DATABASE: "{{ wp_dbname }}"
-#          MYSQL_USER: "{{ wp_dbuser }}"
-#          MYSQL_PASSWORD: "{{ mysql_passwd }}"
+          MYSQL_DATABASE: "{{ wp_dbname }}"
+          MYSQL_USER: "{{ wp_dbuser }}"
+          MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
     - name: Pause to start and init MySQL instances
