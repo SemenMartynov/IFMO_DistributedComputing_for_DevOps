@@ -94,19 +94,36 @@
         timeout: 60
 
     - name: Настройка репликации на Slave
-      shell: |
-        docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "
-        CHANGE MASTER TO
-        MASTER_HOST='mysql_master',
-        MASTER_USER='{{ mysql_repl_user }}',
-        MASTER_PASSWORD='{{ mysql_repl_password }}',
-        MASTER_AUTO_POSITION=1;
-        START SLAVE;"
+      mysql_replication:
+        mode: changemaster
+        master_host: "mysql_master"
+        master_user: "{{ mysql_repl_user }}"
+        master_password: "{{ mysql_repl_password }}"
+        master_auto_position: 1
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
+
+    - name: Запуск репликации
+      mysql_replication:
+        mode: startslave
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
 
     - name: Проверка статуса репликации
-      shell: docker exec mysql_slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      mysql_replication:
+        mode: getslave
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
       register: replication_status
-      until: "'Slave_IO_Running: Yes' in replication_status.stdout and 'Slave_SQL_Running: Yes' in replication_status.stdout"
+      until:
+        - replication_status.Slave_IO_Running == "Yes"
+        - replication_status.Slave_SQL_Running == "Yes"
       retries: 10
       delay: 5
 
@@ -124,9 +141,6 @@
           WORDPRESS_DB_NAME: "{{ mysql_database }}"
           WORDPRESS_DB_USER: "{{ mysql_user }}"
           WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
-        depends_on:
-          - mysql_master
-          - mysql_slave
 
     - name: Проверка работы WordPress
       uri:
