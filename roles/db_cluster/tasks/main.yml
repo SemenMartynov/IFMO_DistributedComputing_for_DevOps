@@ -18,16 +18,6 @@
     mode: '0644'
   become: yes
 
-- name: Create replication user on primary
-  mysql_user:
-    name: "{{ mysql_replication_user }}"
-    password: "{{ mysql_replication_password }}"
-    priv: "*.*:REPLICATION SLAVE"
-    host: '%'
-    state: present
-  delegate_to: localhost
-  run_once: true
-
 - name: Create primary database node
   docker_container:
     name: mysql_primary
@@ -45,6 +35,9 @@
       MYSQL_PASSWORD: "{{ database_password }}"
       MYSQL_INIT_COMMAND: |
         SET GLOBAL group_replication_bootstrap_group=ON;
+        CREATE USER IF NOT EXISTS '{{ mysql_replication_user }}'@'%' IDENTIFIED BY '{{ mysql_replication_password }}';
+        GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_replication_user }}'@'%';
+        FLUSH PRIVILEGES;
         CHANGE MASTER TO MASTER_USER='{{ mysql_replication_user }}', MASTER_PASSWORD='{{ mysql_replication_password }}' FOR CHANNEL 'group_replication_recovery';
         START GROUP_REPLICATION;
         SET GLOBAL group_replication_bootstrap_group=OFF;
@@ -165,6 +158,6 @@
     login_password: "{{ mysql_root_password }}"
     query: SELECT * FROM performance_schema.replication_group_members;
   register: replication_status
-  until: replication_status.rowcount == 3
+  until: (replication_status.results | length) == 3 
   retries: 10
   delay: 10

@@ -32,6 +32,12 @@
     update_cache: yes
   become: yes
 
+
+- name: Wait for Docker to be fully initialized
+  wait_for:
+    timeout: 5
+  become: yes
+
 - name: Ensure Docker service is running
   service:
     name: docker
@@ -61,7 +67,7 @@
   become: yes
 
 - name: Start Docker containers
-  docker_compose:
+  community.docker.docker_compose_v2:
     project_src: /opt/wordpress
     state: present
   become: yes
