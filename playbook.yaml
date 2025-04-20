@@ -1,3 +1,4 @@
+---
 - name: WordPress и MySQL Master-Slave кластер
   hosts: all
   gather_facts: yes
@@ -27,6 +28,24 @@
         state: started
         enabled: yes
 
+    - name: Создание директории для конфигов
+      file:
+        path: /etc/mysql_cluster
+        state: directory
+        mode: 0755
+
+    - name: Создание конфига для Master
+      template:
+        src: my-master.cnf.j2
+        dest: /etc/mysql_cluster/my-master.cnf
+        mode: 0644
+
+    - name: Создание конфига для Slave
+      template:
+        src: my-slave.cnf.j2
+        dest: /etc/mysql_cluster/my-slave.cnf
+        mode: 0644
+
     - name: Создание сети для контейнеров
       docker_network:
         name: wp_network
@@ -46,16 +65,9 @@
           MYSQL_PASSWORD: "{{ mysql_password }}"
           MYSQL_REPLICATION_USER: "{{ mysql_repl_user }}"
           MYSQL_REPLICATION_PASSWORD: "{{ mysql_repl_password }}"
-        command: >
-          --server-id=1
-          --log-bin=mysql-bin
-          --binlog-format=ROW
-          --binlog-do-db={{ mysql_database }}
-          --gtid-mode=ON
-          --enforce-gtid-consistency=ON
-          --log-slave-updates=ON
         volumes:
           - mysql_master_data:/var/lib/mysql
+          - /etc/mysql_cluster/my-master.cnf:/etc/mysql/conf.d/replication.cnf
         ports:
           - "3306:3306"
 
@@ -74,16 +86,9 @@
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-        command: >
-          --server-id=2
-          --log-bin=mysql-bin
-          --binlog-format=ROW
-          --gtid-mode=ON
-          --enforce-gtid-consistency=ON
-          --log-slave-updates=ON
-          --skip-slave-start
         volumes:
           - mysql_slave_data:/var/lib/mysql
+          - /etc/mysql_cluster/my-slave.cnf:/etc/mysql/conf.d/replication.cnf
         ports:
           - "3307:3306"
 

@@ -1,0 +1,10 @@
+[mysqld]
+server-id = 1
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_do_db = {{ mysql_database }}
+gtid_mode = ON
+enforce_gtid_consistency = ON
+log_slave_updates = ON
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
