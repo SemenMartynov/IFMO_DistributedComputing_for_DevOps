@@ -5,8 +5,10 @@ networks:
 services:
   database:
     image: mysql:8.0.27
+    container_name: master
     volumes:
       - db_data:/var/lib/mysql
+      - ./mysql/master.cnf:/etc/mysql/conf.d/master.cnf
     restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=wordpress
@@ -15,6 +17,22 @@ services:
       - MYSQL_DATABASE=wordpress
     ports:
       - "3306:3306"
+    networks:
+      - docker-network
+
+  slave:
+    image: mysql:8.0.27
+    container_name: slave
+    depends_on:
+      - database
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=wordpress
+      - MYSQL_REPLICATION_USER=replica
+      - MYSQL_REPLICATION_PASSWORD=password
+    volumes:
+      - db_slave_data:/var/lib/mysql
+      - ./mysql/slave.cnf:/etc/mysql/conf.d/slave.cnf
     networks:
       - docker-network
 
@@ -37,4 +55,5 @@ services:
 
 volumes:
   db_data:
+  db_slave_data:
   wp_data:

@@ -1,0 +1,124 @@
+- name: Configure MySQL master-slave replication
+  hosts: cloud
+  become: yes
+  vars:
+    app_path: /opt/app
+    dump_file: /tmp/db_dump.sql
+    master_container: master
+    slave_container: slave
+    mysql_root_password: wordpress
+
+  tasks:
+    - name: Get list of existing container names
+      shell: docker ps -a --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: existing_containers
+      changed_when: false
+
+    - name: Get current MySQL container ID
+      shell: docker ps --filter "ancestor=mysql:8.0.27" --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: mysql_container_name
+      changed_when: false
+
+    - name: Rename database container to master
+      shell: docker rename {{ mysql_container_name.stdout }} {{ master_container }}
+      when: master_container not in existing_containers.stdout_lines
+      changed_when: true
+
+    - name: Dump existing MySQL data from master
+      shell: |
+        docker exec {{ master_container }} sh -c "mysqldump -u root -p{{ mysql_root_password }} --databases wordpress --skip-lock-tables --no-tablespaces" > {{ dump_file }}
+      args:
+        executable: /bin/bash
+
+    - name: Copy docker compose file
+      copy:
+        src: docker-compose.yaml
+        dest: "{{ app_path }}/docker-compose.yaml"
+
+    - name: Copy master MySQL config
+      copy:
+        src: mysql/master.cnf
+        dest: "{{ app_path }}/mysql/master.cnf"
+
+    - name: Copy slave MySQL config
+      copy:
+        src: mysql/slave.cnf
+        dest: "{{ app_path }}/mysql/slave.cnf"
+
+    - name: Start docker compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_path }}"
+        state: present
+
+    - name: Wait for slave MySQL to be ready
+      shell: |
+        until docker exec {{ slave_container }} mysqladmin ping -u root -p{{ mysql_root_password }} --silent; do
+          sleep 5
+        done
+
+    - name: Copy dump into master container
+      shell: |
+        docker cp {{ dump_file }} {{ master_container }}:/{{ dump_file }}
+
+    - name: Initialize replication user on master
+      shell: |
+        docker exec {{ master_container }} \
+        mysql -u root -p{{ mysql_root_password }} -e "CREATE USER IF NOT EXISTS 'replica'@'%' IDENTIFIED BY 'password'; GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%'; FLUSH PRIVILEGES;"
+      changed_when: true
+
+    - name: Get master log file and position
+      shell: |
+        docker exec {{ master_container }} mysql -u root -p{{ mysql_root_password }} -e "SHOW MASTER STATUS\G" | grep -E 'File|Position'
+      register: master_status_before_dump
+
+    - name: Print master log file and position before dump
+      debug:
+        var: master_status_before_dump.stdout
+
+    - name: Stop slave IO thread
+      shell: |
+        docker exec {{ slave_container }} mysql -u root -p{{ mysql_root_password }} -e "STOP SLAVE IO_THREAD; RESET SLAVE ALL;"
+      changed_when: true
+
+    - name: Set replication on slave
+      shell: |
+        docker exec {{ slave_container }} mysql -u root -p{{ mysql_root_password }} -e "
+        CHANGE MASTER TO
+          MASTER_HOST='{{ master_container }}',
+          MASTER_USER='replica',
+          MASTER_PASSWORD='password',
+          MASTER_LOG_FILE='{{ master_log_file }}',
+          MASTER_LOG_POS={{ master_log_pos }},
+          GET_MASTER_PUBLIC_KEY = 1;
+        START SLAVE;"
+      vars:
+        master_log_file: "{{ master_status_before_dump.stdout_lines[0].split(':')[1] | trim }}"
+        master_log_pos: "{{ master_status_before_dump.stdout_lines[1].split(':')[1] | trim }}"
+
+    - name: Start slave IO thread
+      shell: |
+        docker exec {{ slave_container }} mysql -u root -p{{ mysql_root_password }} -e "START SLAVE IO_THREAD;"
+      changed_when: true
+
+    - name: Load dump back into master to generate full binlog
+      shell: |
+        docker exec -i {{ master_container }} \
+        mysql -uroot -p{{ mysql_root_password }} < {{ dump_file }}
+
+    - name: Get master log file and position
+      shell: |
+        docker exec {{ master_container }} mysql -u root -p{{ mysql_root_password }} -e "SHOW MASTER STATUS\G" | grep -E 'File|Position'
+      register: master_status_after_dump
+
+    - name: Print master log file and position after dump
+      debug:
+        var: master_status_after_dump.stdout
+
+    - name: Show slave status
+      shell: |
+        docker exec {{ slave_container }} mysql -u root -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+
+    - name: Print slave IO and SQL running status
+      debug:
+        msg: "{{ slave_status.stdout_lines | select('search', 'Running') | list }}"
