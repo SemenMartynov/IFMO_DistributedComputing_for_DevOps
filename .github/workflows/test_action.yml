@@ -59,10 +59,6 @@ jobs:
       run: |    
         sudo docker logs db3
 
-    - name: DEBUG show docker logs mysqlshell
-      run: |    
-        sudo docker logs mysqlshell
-
     - name: DEBUG show docker logs mysqlrouter
       run: |    
         sudo docker logs mysqlrouter
