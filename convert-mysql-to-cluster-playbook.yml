@@ -57,7 +57,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 --defaults-extra-file=/etc/mysql/mysql.conf.d/my-cluster.cnf
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --log-error-verbosity=3 #--defaults-extra-file=/etc/mysql/mysql.conf.d/my-cluster.cnf
         state: started
         restart_policy: "on-failure"
         networks:
