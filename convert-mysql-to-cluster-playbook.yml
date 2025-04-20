@@ -170,6 +170,10 @@
           MYSQL_PASSWORD: "{{ mysql_root_pw }}"
           MYSQL_INNODB_CLUSTER_MEMBERS: "3"
 
+    - name: Pause for to start MySQLRouter
+      ansible.builtin.pause:
+        seconds: 30
+
     - name: Start WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
@@ -177,4 +181,3 @@
         env:
           WORDPRESS_DB_HOST: "10.16.1.10"
           WORDPRESS_DB_PORT: "6446"
-
