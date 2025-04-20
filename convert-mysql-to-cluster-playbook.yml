@@ -144,6 +144,10 @@
           - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
       with_sequence: start=2 end=3
 
+    - name: Pause for 15s to start MySQL instances
+      ansible.builtin.pause:
+        seconds: 15
+
     - name: Start WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
