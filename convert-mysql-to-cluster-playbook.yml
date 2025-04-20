@@ -214,7 +214,7 @@
         volumes:
           - wordpress:/var/www/html
         env:
-          WORDPRESS_DB_HOST: "10.16.1.10:6446"
+          WORDPRESS_DB_HOST: "10.16.1.11"
           WORDPRESS_DB_USER: "{{ wp_dbuser }}"
           WORDPRESS_DB_PASSWORD: "{{ mysql_passwd }}"
           WORDPRESS_DB_NAME: "{{ wp_dbname }}"
