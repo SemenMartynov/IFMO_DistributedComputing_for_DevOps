@@ -40,6 +40,13 @@
         name: "{{ db_container_name }}"
         state: stopped
 
+    - name: Create MySQL conf dirs for InnoDB cluster
+      ansible.builtin.file:
+        path: mysql{{ item }}.conf.d
+        state: directory
+        mode: '0755'
+      with_sequence: start=1 end=3
+      
     - name: Generate MySQL startup configs for InnoDB cluster
       template:
         src: templates/my.cnf.j2
