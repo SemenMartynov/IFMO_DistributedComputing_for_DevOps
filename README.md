@@ -20,26 +20,14 @@ git clone https://github.com/b-o-e-v/distributed-computing-2025
 cd distributed-computing-2025
 ```
 
-2. Создайте файл `.env`. Пример файла
-
-```ini
-MYSQL_ROOT_PASSWORD=...
-MYSQL_DATABASE=...
-MYSQL_USER=...
-MYSQL_PASSWORD=...
-MYSQL_REPLICA_USER=...
-MYSQL_REPLICA_PASSWORD=...
-WORDPRESS_DB_HOST=...:3306
-```
-
-3. Настройте свой inventory.ini файл, указав правильные данные для подключения к серверу:
+2. Настройте свой inventory.ini файл, указав правильные данные для подключения к серверу:
 
 ```ini
 [web]
 <IP_сервера> ansible_port=22 ansible_user=user ansible_ssh_private_key_file=~/.ssh/distributed_computing/private_key
 ```
 
-4. **Настройте Ansible и разверните WordPress:**
+3. **Настройте Ansible и разверните WordPress:**
 
 ```sh
 ansible-playbook playbook.yml
@@ -47,7 +35,7 @@ ansible-playbook playbook.yml
 
 Этот шаг установит Docker, создаст необходимые контейнеры и настроит репликацию между двумя экземплярами MySQL
 
-5. **Откройте браузер и перейдите по адресу:**
+4. **Откройте браузер и перейдите по адресу:**
 
 `http://<IP_сервера>`
 
