@@ -1,5 +1,5 @@
 ---
-- name: WordPress и MySQL Master-Slave кластер
+- name: WordPress и MySQL Master-Slave кластер (MySQL 8.0)
   hosts: all
   gather_facts: yes
   become: yes
@@ -11,14 +11,17 @@
     mysql_user: "wordpress_user"
     mysql_password: "wordpress_password"
     mysql_config_dir: "/opt/mysql_cluster"
+    ansible_python_mysql_driver: pymysql
 
   tasks:
+    # Установка базовых компонентов
     - name: Установка необходимых пакетов
       apt:
         name:
           - docker.io
           - python3-pip
           - python3-docker
+          - python3-pymysql
         state: present
         update_cache: yes
 
@@ -28,6 +31,13 @@
         state: started
         enabled: yes
 
+    - name: Добавление пользователя в группу docker
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    # Подготовка конфигурации
     - name: Создание директории для конфигов
       file:
         path: "{{ mysql_config_dir }}"
@@ -55,7 +65,7 @@
     - name: Запуск MySQL Master
       community.docker.docker_container:
         name: mysql_master
-        image: mysql:5.7
+        image: mysql:8.0
         networks:
           - name: wp_network
         restart_policy: always
@@ -71,18 +81,24 @@
           - "{{ mysql_config_dir }}/my-master.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3306:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
 
     - name: Ожидание готовности Master
       wait_for:
         host: "{{ ansible_host }}"
         port: 3306
-        timeout: 60
+        timeout: 120
+        delay: 10
 
     # MySQL Slave
     - name: Запуск MySQL Slave
       community.docker.docker_container:
         name: mysql_slave
-        image: mysql:5.7
+        image: mysql:8.0
         networks:
           - name: wp_network
         restart_policy: always
@@ -93,17 +109,36 @@
           - "{{ mysql_config_dir }}/my-slave.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3307:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
 
     - name: Ожидание готовности Slave
       wait_for:
         host: "{{ ansible_host }}"
         port: 3307
-        timeout: 60
+        timeout: 120
+        delay: 10
+
+    # Настройка репликации
+    - name: Создаем пользователя репликации на Master
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3306
+        name: "{{ mysql_repl_user }}"
+        password: "{{ mysql_repl_password }}"
+        host: "%"
+        priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+        state: present
 
     - name: Настройка репликации на Slave
       community.mysql.mysql_replication:
         mode: changereplication
-        primary_host: "mysql_master"
+        primary_host: "{{ ansible_host }}"
         primary_user: "{{ mysql_repl_user }}"
         primary_password: "{{ mysql_repl_password }}"
         primary_auto_position: 1
@@ -111,6 +146,10 @@
         login_password: "{{ mysql_root_password }}"
         login_host: "{{ ansible_host }}"
         login_port: 3307
+      register: replication_setup
+      until: replication_setup is succeeded
+      retries: 3
+      delay: 5
 
     - name: Запуск репликации
       community.mysql.mysql_replication:
@@ -131,7 +170,8 @@
       until:
         - replication_status.Replica_IO_Running == "Yes"
         - replication_status.Replica_SQL_Running == "Yes"
-      retries: 10
+        - "'Waiting for source to send event' in replication_status.Replica_IO_State"
+      retries: 15
       delay: 5
 
     # WordPress
@@ -154,7 +194,8 @@
       uri:
         url: "http://{{ ansible_host }}:80"
         status_code: 200
+        timeout: 10
       register: wordpress_status
       until: wordpress_status.status == 200
-      retries: 10
+      retries: 15
       delay: 5
