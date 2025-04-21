@@ -8,9 +8,10 @@ try {
 
   print('Setting up InnoDB cluster\n');
   shell.connect('root@10.16.1.11:33060', dbPass);
-  var cluster = dba.createCluster(clusterName, {adoptFromGR: true});
+  dba.createCluster(clusterName); //, {adoptFromGR: true});
   print('Adding instances to the cluster.');
   print('.');
+  var cluster = dba.getCluster();
   cluster.addInstance('root:' + dbPass + '@10.16.1.12');
   print('.');
   cluster.addInstance('root:' + dbPass + '@10.16.1.13');
