@@ -5,21 +5,17 @@
   vars:
     mysql_image: mysql:8.3
     wordpress_image: wordpress:latest
+    MYSQL_ROOT_PASSWORD: rootpass
+    MYSQL_DATABASE: wordpress
+    MYSQL_USER: wpuser
+    MYSQL_PASSWORD: wppass
+    MYSQL_REPLICA_USER: replica
+    MYSQL_REPLICA_PASSWORD: slavepass
+    WORDPRESS_DB_HOST: mysql_master:3306
   roles:
     - docker_installation
 
   tasks:
-    - name: Прочитать .env файл и создать переменные
-      ansible.builtin.set_fact:
-        env_vars: "{{ lookup('file', '.env') | split('\n') }}"
-
-    - name: Преобразовать каждую строку в переменную
-      ansible.builtin.set_fact:
-        "{{ item.split('=')[0] | trim }}": "{{ item.split('=')[1] | trim }}"
-      loop: "{{ env_vars }}"
-      when: item is search('^([^#;].*)$')
-      no_log: true
-
     - name: Установить PyMySQL для работы с MySQL
       ansible.builtin.apt:
         name: python3-pymysql
@@ -90,18 +86,13 @@
           - "FLUSH TABLES WITH READ LOCK"
 
     - name: Получить статус мастера
-      community.mysql.mysql_query:
+      community.mysql.mysql_replication:
+        mode: getprimary
         login_host: 127.0.0.1
         login_port: 3306
         login_user: root
         login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-        query: "SHOW MASTER STATUS"
       register: master_status
-
-    - name: Извлечь log_file и log_pos из master_status
-      set_fact:
-        log_file: "{{ master_status.query_result[0][0].File }}"
-        log_pos: "{{ master_status.query_result[0][0].Position }}"
 
     - name: Временно запустить mysql_slave с пробросом порта для прямого подключения
       community.docker.docker_container:
@@ -145,8 +136,8 @@
               SOURCE_HOST='mysql_master',
               SOURCE_USER='{{ MYSQL_REPLICA_USER }}',
               SOURCE_PASSWORD='{{ MYSQL_REPLICA_PASSWORD }}',
-              SOURCE_LOG_FILE='{{ log_file }}',
-              SOURCE_LOG_POS={{ log_pos }}
+              SOURCE_LOG_FILE='{{ master_status.File }}',
+              SOURCE_LOG_POS={{ master_status.Position }}
           - "START REPLICA"
 
     - name: Перезапустить mysql_master и mysql_slave без проброса портов
