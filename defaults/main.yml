@@ -1,7 +1,7 @@
 ---
 container_count: 1
 db_container_name: db
-mysql_release_version: "8.0"
+mysql_release_version: "8.4-lts"
 db_container_image: "container-registry.oracle.com/mysql/community-server:{{ mysql_release_version }}"
 mysqlrouter_container_image: "container-registry.oracle.com/mysql/community-router:{{ mysql_release_version }}"
 wp_container_name: wp
