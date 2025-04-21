@@ -27,9 +27,9 @@ try {
   var cluster = dba.createCluster(clusterName, { multiPrimary:true, force:true, memberSslMode:'DISABLED' });
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance({user: "cluster_admin", host: "10.16.1.12", port: "3306", password: dbPass, force:true});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.12", port: "3306", password: dbPass}, {recoveryMethod:"clone"});
   print('.');
-  cluster.addInstance({user: "cluster_admin", host: "10.16.1.13", port: "3306", password: dbPass, force:true});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.13", port: "3306", password: dbPass}, {recoveryMethod:"clone"});
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
