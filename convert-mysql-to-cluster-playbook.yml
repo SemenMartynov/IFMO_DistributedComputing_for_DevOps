@@ -24,7 +24,7 @@
 
     - name: Add MySQL Repository
       apt_repository:
-        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-{{ mysql_release_version }}
+        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-{{ mysql_release_version }}-lts
         state: present
 
 #    - name: Obtaining percona public key
