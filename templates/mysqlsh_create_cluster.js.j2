@@ -2,23 +2,28 @@ dba.verbose = 2;
 var dbPass = "{{ mysql_root_pw }}";
 var clusterName = "{{ clustername }}";
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 try {
   print('Setting up InnoDB cluster\n');
 
-/*  
-  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
+
+  sleep(5000);
 
   shell.connect('root@10.16.1.11:3306', dbPass);
-*/
 
   var cluster = dba.createCluster(clusterName);
+
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.12", port: "3306", password: dbPass});
+  cluster.addInstance({user: "root", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone'});
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.13", port: "3306", password: dbPass});
+  cluster.addInstance({user: "root", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone'});
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
