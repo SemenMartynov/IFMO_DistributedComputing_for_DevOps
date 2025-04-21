@@ -23,13 +23,14 @@ try {
   shell.connect('cluster_admin@10.16.1.11:3306', dbPass);
   shell.options['dba.restartWaitTimeout'] = 7200;
 
-  var cluster = dba.createCluster(clusterName);
+// https://dev.mysql.com/doc/dev/mysqlsh-api-javascript/8.0/classmysqlsh_1_1dba_1_1_dba.html#a12f040129a2c4c301392dd69611da0c8
+  var cluster = dba.createCluster(clusterName, { multiPrimary:true, ipAllowlist:'10.16.1.0/28', memberSslMode:'DISABLED' });
 
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance({user: "cluster_admin", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.12", port: "3306", password: dbPass, memberSslMode: 'DISABLED', recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.');
-  cluster.addInstance({user: "cluster_admin", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.13", port: "3306", password: dbPass, memberSslMode: 'DISABLED', recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
