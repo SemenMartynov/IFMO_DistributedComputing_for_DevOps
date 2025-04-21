@@ -84,7 +84,7 @@
 
     - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
-        seconds: 15
+        seconds: 30
 
     - name: Generate MySQL SHELL config
       template:
