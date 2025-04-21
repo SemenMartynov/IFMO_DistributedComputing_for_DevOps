@@ -10,12 +10,12 @@ try {
   dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
   dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
 
-  var cluster = dba.createCluster(clusterName, {localAddress:'cluster_admin@10.16.1.11:33061', replicationAllowedHost:'10.16.1.0/28', });
+  var cluster = dba.createCluster(clusterName);
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance('root:' + dbPass + '@10.16.1.12', {localAddress:'cluster_admin@10.16.1.12:33061'});
+  cluster.addInstance('root:' + dbPass + '@10.16.1.12');
   print('.');
-  cluster.addInstance('root:' + dbPass + '@10.16.1.13', {localAddress:'cluster_admin@10.16.1.12:33061'});
+  cluster.addInstance('root:' + dbPass + '@10.16.1.13');
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
