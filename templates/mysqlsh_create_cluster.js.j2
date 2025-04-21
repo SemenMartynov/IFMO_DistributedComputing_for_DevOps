@@ -2,9 +2,9 @@ var dbPass = "{{ mysql_root_pw }}"
 var clusterName = "{{ clustername }}"
 
 try {
-  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'icadmin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'icadmin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'icadmin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
 
   print('Setting up InnoDB cluster\n');
   shell.connect('root@10.16.1.11:33060', dbPass);
