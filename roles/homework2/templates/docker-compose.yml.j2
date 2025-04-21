@@ -7,10 +7,10 @@ services:
     ports:
       - "{{ wordpress_port }}:80"
     depends_on:
-      - mysql-primary
-      - mysql-secondary
+      - mysql_primary
+      - mysql_secondary
     environment:
-      WORDPRESS_DB_HOST: mysql-primary
+      WORDPRESS_DB_HOST: mysql_primary
       WORDPRESS_DB_USER: {{ database_user }}
       WORDPRESS_DB_PASSWORD: {{ database_password }}
       WORDPRESS_DB_NAME: {{ database_name }}
@@ -19,9 +19,9 @@ services:
     restart: unless-stopped
 
       
-  mysql-primary:
+  mysql_primary:
     image: mysql:8.0
-    container_name: mysql-primary
+    container_name: mysql_primary
     ports:
       - "{{ mysql_port }}:3306"
     environment:
@@ -42,9 +42,9 @@ services:
       --default-authentication-plugin=mysql_native_password
   
 
-  mysql-secondary:
+  mysql_secondary:
     image: mysql:8.0
-    container_name: mysql-secondary
+    container_name: mysql_secondary
     ports:
       - "{{ mysql_secondary_port }}:3306"
     environment:
