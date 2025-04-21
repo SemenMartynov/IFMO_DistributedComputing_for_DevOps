@@ -103,7 +103,7 @@
 
     - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
-        seconds: 45
+        seconds: 50
         
     - name: 'RESET BINARY LOGS AND GTIDS'
       ignore_errors: true
