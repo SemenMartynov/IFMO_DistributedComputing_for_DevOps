@@ -13,7 +13,7 @@
     - name: Install aptitude
       apt:
         name: aptitude
-        state: latest
+        state: latest 
         update_cache: true
 
     - name: Add MySQL GPG apt Key
@@ -115,6 +115,7 @@
         query:
           - RESET BINARY LOGS AND GTIDS
           - SET PERSIST group-replication-ssl-mode=DISABLED
+          - SET PERSIST group_replication_ip_allowlist="10.16.1.0/28"
           - SET PERSIST require_secure_transport=OFF
       with_sequence: start=1 end=3
       
