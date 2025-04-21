@@ -105,19 +105,19 @@
       ansible.builtin.pause:
         seconds: 50
         
-    - name: 'RESET BINARY LOGS AND GTIDS'
-      ignore_errors: true
-      community.mysql.mysql_query:
-        login_db: mysql
-        login_host: "10.16.1.1{{ item }}"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"
-        query:
-          - RESET BINARY LOGS AND GTIDS
-          - SET PERSIST group-replication-ssl-mode=DISABLED
-          - SET PERSIST group_replication_ip_allowlist="10.16.1.0/28"
-          - SET PERSIST require_secure_transport=OFF
-      with_sequence: start=1 end=3
+#    - name: 'RESET BINARY LOGS AND GTIDS'
+#      ignore_errors: true
+#      community.mysql.mysql_query:
+#        login_db: mysql
+#        login_host: "10.16.1.1{{ item }}"
+#        login_port: 3306
+#        login_password: "{{ mysql_root_pw }}"
+#        query:
+#          - RESET BINARY LOGS AND GTIDS
+#          - SET PERSIST group-replication-ssl-mode=DISABLED
+#          - SET PERSIST group_replication_ip_allowlist="10.16.1.0/28"
+#          - SET PERSIST require_secure_transport=OFF
+#      with_sequence: start=1 end=3
       
     - name: Generate MySQL SHELL config
       template:
