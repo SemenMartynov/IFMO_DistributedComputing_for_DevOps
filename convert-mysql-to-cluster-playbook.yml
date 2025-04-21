@@ -84,6 +84,56 @@
       ansible.builtin.pause:
         seconds: 30
 
+    - name: 'Node #1 will bootstrap the group'
+      ignore_errors: true
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.1{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - RESET BINARY LOGS AND GTIDS
+          - SET SQL_LOG_BIN=0
+          - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
+          - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
+          - FLUSH PRIVILEGES
+          - SET SQL_LOG_BIN=1
+          - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='10.16.1.1{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='10.16.1.11:33061,10.16.1.12:33061,10.16.1.13:33061'
+          - SET GLOBAL group_replication_bootstrap_group=ON
+          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
+          - SET GLOBAL group_replication_bootstrap_group=OFF
+      loop:
+        - 1
+
+    - name: Pause for 15s to start MySQL instances
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: 'Add nodes #2 and #3 to the group'
+      ignore_errors: true
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.1{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - RESET BINARY LOGS AND GTIDS
+          - SET SQL_LOG_BIN=0
+          - CREATE USER 'repl'@'%' IDENTIFIED BY '{{ mysql_root_pw }}'
+          - GRANT CONNECTION_ADMIN, BACKUP_ADMIN, GROUP_REPLICATION_STREAM, REPLICATION SLAVE ON *.* TO 'repl'@'%'
+          - FLUSH PRIVILEGES
+          - SET SQL_LOG_BIN=1
+          - CHANGE REPLICATION SOURCE TO SOURCE_USER='repl', SOURCE_PASSWORD='{{ mysql_root_pw }}' FOR CHANNEL 'group_replication_recovery'
+          - INSTALL PLUGIN group_replication SONAME 'group_replication.so'
+          - SET PERSIST group_replication_group_name='{{ mysql_root_pw | to_uuid }}'
+          - SET PERSIST group_replication_local_address='10.16.1.1{{ item }}:33061'
+          - SET PERSIST group_replication_group_seeds='10.16.1.11:33061,10.16.1.12:33061,10.16.1.13:33061'
+          - START GROUP_REPLICATION USER='repl', PASSWORD='{{ mysql_root_pw }}'
+      with_sequence: start=2 end=3
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
