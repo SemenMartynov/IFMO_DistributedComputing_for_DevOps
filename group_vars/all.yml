@@ -8,27 +8,20 @@ mysql_port: 3306
 # Database cluster configuration
 mysql_cluster_network: db_cluster_network
 mysql_group_replication_name: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-mysql_primary_port: 3307
-mysql_secondary1_port: 3308
-mysql_secondary2_port: 3309
-mysql_primary_gr_port: 33061
-mysql_secondary1_gr_port: 33062
-mysql_secondary2_gr_port: 33063
+mysql_secondary_port: 3307
 mysql_server_id_primary: 1
 mysql_server_id_secondary1: 2
 mysql_server_id_secondary2: 3
-mysql_replication_user: repl_user
 mysql_replication_password: repl_password
 
 # WordPress configuration
 wordpress_admin_user: admin
 wordpress_admin_password: admin_password
 wordpress_admin_email: admin@example.com
-wordpress_site_url: http://localhost:8000
-wordpress_port: 8000
+wordpress_port: 8080
 
 # Docker configuration
-docker_network: wordpress_network
+docker_network: wordpress-network
 docker_compose_version: '3.8'
 
 # MySQL configuration

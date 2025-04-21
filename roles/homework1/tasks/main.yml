@@ -27,13 +27,11 @@
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
-      become: yes
 
     - name: Add Docker repository
       apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
         state: present
-      become: yes
 
     - name: Install Docker
       apt:
@@ -43,43 +41,43 @@
           - containerd.io
         state: present
         update_cache: yes
-      become: yes
 
     - name: Wait for Docker to be fully initialized
       wait_for:
         timeout: 5
-      become: yes
 
     - name: Ensure Docker service is running
       service:
         name: docker
         state: started
         enabled: yes
-      become: yes
 
     - name: Install Docker Compose
       get_url:
         url: "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
         dest: /usr/local/bin/docker-compose
         mode: 'u+x'
-      become: yes
 
-- name: Create web application directory
-  file:
-    path: /opt/wordpress
-    state: directory
-    mode: '0755'
+- name: Deploy WP and DB in single-node mode
   become: yes
+  block:
+    - name: Create web application directory
+      file:
+        path: /opt/wordpress
+        state: directory
+        mode: '0755'
 
-- name: Copy docker-compose.yml template
-  template:
-    src: docker-compose.yml.j2
-    dest: /opt/wordpress/docker-compose.yml
-    mode: '0644'
-  become: yes
+    - name: Copy docker-compose.yml template
+      template:
+        src: docker-compose.yml.j2
+        dest: /opt/wordpress/docker-compose.yml
+        mode: '0644'
 
-- name: Start Docker containers
-  community.docker.docker_compose_v2:
-    project_src: /opt/wordpress
-    state: present
-  become: yes
+    - name: Start db and wordpress containers via compose
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress
+        state: present
+
+    - name: Wait for wp become fully operational
+      wait_for:
+        timeout: 10

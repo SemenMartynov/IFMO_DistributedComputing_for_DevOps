@@ -89,5 +89,5 @@ SELECT * FROM performance_schema.replication_group_members;
 ## Завершение работы
 Для остановки веб-приложения, выполните:
 ```bash
-sudo docker rm -f $(sudo docker ps -aq) ; sudo docker system prune -a
+sudo docker rm -f $(sudo docker ps -aq) ; sudo docker system prune -a ; sudo docker volume prune
 ```

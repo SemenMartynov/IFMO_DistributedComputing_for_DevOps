@@ -1,0 +1,70 @@
+---
+- name: Migrate from homework1 to homework2
+  become: yes
+  block:
+    - name: Dump database
+      shell: docker exec -i wordpress-db-1 mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }} --all-databases --source-data=2 > /opt/wordpress/wp_dmp.sql
+      register: dump
+      until: dump.rc == 0
+      retries: 6
+      delay: 5
+
+    - name: Gracefull shutdown containers
+      command: docker-compose down
+      args:
+        chdir: /opt/wordpress
+
+- name: Deploy WP and DB in db-cluster mode
+  become: yes
+  block:
+    - name: Copy docker-compose.yml template for homework2
+      template:
+        src: docker-compose.yml.j2
+        dest: /opt/wordpress/docker-compose.yml
+        mode: '0644'
+
+    - name: Copy query to bootstrap primary node at startup
+      copy:
+        src: primary_bootstrap.sql
+        dest: /opt/wordpress/primary_bootstrap.sql
+        mode: '0644'
+  
+    - name: Start db and wordpress containers via compose
+      command: docker-compose up -d
+      args:
+        chdir: /opt/wordpress/
+      tags: play
+
+- name: Migrate dumped data from homework1
+  become: yes
+  block:
+    - name: Import dump to primary database
+      shell: cat /opt/wordpress/wordpress_dump.sql | docker exec -i mysql-primary mysql -uroot -p{{ mysql_root_password }}
+
+    - name: Get primary binlog coordinates
+      shell: docker exec mysql-primary mysql -uroot -p{{ mysql_root_password }} -e "SHOW MASTER STATUS"
+      register: primary_status
+
+    - name: Extract primary log file and position
+      set_fact:
+        primary_log_file: "{{ primary_status.stdout | regex_search('File: (.*)', '\\1') }}"
+        primary_log_pos: "{{ primary_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+
+    - name: Configure replication on secondary server
+      shell: |
+        docker exec -i mysql-secondary mysql -uroot -p{{ mysql_root_password }} -e "
+        CHANGE MASTER TO
+          MASTER_HOST='mysql-primary',
+          MASTER_USER='replica_user',
+          MASTER_PASSWORD='{{ mysql_replication_password }}',
+          MASTER_LOG_FILE='{{ primary_log_file }}',
+          MASTER_LOG_POS={{ primary_log_pos }};
+        START SLAVE;"
+
+    - name: Check secondary replication status
+      shell: docker exec mysql-secondary mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: secondary_status
+
+    - name: Display replication status
+      debug:
+        msg: "{{ secondary_status.stdout_lines }}"
