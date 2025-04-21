@@ -99,6 +99,7 @@
           - db:/var/lib/mysql
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
+          MYSQL_ROOT_HOST: '%'
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
           MYSQL_DATABASE: "{{ wp_dbname }}"
           MYSQL_USER: "{{ wp_dbuser }}"
