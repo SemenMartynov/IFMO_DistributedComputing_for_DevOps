@@ -94,6 +94,7 @@
           - SYS_NICE
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
+          MYSQL_ROOT_HOST: '%'
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
 #          MYSQL_DATABASE: "{{ wp_dbname }}"
 #          MYSQL_USER: "{{ wp_dbuser }}"
@@ -104,7 +105,7 @@
       ansible.builtin.pause:
         seconds: 45
         
-    - name: 'ESET BINARY LOGS AND GTIDS'
+    - name: 'RESET BINARY LOGS AND GTIDS'
       ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
