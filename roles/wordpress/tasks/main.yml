@@ -8,26 +8,17 @@
 - name: Copy docker-compose template
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ wp_install_dir }}/docker-compose.yml"
-
-- name: Remove old master and slave DB volumes
-  community.docker.docker_volume:
-    name: '{{ item }}'
-    state: absent
-  loop:
-    - wordpress_db_master_data
-    - wordpress_db_slave_data
-  become: yes
+    dest: "{{ wp_install_dir }}/docker-compose.yml" 
 
 # Разделяем запуск: сначала БД, потом WP
 - name: Start DB services (master & slave)
-  community.docker.docker_compose:
+  community.docker.docker_compose_v2:
     project_src: "{{ wp_install_dir }}"
     state: present
     services:
       - db-master
       - db-slave
-    pull: true
+    pull: always
     recreate: always
     remove_orphans: true
 
@@ -46,7 +37,7 @@
     timeout: 120
 
 - name: Start WordPress service
-  community.docker.docker_compose:
+  community.docker.docker_compose_v2:
     project_src: "{{ wp_install_dir }}"
     state: present
     services:
