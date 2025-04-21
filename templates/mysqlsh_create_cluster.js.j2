@@ -21,6 +21,7 @@ try {
   sleep(5000);
 
   shell.connect('cluster_admin@10.16.1.11:3306', dbPass);
+  shell.options['dba.restartWaitTimeout'] = 7200;
 
   var cluster = dba.createCluster(clusterName);
 
