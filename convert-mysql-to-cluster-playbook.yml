@@ -85,7 +85,18 @@
     - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
         seconds: 45
-
+        
+    - name: 'ESET BINARY LOGS AND GTIDS'
+      ignore_errors: true
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: "10.16.1.1{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"
+        query:
+          - RESET BINARY LOGS AND GTIDS
+      with_sequence: start=1 end=3
+      
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
