@@ -58,7 +58,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --skip-host-cache=ON --log-error-verbosity=3 --bind-address="10.16.1.1{{ item }}" #--report-host="10.16.1.1{{ item }}"
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --skip-host-cache=ON --log-error-verbosity=3 --bind-address='10.16.1.1{{ item }}' --report-host='10.16.1.1{{ item }}' --report-port=3306
         state: started
         restart_policy: "on-failure"
         networks:
