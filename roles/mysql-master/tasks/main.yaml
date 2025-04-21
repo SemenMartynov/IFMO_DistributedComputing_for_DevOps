@@ -11,15 +11,6 @@
     host: "%"
     priv: "*.*:ALL"
 
-- name: Create database
-  mysql_db:
-    name: "{{ db_name }}"
-    state: present
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
-
 - name: Create replication user
   mysql_user:
     name: "{{ repl_user }}"

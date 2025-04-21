@@ -2,13 +2,8 @@
   hosts: beta
   vars:
     db_id: 1
-    db_user: practicum
-    db_name: practicum
-    db_password: password
   roles:
-    - mysql-common
     - mysql-master
-    - node-exporter
   tags:
     - master
     - db
@@ -17,46 +12,43 @@
   hosts: gamma
   vars:
     db_id: 2
-    db_user: practicum
-    db_name: practicum
-    db_password: password
     master_host: "{{ hostvars['beta']['internal_host'] }}"
   roles:
-    - mysql-common
     - mysql-slave
-    - node-exporter
   tags:
     - slave
+    - db
+
+- name: Create database and user for WordPress
+  hosts: beta
+  roles:
+    - mysql-init-db
+  tags:
     - db
 
 - name: Setup WordPress
   hosts: alpha
   vars:
-    db_port: 3306
-    db_user: practicum
-    db_name: practicum
     db_host: "{{ hostvars['beta']['internal_host'] }}"
-    db_password: password
   roles:
     - apache
     - wordpress
-    - node-exporter
   tags:
     - web
     - wordpress
 
-- name: Setup monitoring
+- name: Install node exporters
+  hosts: all
+  roles:
+    - node-exporter
+  tags:
+    - monitoring
+
+- name: Setup Monitoring system
   hosts: delta
-  vars:
-    node_exporter_targets:
-      - "{{ hostvars['alpha']['internal_host'] }}:9100"
-      - "{{ hostvars['beta']['internal_host'] }}:9100"
-      - "{{ hostvars['gamma']['internal_host'] }}:9100"
-      - localhost:9100
   roles:
     - prometheus
     - grafana
-    - node-exporter
   tags:
     - prometheus
     - grafana

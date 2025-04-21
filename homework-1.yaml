@@ -2,12 +2,9 @@
   hosts: beta
   vars:
     db_id: 1
-    db_user: practicum
-    db_name: practicum
-    db_password: password
   roles:
-    - mysql-common
     - mysql-master
+    - mysql-init-db
   tags:
     - master
     - db
@@ -15,11 +12,7 @@
 - name: Setup WordPress
   hosts: alpha
   vars:
-    db_port: 3306
-    db_user: practicum
-    db_name: practicum
     db_host: "{{ hostvars['beta']['internal_host'] }}"
-    db_password: password
   roles:
     - apache
     - wordpress

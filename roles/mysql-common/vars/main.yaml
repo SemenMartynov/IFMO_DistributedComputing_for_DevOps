@@ -6,6 +6,7 @@ dependencies:
 # MySQL configuration settings
 db_config_file: /etc/mysql/mysql.conf.d/mysqld.cnf
 db_data_dir: /var/lib/mysql
+db_bind_address: 0.0.0.0
 
 # Login settings
 db_root_user: root

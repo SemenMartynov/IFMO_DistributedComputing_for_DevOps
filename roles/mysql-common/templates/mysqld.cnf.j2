@@ -27,7 +27,7 @@ datadir   = {{ db_data_dir }}
 #
 # Instead of skip-networking the default is now to listen only on
 # localhost which is more compatible and is not less secure.
-bind-address = 0.0.0.0
+bind-address = {{ db_bind_address }}
 mysqlx-bind-address     = 127.0.0.1
 #
 # * Fine Tuning

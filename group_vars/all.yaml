@@ -1,0 +1,5 @@
+---
+db_port: 3306
+db_user: practicum
+db_name: practicum
+db_password: password

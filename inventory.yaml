@@ -27,3 +27,17 @@ all:
       ansible_user: vagrant
       ansible_ssh_private_key_file: .vagrant/machines/delta/virtualbox/private_key
       internal_host: 192.168.56.27
+
+  children:
+    web:
+      hosts:
+        alpha:
+    
+    db:
+      hosts:
+        beta:
+        gamma:
+    
+    monitoring:
+      hosts:
+        delta:

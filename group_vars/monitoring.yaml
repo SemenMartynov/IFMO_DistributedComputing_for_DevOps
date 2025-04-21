@@ -1,0 +1,6 @@
+---
+node_exporter_targets:
+  - "{{ hostvars['alpha']['internal_host'] }}:9100"
+  - "{{ hostvars['beta']['internal_host'] }}:9100"
+  - "{{ hostvars['gamma']['internal_host'] }}:9100"
+  - localhost:9100
