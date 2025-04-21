@@ -10,3 +10,9 @@
     name: apache2
     state: started
     enabled: true
+
+- name: Check Apache2 service status
+  command: systemctl status apache2
+  register: status
+  failed_when: status.rc != 0
+  changed_when: false

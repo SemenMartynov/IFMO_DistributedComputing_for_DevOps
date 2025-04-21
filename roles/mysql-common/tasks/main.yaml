@@ -9,18 +9,20 @@
 - name: Create mysql configuration file
   template:
     src: mysqld.cnf.j2
-    dest: "{{ db_config_file }}"
+    dest: "{{ mysql_config_file }}"
     owner: root
     group: root
     mode: '0644'
   notify: Restart MySQL
 
-- name: Start MySQL
-  service:
-    name: mysql
-    state: started
-
 - name: Enable MySQL
   systemd:
     name: mysql
     enabled: yes
+    state: started
+
+- name: Check MySQL service status
+  command: systemctl status mysql
+  register: status
+  failed_when: status.rc != 0
+  changed_when: false

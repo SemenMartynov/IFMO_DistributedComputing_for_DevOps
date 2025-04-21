@@ -2,3 +2,9 @@
 user_login: node_exporter
 user_group: node_exporter
 node_exporter_service_file: /etc/systemd/system/node_exporter.service
+node_exporter_version: 1.9.1
+node_exporter_distribution: node_exporter-{{ node_exporter_version }}.linux-arm64
+node_exporter_download_path: /tmp/node_exporter-{{ node_exporter_version }}.linux-arm64.tar.gz
+node_exporter_download_url: https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/{{ node_exporter_distribution }}.tar.gz
+node_exporter_extract_path: /tmp
+node_exporter_install_path: /usr/local/bin

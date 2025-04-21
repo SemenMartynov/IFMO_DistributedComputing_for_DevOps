@@ -21,13 +21,13 @@
 
 - name: Download WordPress
   get_url:
-    url: https://wordpress.org/latest.tar.gz
-    dest: /tmp/wordpress.tar.gz
+    url: "{{ wordpress_download_url }}"
+    dest: "{{ wordpress_download_path }}"
 
 - name: Extract WordPress
   unarchive:
-    src: /tmp/wordpress.tar.gz
-    dest: /var/www/
+    src: "{{ wordpress_download_path }}"
+    dest: "{{ wordpress_extract_path }}"
     remote_src: yes
     owner: '{{ user_login }}'
     group: '{{ user_group }}'
@@ -35,18 +35,23 @@
 
 - name: Move WordPress files
   copy:
-    src: /var/www/wordpress/
-    dest: /var/www/html/
+    src: "{{ wordpress_extract_path }}/wordpress/"
+    dest: "{{ wordpress_install_path }}"
     remote_src: yes
     owner: '{{ user_login }}'
     group: '{{ user_group }}'
     mode: '0755'
 
+- name: Delete Apache default index.html
+  file:
+    path: "{{ apache_index_file }}"
+    state: absent
+
 - name: Generate wp-config.php from template
   template:
     src: wp-config.php.j2
-    dest: /var/www/html/wp-config.php
+    dest: "{{ wordpress_install_path }}/wp-config.php"
     owner: '{{ user_login }}'
     group: '{{ user_group }}'
-    mode: '0644'
-  notify: Restart Apache
+    mode: '0755'
+  notify: Restart Apache Service

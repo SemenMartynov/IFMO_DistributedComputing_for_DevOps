@@ -3,3 +3,9 @@ user_login: prometheus
 user_group: prometheus
 prometheus_config_file: /etc/prometheus/prometheus.yml
 prometheus_service_file: /etc/systemd/system/prometheus.service
+prometheus_version: 2.52.0
+prometheus_distribution: prometheus-{{ prometheus_version }}.linux-arm64
+prometheus_download_url: https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/{{ prometheus_distribution }}.tar.gz
+prometheus_download_path: /tmp/{{ prometheus_distribution }}.tar.gz
+prometheus_extract_path: /tmp
+prometheus_install_path: /usr/local/bin

@@ -1,7 +1,7 @@
 - name: Setup master DB
   hosts: beta
   vars:
-    db_id: 1
+    mysql_db_id: 1
   roles:
     - mysql-master
   tags:
@@ -11,8 +11,7 @@
 - name: Setup slave DB
   hosts: gamma
   vars:
-    db_id: 2
-    master_host: "{{ hostvars['beta']['internal_host'] }}"
+    mysql_db_id: 2
   roles:
     - mysql-slave
   tags:
@@ -28,8 +27,6 @@
 
 - name: Setup WordPress
   hosts: alpha
-  vars:
-    db_host: "{{ hostvars['beta']['internal_host'] }}"
   roles:
     - apache
     - wordpress

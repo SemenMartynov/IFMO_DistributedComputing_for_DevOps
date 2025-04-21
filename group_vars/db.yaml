@@ -1,0 +1,11 @@
+---
+# MySQL Configuration settings
+mysql_config_file: /etc/mysql/mysql.conf.d/mysqld.cnf
+mysql_data_dir: /var/lib/mysql
+mysql_bind_address: 0.0.0.0
+mysql_login_unix_socket: /var/run/mysqld/mysqld.sock
+
+# MySQL Replication Settings
+mysql_repl_user: repl
+mysql_repl_password: replpassword
+mysql_bin_log_file: /var/log/mysql/mysql-bin.log

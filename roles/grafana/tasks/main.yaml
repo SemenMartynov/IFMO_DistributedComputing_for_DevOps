@@ -31,6 +31,12 @@
     mode: '0644'
   notify: Restart Grafana
 
+- name: Check Grafana service status
+  command: systemctl status grafana-server
+  register: status
+  failed_when: status.rc != 0
+  changed_when: false
+
 - name: Setup Grafana datasource
   template:
     src: datasources.yaml.j2

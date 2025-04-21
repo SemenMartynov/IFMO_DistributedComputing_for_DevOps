@@ -1,10 +1,7 @@
 ---
 - name: Create MySQL user
   mysql_user:
-    login_user: "{{ db_root_user }}"
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
-    login_unix_socket: "{{ db_login_unix_socket}}"
+    login_unix_socket: "{{ mysql_login_unix_socket}}"
     name: "{{ db_user }}"
     password: "{{ db_password }}"
     state: present
@@ -15,7 +12,4 @@
   mysql_db:
     name: "{{ db_name }}"
     state: present
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
-    login_host: "{{ db_host }}"
-    login_port: "{{ db_port }}"
+    login_unix_socket: "{{ mysql_login_unix_socket}}"

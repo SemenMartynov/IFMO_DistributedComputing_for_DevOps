@@ -1,3 +1,4 @@
+---
 user_login: wordpress
 user_group: wordpress
 dependencies:
@@ -11,3 +12,8 @@ dependencies:
   - php-mbstring
   - php-xml
   - php-zip
+wordpress_download_url: https://wordpress.org/latest.tar.gz
+wordpress_download_path: /tmp/wordpress.tar.gz
+wordpress_extract_path: /tmp
+wordpress_install_path: /var/www/html
+apache_index_file: /var/www/html/index.html

@@ -1,7 +1,7 @@
 - name: Setup master DB
   hosts: beta
   vars:
-    db_id: 1
+    mysql_db_id: 1
   roles:
     - mysql-master
     - mysql-init-db
@@ -11,8 +11,6 @@
 
 - name: Setup WordPress
   hosts: alpha
-  vars:
-    db_host: "{{ hostvars['beta']['internal_host'] }}"
   roles:
     - apache
     - wordpress

@@ -14,14 +14,14 @@
 
 - name: Download node exporter archive
   get_url:
-    url: "https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-arm64.tar.gz"
-    dest: "/tmp/node_exporter.tar.gz"
+    url: "{{ node_exporter_download_url }}"
+    dest: "{{ node_exporter_download_path }}"
     force: yes
 
 - name: Extract node exporter archive
   unarchive:
-    src: "/tmp/node_exporter.tar.gz"
-    dest: /opt/
+    src: "{{ node_exporter_download_path }}"
+    dest: "{{ node_exporter_extract_path }}"
     remote_src: yes
     owner: '{{ user_login }}'
     group: '{{ user_group }}'
@@ -29,8 +29,8 @@
 
 - name: Move node exporter binary files
   copy:
-    src: "/opt/node_exporter-1.9.1.linux-arm64/node_exporter"
-    dest: /usr/local/bin/
+    src: "{{ node_exporter_extract_path }}/{{ node_exporter_distribution }}/node_exporter"
+    dest: "{{ node_exporter_install_path }}/node_exporter"
     remote_src: yes
     owner: '{{ user_login }}'
     group: '{{ user_group }}'
@@ -50,4 +50,9 @@
     state: started
     enabled: yes
     daemon_reload: yes
+
+- name: Check node exporter service status
+  command: systemctl status node_exporter
   register: status
+  failed_when: status.rc != 0
+  changed_when: false

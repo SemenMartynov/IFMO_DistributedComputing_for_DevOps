@@ -17,9 +17,9 @@
 #
 user    = mysql
 # pid-file  = /var/run/mysqld/mysqld.pid
-socket    = {{ db_login_unix_socket }}
+socket    = {{ mysql_login_unix_socket }}
 port      = {{ db_port }}
-datadir   = {{ db_data_dir }}
+datadir   = {{ mysql_data_dir }}
 
 # If MySQL is running as a replication slave, this should be
 # changed. Ref https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_tmpdir
@@ -27,7 +27,7 @@ datadir   = {{ db_data_dir }}
 #
 # Instead of skip-networking the default is now to listen only on
 # localhost which is more compatible and is not less secure.
-bind-address = {{ db_bind_address }}
+bind-address = {{ mysql_bind_address }}
 mysqlx-bind-address     = 127.0.0.1
 #
 # * Fine Tuning
@@ -70,8 +70,8 @@ log_error = /var/log/mysql/error.log
 # note: if you are setting up a replication slave, see README.Debian about
 #       other settings you may need to change.
 
-server-id                       = {{ db_id }}
-log_bin                         = {{ bin_log_file}}
+server-id                       = {{ mysql_db_id }}
+log_bin                         = {{ mysql_bin_log_file }}
 max_binlog_size                 = 100M
 # binlog_expire_logs_seconds    = 2592000
 # binlog_do_db                  = include_database_name
