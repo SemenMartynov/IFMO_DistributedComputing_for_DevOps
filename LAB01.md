@@ -1,7 +1,7 @@
 # IFMO_DistributedComputing_for_DevOps
 Distributed Computing course for DevOps 2025
 
-# Лабораторная №1
+# Лабораторная работа №1
 
 
 Требования:
