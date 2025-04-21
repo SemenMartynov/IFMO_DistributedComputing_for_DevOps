@@ -77,7 +77,7 @@
         name: "{{ db_container_name }}{{ item }}"
         hostname: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port=3306 --group-replication-ssl-mode=DISABLED
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port=3306
         state: started
         restart_policy: "on-failure"
         networks:
@@ -114,6 +114,8 @@
         login_password: "{{ mysql_root_pw }}"
         query:
           - RESET BINARY LOGS AND GTIDS
+          - SET PERSIST group-replication-ssl-mode=DISABLED
+          - SET PERSIST require_secure_transport=OFF
       with_sequence: start=1 end=3
       
     - name: Generate MySQL SHELL config
