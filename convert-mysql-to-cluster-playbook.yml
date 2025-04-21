@@ -103,7 +103,12 @@
         dest: create_cluster.js
           
     - name: Run MySQL SHELL script to create Cluster
-      ansible.builtin.shell: mysqlsh --log-level=DEBUG3 --uri 'root@10.16.1.11' -p'{{ mysql_root_pw }}' -f create_cluster.js
+      ansible.builtin.shell: mysqlsh --log-level=DEBUG3 --no-password -f create_cluster.js
+      register: myshell_result
+      
+    - name: MySQL SHELL script result
+      debug:
+        var: myshell_result.stdout_line
 
     - name: Install MySQLRouter
       community.docker.docker_container:
