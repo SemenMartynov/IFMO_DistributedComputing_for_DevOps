@@ -16,34 +16,34 @@
         state: latest
         update_cache: true
 
-#    - name: Add MySQL GPG apt Key
-#      apt_key:
-#        keyserver: pgp.mit.edu
-#        id: BCA43417C3B485DD128EC6D4B7B3B788A8D3785C
-#        state: present
-#
-#    - name: Add MySQL Repository
-#      apt_repository:
-#        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-8.4-lts
-#        state: present
-
-    - name: Obtaining percona public key
+    - name: Add MySQL GPG apt Key
       apt_key:
-        keyserver: keyserver.ubuntu.com
-        id: 9334A25F8507EFA5
+        keyserver: pgp.mit.edu
+        id: BCA43417C3B485DD128EC6D4B7B3B788A8D3785C
         state: present
-        
-    - name: Obtaining percona public key
-      apt_key: url=http://www.percona.com/downloads/RPM-GPG-KEY-percona
-              state=present
-    
-    - name: Adding percona repository
-      apt_repository: repo='deb http://repo.percona.com/apt {{ ansible_distribution_release }} main'
-              state=present
-    
-    - name: Adding percona source repository
-      apt_repository: repo='deb-src http://repo.percona.com/apt {{ ansible_distribution_release }} main'
-              state=present
+
+    - name: Add MySQL Repository
+      apt_repository:
+        repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-8.4-lts
+        state: present
+
+#    - name: Obtaining percona public key
+#      apt_key:
+#        keyserver: keyserver.ubuntu.com
+#        id: 9334A25F8507EFA5
+#        state: present
+#        
+#    - name: Obtaining percona public key
+#      apt_key: url=http://www.percona.com/downloads/RPM-GPG-KEY-percona
+#              state=present
+#    
+#    - name: Adding percona repository
+#      apt_repository: repo='deb http://repo.percona.com/apt {{ ansible_distribution_release }} main'
+#              state=present
+#    
+#    - name: Adding percona source repository
+#      apt_repository: repo='deb-src http://repo.percona.com/apt {{ ansible_distribution_release }} main'
+#              state=present
 
     - name: Install required packages
       apt:
@@ -77,7 +77,7 @@
         name: "{{ db_container_name }}{{ item }}"
         hostname: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port=3306
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port=3306 --group-replication-ssl-mode=DISABLED
         state: started
         restart_policy: "on-failure"
         networks:
