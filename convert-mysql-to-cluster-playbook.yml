@@ -28,6 +28,12 @@
 #        state: present
 
     - name: Obtaining percona public key
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 9334A25F8507EFA5
+        state: present
+        
+    - name: Obtaining percona public key
       apt_key: url=http://www.percona.com/downloads/RPM-GPG-KEY-percona
               state=present
     
