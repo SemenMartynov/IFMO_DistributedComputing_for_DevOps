@@ -20,6 +20,12 @@
       when: item is search('^([^#;].*)$')
       no_log: true
 
+    - name: Установить PyMySQL для работы с MySQL
+      ansible.builtin.apt:
+        name: python3-pymysql
+        state: present
+      become: true
+
     - name: Скопировать конфиги MySQL
       loop:
         - master.cnf
@@ -41,86 +47,132 @@
         - mysql_slave_data
         - wordpress_data
 
-    - name: Запустить контейнер MySQL Master
+    - name: Временно запустить mysql_master с пробросом порта для прямого подключения
       community.docker.docker_container:
         name: mysql_master
         image: "{{ mysql_image }}"
         restart_policy: always
+        ports:
+          - "3306:3306"
         volumes:
           - mysql_master_data:/var/lib/mysql
           - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
         networks:
           - name: wp_net
-        expose:
-          - 3306
         env:
           MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
           MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
           MYSQL_USER: "{{ MYSQL_USER }}"
           MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
+        recreate: true
 
-    - name: Запустить контейнер MySQL Slave
+    - name: Ждать, пока MySQL Master полностью запустится
+      community.mysql.mysql_info:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
+      register: mysql_master_ready
+      retries: 10
+      delay: 6
+      until: mysql_master_ready is succeeded
+
+    - name: Создать пользователя репликации
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
+        query:
+          - "CREATE USER IF NOT EXISTS '{{ MYSQL_REPLICA_USER }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ MYSQL_REPLICA_PASSWORD }}'"
+          - "GRANT REPLICATION SLAVE ON *.* TO '{{ MYSQL_REPLICA_USER }}'@'%'"
+          - "FLUSH PRIVILEGES"
+          - "FLUSH TABLES WITH READ LOCK"
+
+    - name: Получить статус мастера
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
+        query: "SHOW MASTER STATUS"
+      register: master_status
+
+    - name: Извлечь log_file и log_pos из master_status
+      set_fact:
+        log_file: "{{ master_status.query_result[0][0].File }}"
+        log_pos: "{{ master_status.query_result[0][0].Position }}"
+
+    - name: Временно запустить mysql_slave с пробросом порта для прямого подключения
       community.docker.docker_container:
         name: mysql_slave
         image: "{{ mysql_image }}"
         restart_policy: always
+        ports:
+          - "3307:3306"
         volumes:
           - mysql_slave_data:/var/lib/mysql
           - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
         networks:
           - name: wp_net
-        expose:
-          - 3306
         env:
           MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
           MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
           MYSQL_USER: "{{ MYSQL_USER }}"
           MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
+        recreate: true
 
-    - name: Ждать готовности mysql_master
-      community.docker.docker_container_exec:
-        container: mysql_slave
-        command: "mysqladmin ping -h mysql_master -uroot -p{{ MYSQL_ROOT_PASSWORD }}"
-      register: result
-      retries: 30
-      delay: 5
-      until: result.rc == 0
+    - name: Ждать, пока MySQL Slave полностью запустится
+      community.mysql.mysql_info:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
+      register: mysql_slave_ready
+      retries: 10
+      delay: 6
+      until: mysql_slave_ready is succeeded
 
-    - name: Создать пользователя для репликации на MySQL Master
-      community.docker.docker_container_exec:
-        container: mysql_master
-        command: >
-          mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e "
-            CREATE USER IF NOT EXISTS '{{ MYSQL_REPLICA_USER }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ MYSQL_REPLICA_PASSWORD }}';
-            GRANT REPLICATION SLAVE ON *.* TO '{{ MYSQL_REPLICA_USER }}'@'%';
-            FLUSH PRIVILEGES;
-            FLUSH TABLES WITH READ LOCK;
-          "
-
-    - name: Получить статус мастера для репликации
-      community.docker.docker_container_exec:
-        container: mysql_master
-        command: "mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e 'SHOW MASTER STATUS\\G'"
-      register: master_status
-
-    - name: Извлечь log_file и log_pos из master_status
-      set_fact:
-        log_file: "{{ master_status.stdout | regex_search('File: (\\S+)', '\\1') }}"
-        log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') }}"
-
-    - name: Настройка репликации на MySQL Slave
-      community.docker.docker_container_exec:
-        container: mysql_slave
-        command: |
-          mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e "
+    - name: Настройка репликации на mysql_slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
+        query:
+          - >-
             CHANGE REPLICATION SOURCE TO
               SOURCE_HOST='mysql_master',
               SOURCE_USER='{{ MYSQL_REPLICA_USER }}',
               SOURCE_PASSWORD='{{ MYSQL_REPLICA_PASSWORD }}',
-              SOURCE_LOG_FILE='{{ log_file[0] }}',
-              SOURCE_LOG_POS={{ log_pos[0] }};
-            START REPLICA;
-          "
+              SOURCE_LOG_FILE='{{ log_file }}',
+              SOURCE_LOG_POS={{ log_pos }}
+          - "START REPLICA"
+
+    - name: Перезапустить mysql_master и mysql_slave без проброса портов
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ mysql_image }}"
+        restart_policy: always
+        volumes: "{{ item.volumes }}"
+        networks:
+          - name: wp_net
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
+          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+          MYSQL_USER: "{{ MYSQL_USER }}"
+          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
+        recreate: true
+        state: started
+      loop:
+        - name: mysql_master
+          volumes:
+            - mysql_master_data:/var/lib/mysql
+            - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
+        - name: mysql_slave
+          volumes:
+            - mysql_slave_data:/var/lib/mysql
+            - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
 
     - name: Запустить WordPress контейнер
       community.docker.docker_container:
@@ -138,3 +190,4 @@
           WORDPRESS_DB_USER: "{{ MYSQL_USER }}"
           WORDPRESS_DB_PASSWORD: "{{ MYSQL_PASSWORD }}"
           WORDPRESS_DB_NAME: "{{ MYSQL_DATABASE }}"
+        state: started
