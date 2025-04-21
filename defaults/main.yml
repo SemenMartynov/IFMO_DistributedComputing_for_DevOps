@@ -1,8 +1,8 @@
 ---
 container_count: 1
 db_container_name: db
-db_container_image: "container-registry.oracle.com/mysql/community-server:8.4"
-mysqlrouter_container_image: "container-registry.oracle.com/mysql/community-router:8.4"
+db_container_image: "container-registry.oracle.com/mysql/community-server:8.0"
+mysqlrouter_container_image: "container-registry.oracle.com/mysql/community-router:8.0"
 wp_container_name: wp
 wp_container_image: wordpress
 wp_dbname: wp_dbname
