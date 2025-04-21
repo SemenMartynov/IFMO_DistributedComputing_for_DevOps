@@ -102,11 +102,11 @@
 
     - name: Настройка репликации на Slave
       community.mysql.mysql_replication:
-        mode: changemaster
-        master_host: "mysql_master"
-        master_user: "{{ mysql_repl_user }}"
-        master_password: "{{ mysql_repl_password }}"
-        master_auto_position: 1
+        mode: changereplication
+        primary_host: "mysql_master"
+        primary_user: "{{ mysql_repl_user }}"
+        primary_password: "{{ mysql_repl_password }}"
+        primary_auto_position: 1
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: "{{ ansible_host }}"
@@ -114,7 +114,7 @@
 
     - name: Запуск репликации
       community.mysql.mysql_replication:
-        mode: startslave
+        mode: startreplica
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: "{{ ansible_host }}"
@@ -122,15 +122,15 @@
 
     - name: Проверка статуса репликации
       community.mysql.mysql_replication:
-        mode: getslave
+        mode: getreplica
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: "{{ ansible_host }}"
         login_port: 3307
       register: replication_status
       until:
-        - replication_status.Slave_IO_Running == "Yes"
-        - replication_status.Slave_SQL_Running == "Yes"
+        - replication_status.Replica_IO_Running == "Yes"
+        - replication_status.Replica_SQL_Running == "Yes"
       retries: 10
       delay: 5
 
