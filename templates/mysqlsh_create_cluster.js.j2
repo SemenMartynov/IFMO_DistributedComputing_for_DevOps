@@ -3,19 +3,19 @@ var clusterName = "{{ clustername }}"
 
 try {
   print('Setting up InnoDB cluster\n');
-  shell.connect('root@10.16.1.11:33060', dbPass)
+  shell.connect('root@10.16.1.11:33060', dbPass);
   var cluster = dba.createCluster(clusterName);
   print('Adding instances to the cluster.');
-  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {restart: true})
+  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {restart: true});
   print('.');
-  cluster.addInstance('root:' + dbPass + '@10.16.1.12')
+  cluster.addInstance('root:' + dbPass + '@10.16.1.12');
   print('.');
-  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {restart: true})
+  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {restart: true});
   print('.');
-  cluster.addInstance('root:' + dbPass + '@10.16.1.13')
+  cluster.addInstance('root:' + dbPass + '@10.16.1.13');
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
-  cluster.status()
+  cluster.status();
 } catch(e) {
   print('\nThe InnoDB cluster could not be created.\n\nError: ' + e.message + '\n');
 }
