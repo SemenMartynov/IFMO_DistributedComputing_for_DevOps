@@ -20,15 +20,15 @@ try {
 
   sleep(5000);
 
-  shell.connect('root@10.16.1.11:3306', dbPass);
+  shell.connect('cluster_admin@10.16.1.11:3306', dbPass);
 
   var cluster = dba.createCluster(clusterName);
 
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
+  cluster.addInstance({user: "cluster_admin", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
