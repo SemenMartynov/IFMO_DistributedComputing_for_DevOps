@@ -9,9 +9,14 @@ function sleep(ms) {
 try {
   print('Setting up InnoDB cluster\n');
 
-  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
-  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true, interactive: false});
+  shell.connect('root@10.16.1.11:3306', dbPass);
+  dba.configureInstance('root:' + dbPass + '@10.16.1.11:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+
+  shell.connect('root@10.16.1.12:3306', dbPass);
+  dba.configureInstance('root:' + dbPass + '@10.16.1.12:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
+
+  shell.connect('root@10.16.1.13:3306', dbPass);
+  dba.configureInstance('root:' + dbPass + '@10.16.1.13:3306', {clusterAdmin: "'cluster_admin'@'%'", clusterAdminPassword: "{{ mysql_root_pw }}", restart: true});
 
   sleep(5000);
 
@@ -21,9 +26,9 @@ try {
 
   print('Adding instances to the cluster.');
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone'});
+  cluster.addInstance({user: "root", host: "10.16.1.12", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.');
-  cluster.addInstance({user: "root", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone'});
+  cluster.addInstance({user: "root", host: "10.16.1.13", port: "3306", password: dbPass, recoveryMethod: 'clone', 'waitRecovery':'1'});
   print('.\nInstances successfully added to the cluster.');
   print('\nInnoDB cluster deployed successfully.\n');
   cluster.status();
