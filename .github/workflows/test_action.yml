@@ -8,7 +8,72 @@ on:
 
 jobs:
 
-  build:
+  test_standalone:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+
+  test_convert_sandalone_to_master_slave:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+      
+    - name: "Generate ansible.cfg"
+      run: |
+        echo '[defaults]' > ~/.ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
+        echo 'transport = local' >> ~/.ansible.cfg
+
+    - name: "Generate localhost inventory"
+      run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
+
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
+      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
+
+    - name: Testing docker containers are running
+      run: |
+        sudo docker ps -a
+        sudo docker volume ls
+        sudo docker network ls
+        
+    - name: DEBUG show docker logs db
+      run: |    
+        sudo docker logs db
+
+    - name: Testing MySQL replication is running on DB1
+      run: |    
+        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW DATABASES' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+
+  test_convert_sandalone_to_cluseter:
 
     runs-on: ubuntu-latest
     steps:
