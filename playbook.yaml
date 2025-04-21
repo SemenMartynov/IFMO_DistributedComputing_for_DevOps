@@ -10,6 +10,7 @@
     mysql_database: "wordpress_database"
     mysql_user: "wordpress_user"
     mysql_password: "wordpress_password"
+    mysql_config_dir: "/opt/mysql_cluster"
 
   tasks:
     - name: Установка необходимых пакетов
@@ -18,7 +19,6 @@
           - docker.io
           - python3-pip
           - python3-docker
-          - docker-compose
         state: present
         update_cache: yes
 
@@ -30,33 +30,34 @@
 
     - name: Создание директории для конфигов
       file:
-        path: /etc/mysql_cluster
+        path: "{{ mysql_config_dir }}"
         state: directory
         mode: 0755
 
     - name: Создание конфига для Master
       template:
         src: my-master.cnf.j2
-        dest: /etc/mysql_cluster/my-master.cnf
+        dest: "{{ mysql_config_dir }}/my-master.cnf"
         mode: 0644
 
     - name: Создание конфига для Slave
       template:
         src: my-slave.cnf.j2
-        dest: /etc/mysql_cluster/my-slave.cnf
+        dest: "{{ mysql_config_dir }}/my-slave.cnf"
         mode: 0644
 
     - name: Создание сети для контейнеров
-      docker_network:
+      community.docker.docker_network:
         name: wp_network
         driver: bridge
 
     # MySQL Master
     - name: Запуск MySQL Master
-      docker_container:
+      community.docker.docker_container:
         name: mysql_master
         image: mysql:5.7
-        network: wp_network
+        networks:
+          - name: wp_network
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
@@ -67,7 +68,7 @@
           MYSQL_REPLICATION_PASSWORD: "{{ mysql_repl_password }}"
         volumes:
           - mysql_master_data:/var/lib/mysql
-          - /etc/mysql_cluster/my-master.cnf:/etc/mysql/conf.d/replication.cnf
+          - "{{ mysql_config_dir }}/my-master.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3306:3306"
 
@@ -79,16 +80,17 @@
 
     # MySQL Slave
     - name: Запуск MySQL Slave
-      docker_container:
+      community.docker.docker_container:
         name: mysql_slave
         image: mysql:5.7
-        network: wp_network
+        networks:
+          - name: wp_network
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
         volumes:
           - mysql_slave_data:/var/lib/mysql
-          - /etc/mysql_cluster/my-slave.cnf:/etc/mysql/conf.d/replication.cnf
+          - "{{ mysql_config_dir }}/my-slave.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3307:3306"
 
@@ -99,7 +101,7 @@
         timeout: 60
 
     - name: Настройка репликации на Slave
-      mysql_replication:
+      community.mysql.mysql_replication:
         mode: changemaster
         master_host: "mysql_master"
         master_user: "{{ mysql_repl_user }}"
@@ -111,7 +113,7 @@
         login_port: 3307
 
     - name: Запуск репликации
-      mysql_replication:
+      community.mysql.mysql_replication:
         mode: startslave
         login_user: root
         login_password: "{{ mysql_root_password }}"
@@ -119,7 +121,7 @@
         login_port: 3307
 
     - name: Проверка статуса репликации
-      mysql_replication:
+      community.mysql.mysql_replication:
         mode: getslave
         login_user: root
         login_password: "{{ mysql_root_password }}"
@@ -134,10 +136,11 @@
 
     # WordPress
     - name: Запуск WordPress
-      docker_container:
+      community.docker.docker_container:
         name: wordpress
         image: wordpress:latest
-        network: wp_network
+        networks:
+          - name: wp_network
         restart_policy: always
         published_ports:
           - "80:80"
