@@ -9,12 +9,17 @@
 - name: Ensure replication user exists on master
   community.docker.docker_container_exec:
     container: mysql_master
-    command: >
-      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
-      -e "CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
-          IDENTIFIED BY '{{ replication_password }}';
-          GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
-          FLUSH PRIVILEGES;"
+    argv:
+      - mysql
+      - -uroot
+      - -p{{ mysql_root_password }}
+      - -h127.0.0.1
+      - -e
+      - >-
+        CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
+        IDENTIFIED BY '{{ replication_password }}';
+        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+        FLUSH PRIVILEGES;
   register: create_repl_user
   changed_when: "'already exists' not in create_repl_user.stdout"
 
@@ -51,14 +56,17 @@
   retries: 20
   delay: 10
   when: legacy_vol.exists | default(false)
+
 - name: Dump all databases from legacy and import into master
   community.docker.docker_container_exec:
     container: mysql_legacy
-    command: >
-      sh -c "
-      mysqldump -uroot -p{{ mysql_root_password }} --all-databases
-        --single-transaction --set-gtid-purged=OFF |
-      mysql -h mysql_master -uroot -p{{ mysql_root_password }} "
+    command:
+      - /bin/bash
+      - -c
+      - |
+        mysqldump -uroot -p{{ mysql_root_password }} --all-databases \
+          --single-transaction --set-gtid-purged=OFF | \
+        mysql -h mysql_master -uroot -p{{ mysql_root_password }}
   when: legacy_vol.exists | default(false)
   changed_when: legacy_vol.exists | default(false)
 
@@ -88,31 +96,41 @@
 - name: Configure replication on slave1
   community.docker.docker_container_exec:
     container: mysql_slave1
-    command: >
-      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
-      -e "STOP REPLICA;
-          RESET REPLICA ALL;
-          CHANGE REPLICATION SOURCE TO
-            SOURCE_HOST = 'mysql_master',
-            SOURCE_USER = '{{ replication_user }}',
-            SOURCE_PASSWORD = '{{ replication_password }}',
-            SOURCE_AUTO_POSITION = 1;
-          START REPLICA;"
+    argv:
+      - mysql
+      - -uroot
+      - -p{{ mysql_root_password }}
+      - -h127.0.0.1
+      - -e
+      - |
+        STOP REPLICA;
+        RESET REPLICA ALL;
+        CHANGE REPLICATION SOURCE TO
+          SOURCE_HOST = 'mysql_master',
+          SOURCE_USER = '{{ replication_user }}',
+          SOURCE_PASSWORD = '{{ replication_password }}',
+          SOURCE_AUTO_POSITION = 1;
+        START REPLICA;
   changed_when: true
 
 - name: Configure replication on slave2
   community.docker.docker_container_exec:
     container: mysql_slave2
-    command: >
-      mysql -uroot -p{{ mysql_root_password }} -h127.0.0.1
-      -e "STOP REPLICA;
-          RESET REPLICA ALL;
-          CHANGE REPLICATION SOURCE TO
-            SOURCE_HOST = 'mysql_master',
-            SOURCE_USER = '{{ replication_user }}',
-            SOURCE_PASSWORD = '{{ replication_password }}',
-            SOURCE_AUTO_POSITION = 1;
-          START REPLICA;"
+    argv:
+      - mysql
+      - -uroot
+      - -p{{ mysql_root_password }}
+      - -h127.0.0.1
+      - -e
+      - |
+        STOP REPLICA;
+        RESET REPLICA ALL;
+        CHANGE REPLICATION SOURCE TO
+          SOURCE_HOST = 'mysql_master',
+          SOURCE_USER = '{{ replication_user }}',
+          SOURCE_PASSWORD = '{{ replication_password }}',
+          SOURCE_AUTO_POSITION = 1;
+        START REPLICA;
   changed_when: true
 
 - name: Display DB cluster ready message
