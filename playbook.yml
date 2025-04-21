@@ -1,86 +1,33 @@
+---
 - name: Развернуть WordPress с MySQL
   hosts: web
   become: true
   vars:
     mysql_image: mysql:8.3
     wordpress_image: wordpress:latest
-    env_path: /home/user/.env
+  roles:
+    - docker_installation
+
   tasks:
-    - name: Скопировать .env на сервер
-      ansible.builtin.copy:
-        src: .env
-        dest: "{{ env_path }}"
-        mode: '0600'
+    - name: Прочитать .env файл и создать переменные
+      ansible.builtin.set_fact:
+        env_vars: "{{ lookup('file', '.env') | split('\n') }}"
+
+    - name: Преобразовать каждую строку в переменную
+      ansible.builtin.set_fact:
+        "{{ item.split('=')[0] | trim }}": "{{ item.split('=')[1] | trim }}"
+      loop: "{{ env_vars }}"
+      when: item is search('^([^#;].*)$')
+      no_log: true
 
     - name: Скопировать конфиги MySQL
       loop:
         - master.cnf
         - slave.cnf
-        - init-master.sh
-        - init-slave.sh
       copy:
         src: "{{ item }}"
         dest: "/home/user/{{ item }}"
         mode: '0644'
-
-    - name: Установить зависимости
-      ansible.builtin.apt:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg
-          - lsb-release
-        state: present
-        update_cache: yes
-
-    - name: Добавить официальный GPG ключ Docker
-      ansible.builtin.apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Добавить Docker репозиторий
-      ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-        state: present
-        filename: docker
-
-    - name: Установить Docker и Docker Compose CLI
-      ansible.builtin.apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
-        state: latest
-        update_cache: yes
-
-    - name: Убедиться, что Docker запущен и включен
-      ansible.builtin.systemd:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Добавить пользователя в группу Docker
-      ansible.builtin.user:
-        name: "{{ ansible_user | default('user') }}"
-        groups: docker
-        append: yes
-
-    - name: Проверить версию Docker Compose
-      ansible.builtin.command: docker compose version
-      register: compose_version
-      changed_when: false
-
-    - name: Показать установленную версию Docker Compose
-      ansible.builtin.debug:
-        msg: "Docker Compose версия: {{ compose_version.stdout }}"
-
-    - name: Перезапустить Docker
-      ansible.builtin.systemd:
-        name: docker
-        state: restarted
 
     - name: Создать сеть Docker
       community.docker.docker_network:
@@ -98,41 +45,96 @@
       community.docker.docker_container:
         name: mysql_master
         image: "{{ mysql_image }}"
-        env_file: "{{ env_path }}"
         restart_policy: always
         volumes:
           - mysql_master_data:/var/lib/mysql
           - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
-          - /home/user/init-master.sh:/docker-entrypoint-initdb.d/init-master.sh
         networks:
           - name: wp_net
         expose:
           - 3306
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
+          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+          MYSQL_USER: "{{ MYSQL_USER }}"
+          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
 
     - name: Запустить контейнер MySQL Slave
       community.docker.docker_container:
         name: mysql_slave
         image: "{{ mysql_image }}"
-        env_file: "{{ env_path }}"
         restart_policy: always
         volumes:
           - mysql_slave_data:/var/lib/mysql
           - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
-          - /home/user/init-slave.sh:/docker-entrypoint-initdb.d/init-slave.sh
         networks:
           - name: wp_net
         expose:
           - 3306
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
+          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
+          MYSQL_USER: "{{ MYSQL_USER }}"
+          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
+
+    - name: Ждать готовности mysql_master
+      community.docker.docker_container_exec:
+        container: mysql_slave
+        command: "mysqladmin ping -h mysql_master -uroot -p{{ MYSQL_ROOT_PASSWORD }}"
+      register: result
+      retries: 30
+      delay: 5
+      until: result.rc == 0
+
+    - name: Создать пользователя для репликации на MySQL Master
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: >
+          mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e "
+            CREATE USER IF NOT EXISTS '{{ MYSQL_REPLICA_USER }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ MYSQL_REPLICA_PASSWORD }}';
+            GRANT REPLICATION SLAVE ON *.* TO '{{ MYSQL_REPLICA_USER }}'@'%';
+            FLUSH PRIVILEGES;
+            FLUSH TABLES WITH READ LOCK;
+          "
+
+    - name: Получить статус мастера для репликации
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: "mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e 'SHOW MASTER STATUS\\G'"
+      register: master_status
+
+    - name: Извлечь log_file и log_pos из master_status
+      set_fact:
+        log_file: "{{ master_status.stdout | regex_search('File: (\\S+)', '\\1') }}"
+        log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') }}"
+
+    - name: Настройка репликации на MySQL Slave
+      community.docker.docker_container_exec:
+        container: mysql_slave
+        command: |
+          mysql -uroot -p{{ MYSQL_ROOT_PASSWORD }} -e "
+            CHANGE REPLICATION SOURCE TO
+              SOURCE_HOST='mysql_master',
+              SOURCE_USER='{{ MYSQL_REPLICA_USER }}',
+              SOURCE_PASSWORD='{{ MYSQL_REPLICA_PASSWORD }}',
+              SOURCE_LOG_FILE='{{ log_file[0] }}',
+              SOURCE_LOG_POS={{ log_pos[0] }};
+            START REPLICA;
+          "
 
     - name: Запустить WordPress контейнер
       community.docker.docker_container:
         name: wordpress
         image: "{{ wordpress_image }}"
         restart_policy: always
-        env_file: "{{ env_path }}"
         ports:
           - "80:80"
         volumes:
           - wordpress_data:/var/www/html
         networks:
           - name: wp_net
+        env:
+          WORDPRESS_DB_HOST: "{{ WORDPRESS_DB_HOST }}"
+          WORDPRESS_DB_USER: "{{ MYSQL_USER }}"
+          WORDPRESS_DB_PASSWORD: "{{ MYSQL_PASSWORD }}"
+          WORDPRESS_DB_NAME: "{{ MYSQL_DATABASE }}"

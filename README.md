@@ -30,9 +30,6 @@ MYSQL_PASSWORD=...
 MYSQL_REPLICA_USER=...
 MYSQL_REPLICA_PASSWORD=...
 WORDPRESS_DB_HOST=...:3306
-WORDPRESS_DB_USER=...
-WORDPRESS_DB_PASSWORD=...
-WORDPRESS_DB_NAME=...
 ```
 
 3. Настройте свой inventory.ini файл, указав правильные данные для подключения к серверу:
@@ -60,12 +57,14 @@ ansible-playbook playbook.yml
 
 ```none
 /
+├── roles/
+|    └── docker_installation/
+|       └── tasks/
+|           └── main.yml   # Задачи для установки и настройки Docker
 ├── ansible.cfg            # Конфигурация Ansible
 ├── .gitignore             # Игнорируемые файлы
 ├── .env                   # Переменные окружения для MySQL и WordPress
 ├── inventory.ini          # Конфигурация хостов для Ansible
-├── init-master.sh         # Скрипт для настройки MySQL Master
-├── init-slave.sh          # Скрипт для настройки MySQL Slave
 ├── master.cnf             # Конфигурация MySQL Master
 ├── slave.cnf              # Конфигурация MySQL Slave
 └── playbook.yml           # Главный Ansible Playbook для развертывания
