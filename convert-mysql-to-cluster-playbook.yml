@@ -27,24 +27,6 @@
         repo: deb http://repo.mysql.com/apt/ubuntu/ {{ ansible_lsb.codename }} mysql-{{ mysql_release_version }}-lts
         state: present
 
-#    - name: Obtaining percona public key
-#      apt_key:
-#        keyserver: keyserver.ubuntu.com
-#        id: 9334A25F8507EFA5
-#        state: present
-#        
-#    - name: Obtaining percona public key
-#      apt_key: url=http://www.percona.com/downloads/RPM-GPG-KEY-percona
-#              state=present
-#    
-#    - name: Adding percona repository
-#      apt_repository: repo='deb http://repo.percona.com/apt {{ ansible_distribution_release }} main'
-#              state=present
-#    
-#    - name: Adding percona source repository
-#      apt_repository: repo='deb-src http://repo.percona.com/apt {{ ansible_distribution_release }} main'
-#              state=present
-
     - name: Install required packages
       apt:
         pkg:
@@ -77,7 +59,7 @@
         name: "{{ db_container_name }}{{ item }}"
         hostname: "{{ db_container_name }}{{ item }}"
         image: "{{ db_container_image }}"
-        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port='3306' --require-secure-transport=OFF #--skip-ssl
+        command: --server-id={{ item }} --gtid-mode=ON --enforce-gtid-consistency=ON --skip-name-resolve=ON --log-error-verbosity=3 --report-host='10.16.1.1{{ item }}' --report-port='3306'
         state: started
         restart_policy: "on-failure"
         networks:
@@ -96,29 +78,15 @@
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_pw }}"
           MYSQL_ROOT_HOST: '%'
 #          MYSQL_RANDOM_ROOT_PASSWORD: '1'
-#          MYSQL_DATABASE: "{{ wp_dbname }}"
-#          MYSQL_USER: "{{ wp_dbuser }}"
-#          MYSQL_PASSWORD: "{{ mysql_passwd }}"
+          MYSQL_DATABASE: "{{ wp_dbname }}"
+          MYSQL_USER: "{{ wp_dbuser }}"
+          MYSQL_PASSWORD: "{{ mysql_passwd }}"
       with_sequence: start=1 end=3
 
     - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
         seconds: 50
-        
-#    - name: 'RESET BINARY LOGS AND GTIDS'
-#      ignore_errors: true
-#      community.mysql.mysql_query:
-#        login_db: mysql
-#        login_host: "10.16.1.1{{ item }}"
-#        login_port: 3306
-#        login_password: "{{ mysql_root_pw }}"
-#        query:
-#          - RESET BINARY LOGS AND GTIDS
-#          - SET PERSIST group-replication-ssl-mode=DISABLED
-#          - SET PERSIST group_replication_ip_allowlist="10.16.1.0/28"
-#          - SET PERSIST require_secure_transport=OFF
-#      with_sequence: start=1 end=3
-      
+   
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
