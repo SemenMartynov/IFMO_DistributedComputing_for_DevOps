@@ -1,3 +1,4 @@
+dba.verbose = 2
 var dbPass = "{{ mysql_root_pw }}"
 var clusterName = "{{ clustername }}"
 
@@ -8,10 +9,9 @@ try {
 
   print('Setting up InnoDB cluster\n');
   shell.connect('root@10.16.1.11:33060', dbPass);
-  dba.createCluster(clusterName); //, {adoptFromGR: true});
+  var cluster = dba.createCluster(clusterName, {localAddress:'cluster_admin@10.16.1.11:33061'}); //, {adoptFromGR: true});
   print('Adding instances to the cluster.');
   print('.');
-  var cluster = dba.getCluster();
   cluster.addInstance('root:' + dbPass + '@10.16.1.12');
   print('.');
   cluster.addInstance('root:' + dbPass + '@10.16.1.13');
