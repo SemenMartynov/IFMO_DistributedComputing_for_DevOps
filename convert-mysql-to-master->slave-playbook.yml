@@ -1,8 +1,11 @@
 ---
+- name: 'Playbook converts standalone mysql instance to master->slave replication'
 - hosts: all
   become: true
   vars_files:
     - defaults/main.yml
+  vars:
+    dbslave_container_name: "{{ db_container_name }}slave"
 
   tasks:
     - name: Generate MySQL password
@@ -14,14 +17,18 @@
         state: latest
         update_cache: true
         
-    - name: Install required by Ansible package
-      apt: pkg={{ item }} state=present
-      with_items:
-        - python3-pymysql
-        
+    - name: Install packages required by Ansible modules
+      apt:
+        pkg: # https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_db_module.html#requirements
+          - python3-pymysql
+          - mysql-client
+          # - mysqldump is part of mysql-client
+        state: latest
+        update_cache: true
+
     - name: Create MySQL container for SLAVE
       community.docker.docker_container:
-        name: "{{ db_container_name }}slave"
+        name: "{{ dbslave_container_name }}"
         image: "{{ db_container_image }}"
         command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so'
         state: started
@@ -53,17 +60,18 @@
         state: stopped
 
     - name: Backup current WP databases
+    # just for sake of safety    
       mysql_db:
         state: dump
         name: all
-        target: /tmp/dump.sql
-        login_host: "10.16.1.3"
+        target: "{{ wp_mysql_dump }}"
+        login_host: "{{ db_container_name }}"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
 
     - name: Create replication user on MASTER and SLAVE
       community.mysql.mysql_user:
-        login_host: "10.16.1.{{ item }}"
+        login_host: "{{ item }}"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"      
         name: replica_user
@@ -72,12 +80,14 @@
         plugin: 'caching_sha2_password'
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
-      with_sequence: start=3 end=4
-
+      loop:
+        - "{{ db_container_name }}"
+        - "{{ dbslave_container_name }}"
+        
     - name: Prepare MASTER for Cloning
       community.mysql.mysql_query:
         login_db: mysql
-        login_host: "10.16.1.3"
+        login_host: "{{ db_container_name }}"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
@@ -100,7 +110,7 @@
       ignore_errors: true # mysql will restart and disconnect after clone completed
       community.mysql.mysql_query:
         login_db: mysql
-        login_host: "10.16.1.4"
+        login_host: "{{ dbslave_container_name }}"
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         query:
@@ -113,7 +123,7 @@
         
     - name: Set and Start replication on SLAVE
       community.mysql.mysql_replication:
-        login_host: "10.16.1.4"
+        login_host: "{{ dbslave_container_name }}"
         login_port: 3306      
         login_password: "{{ mysql_root_pw }}"
         mode: "{{ item }}"
