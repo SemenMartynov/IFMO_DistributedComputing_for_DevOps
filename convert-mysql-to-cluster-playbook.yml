@@ -1,7 +1,7 @@
 ---
-# MySQL InnoDB Cluster
 # https://dev.mysql.com/doc/mysql-shell/8.4/en/mysql-innodb-cluster.html
-- hosts: all
+- name: convert stanalone MySQL instance to MySQL InnoDB Cluster
+  hosts: all
   become: true
   vars_files:
     - defaults/main.yml
@@ -142,7 +142,7 @@
         image: "{{ wp_container_image }}"
         state: started
         recreate: true
-        restart: yes
+        restart: true
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
