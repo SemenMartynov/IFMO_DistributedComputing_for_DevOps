@@ -31,6 +31,7 @@
       apt:
         pkg:
           - python3-pymysql
+          - mysql-client
           - mysql-shell
         state: latest
         update_cache: true
