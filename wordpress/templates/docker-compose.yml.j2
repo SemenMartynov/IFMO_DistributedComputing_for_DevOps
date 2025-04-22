@@ -12,7 +12,7 @@ services:
       WORDPRESS_DB_NAME: {{ wordpress_db_name }}
     depends_on:
       - db-master
-      - db-slave
+      - db-replica
     volumes:
       - wordpress:/var/www/html
     networks:
@@ -21,7 +21,7 @@ services:
   db-master:
     image: mysql:8.0
     restart: always
-    container_name: db-master
+    container_name: {{ master_container_name }}
     environment:
       MYSQL_DATABASE: {{ wordpress_db_name }}
       MYSQL_USER: {{ master_db_user }}
@@ -39,12 +39,12 @@ services:
     networks:
       - wordpress-network
     ports:
-      - "3306:3306"
+      - "{{ db_master_port }}:3306"
 
-  db-slave:
+  db-replica:
     image: mysql:8.0
     restart: always
-    container_name: db-slave
+    container_name: {{ replica_container_name }}
     environment:
       MYSQL_DATABASE: {{ wordpress_db_name }}
       MYSQL_USER: {{ replica_db_user }}
@@ -63,16 +63,16 @@ services:
     depends_on:
       - db-master
     volumes:
-      - db_data_slave:/var/lib/mysql
+      - db_data_replica:/var/lib/mysql
     networks:
       - wordpress-network
     ports:
-      - "3308:3306"
+      - "{{ db_replica_port }}:3306"
 
 volumes:
   wordpress:
   db_data_master:
-  db_data_slave:
+  db_data_replica:
 
 networks:
   wordpress-network:
