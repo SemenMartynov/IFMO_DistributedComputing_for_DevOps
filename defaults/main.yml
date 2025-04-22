@@ -11,5 +11,5 @@ wp_int_network: wp_int_network
 wp_ext_network: wp_ext_network
 pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 mysql_root_pw: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') or 'MySQL_s3cret_Pas3w0rD' }}"
-wp_clustername: "{{ lookup('env' ,'MYSQL_CLUSTER_NAME') or 'WP_CLUSTER' }}"
-wp_mysql_dump: "{{ lookup('env' ,'MYSQL_DUMP_NAME') or '/var/tmp/{{ wp_dbname }}.sql' }}"
+wp_clustername: "{{ lookup('env', 'MYSQL_CLUSTER_NAME') or 'WP_CLUSTER' }}"
+wp_mysql_dump: "{{ lookup('env', 'MYSQL_DUMP_NAME') or '/var/tmp/{{ wp_dbname }}.sql' }}"
