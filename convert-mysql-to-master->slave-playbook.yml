@@ -23,7 +23,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}slave"
         image: "{{ db_container_image }}"
-        command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so'
+        command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so' --mysql-native-password=ON
         state: started
         restart: yes
         restart_policy: always
@@ -97,19 +97,9 @@
           - SET PERSIST_ONLY server_id = 1
           - SET PERSIST_ONLY enforce_gtid_consistency = ON
           - SET PERSIST_ONLY gtid_mode = ON
+          - SET PERSIST_ONLY mysql_native_password = ON
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
-          
-    - name: Create replication user on MASTER
-      community.mysql.mysql_user:
-        login_host: "10.16.1.3"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"      
-        name: replica_user
-        host: '%'
-        password: "{{ mysql_root_pw }}"
-        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
-        state: present
-      
+
     - name: Restart MySQL MASTER container
       community.docker.docker_container:
         name: "{{ db_container_name }}"
@@ -120,6 +110,17 @@
       ansible.builtin.pause:
         seconds: 15
         
+    - name: Create replication user on MASTER
+      community.mysql.mysql_user:
+        login_host: "10.16.1.3"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"      
+        name: replica_user
+        host: '%'
+        password: "{{ mysql_root_pw }}"
+        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
+        state: present
+    
     - name: Cloning DB from MASTER to SLAVE
       ignore_errors: true # mysql will restart after after clone completed
       community.mysql.mysql_query:
