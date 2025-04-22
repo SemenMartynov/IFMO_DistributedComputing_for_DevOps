@@ -34,7 +34,7 @@
         command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so'
         state: started
         restart: true
-        restart_policy: always
+        restart_policy: "on-failure"
         networks:
           - name: "{{ wp_int_network }}"
             ipv4_address: "10.16.1.4"
