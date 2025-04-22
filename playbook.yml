@@ -1,154 +1,108 @@
 #
-# Лабораторная работа 2.
+# Лабораторная работа 1.
 #
 # студент 475134.
 #
 # Задание:
-# Для своего инстанса WordPress, заменить БД на cluster, и обеспечить синхронизацию данных.
+# ДЗ: Запустить WordPress в Docker.
+# [✓] Создание простого мультиконтейнерного приложения (веб-сервер + БД).
+# [✓] Настройка сетевого взаимодействия между контейнерами.
+# [✓] Опционально, настроить TLS (Let's Encrypt).
 #
-# Примечания:
-# 1. Предполагается что этот плейбук запускается после предыдущей версии (которая в ветке tepsh/lab1).
-# 2. Плейбук идемпотентный, т.е. каждый раз переливает данные из мастера в слейв и настраивает реплику.
-# 3. Сознательно избегаю модуля `docker_compose_v2` (только если это не станет обязательным требованием).
-# 4. Получилось много задач `command`... что результат перелива базы из мастера в слейв. Одноразово.
+# Примечание:
+# Мне показалось интересным выполнить работу минимальными средствами (один плейбук), но полностью функциональную.
+# Для получения сертификата Let's Encrypt необходимо использовать реальный домен (dns указывает на правильный ip),
+# и убрать опцию `--internal-certs` из `caddy_opts`. В противном случае, Caddy выпустит самоподписанный сертификат.
 #
 ---
-- name: Setup Master-Slave replication for MySQL
+- name: Deploy WordPress and MySQL with Docker
   hosts: all
-  module_defaults:
-    ansible.builtin.command:
-      chdir: webapp
-  vars:
-    caddy_domain: web.example.com
-    caddy_opts: --internal-certs
-    db_user: wordpress
-    db_pass: wordpress
-    db_name: wordpress
-    db_root_pass: 123
-    db_slave_user: slave
-    db_slave_pass: slave
   tasks:
-    - name: Shutdown wordpress and orphans instances
-      ansible.builtin.command:
-        cmd: docker compose down --remove-orphans wordpress
+    - name: Install Docker Engine on Ubuntu
+      become: true
+      block:
+        - name: Install required packages
+          ansible.builtin.apt:
+            name:
+              - ca-certificates=20240203
+              - curl=8.5.0-2ubuntu10.6
+            state: present
+            update_cache: true
 
-    - name: Copy webapp/docker-compose.yml
-      ansible.builtin.copy:
-        dest: webapp/docker-compose.yml
-        mode: "0644"
-        content: |
-          services:
-            caddy:
-              command: caddy reverse-proxy --from {{ caddy_domain }} {{ caddy_opts }} --to wordpress:80
-              image: caddy:2.9.1-alpine
-              ports:
-                - 80:80
-                - 443:443
-              restart: unless-stopped
+        - name: Add Docker's official GPG key
+          ansible.builtin.apt_key:
+            state: present
+            url: https://download.docker.com/linux/ubuntu/gpg
 
-            db: # master
-              command:
-                - --binlog-do-db={{ db_name }}
-                - --default-authentication-plugin=mysql_native_password
-                - --log-bin=mysql-bin
-              environment:
-                MYSQL_DATABASE: {{ db_name }}
-                MYSQL_USER: {{ db_user }}
-                MYSQL_PASSWORD: {{ db_pass }}
-                MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
-              healthcheck:
-                test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-                timeout: 5s
-                retries: 5
-              image: mysql:8.0.41-bookworm
-              restart: unless-stopped
-              volumes:
-                - ./data:/var/lib/mysql
+        - name: Add the repository to Apt sources
+          ansible.builtin.apt_repository:
+            repo: deb https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+            state: present
 
-            db2: # slave
-              command:
-                - --relay-log=slave-relay-bin
-                - --server-id=2
-              depends_on:
-                - db
-              environment:
-                MYSQL_DATABASE: {{ db_name }}
-                MYSQL_USER: {{ db_user }}
-                MYSQL_PASSWORD: {{ db_pass }}
-                MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
-              healthcheck:
-                test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-                timeout: 5s
-                retries: 5
-              image: mysql:8.0.41-bookworm
-              restart: unless-stopped
-              volumes:
-                - ./slave:/var/lib/mysql
+        - name: Install the Docker packages
+          ansible.builtin.apt:
+            name:
+              - containerd.io=1.7.26-1
+              - docker-ce=5:28.0.4-1~ubuntu.24.04~noble
+              - docker-ce-cli=5:28.0.4-1~ubuntu.24.04~noble
+              - docker-buildx-plugin=0.22.0-1~ubuntu.24.04~noble
+              - docker-compose-plugin=2.34.0-1~ubuntu.24.04~noble
+            state: present
+            update_cache: true
 
-            wordpress:
-              depends_on:
-                - db
-              environment:
-                WORDPRESS_DB_HOST: db
-                WORDPRESS_DB_USER: {{ db_user }}
-                WORDPRESS_DB_PASSWORD: {{ db_pass }}
-                WORDPRESS_DB_NAME: {{ db_name }}
-              image: wordpress:6.7.2-php8.4-apache
-              restart: unless-stopped
+        - name: Add user to the docker group
+          ansible.builtin.user:
+            append: true
+            groups: docker
+            name: "{{ ansible_env.USER }}"
 
-    - name: Recreate MySQL instances with new params
-      ansible.builtin.command:
-        cmd: docker compose up -d --wait db db2
+    - name: Deploy WordPress with Docker Compose
+      block:
+        - name: Reset ssh connection to allow user changes to affect
+          ansible.builtin.meta: reset_connection
 
-    - name: Create replication user if not exists
-      ansible.builtin.command:
-        cmd: docker compose exec db mysql -uroot -p{{ db_root_pass }}
-        stdin: |
-          CREATE USER IF NOT EXISTS '{{ db_slave_user }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ db_slave_pass }}';
-          GRANT REPLICATION SLAVE ON *.* TO '{{ db_slave_user }}'@'%';
-          FLUSH PRIVILEGES
-      register: master_status
+        - name: Create webapp directory
+          ansible.builtin.file:
+            mode: "0755"
+            path: webapp
+            state: directory
 
-    - name: Get master status
-      ansible.builtin.command:
-        cmd: docker compose exec db mysql -uroot -p{{ db_root_pass }}
-        stdin: |
-          SHOW MASTER STATUS\G
-      register: master_status
+        - name: Copy webapp/docker-compose.yml
+          ansible.builtin.copy:
+            dest: webapp/docker-compose.yml
+            mode: "0644"
+            content: |
+              services:
+                caddy:
+                  command: caddy reverse-proxy --from {{ caddy_domain }} {{ caddy_opts }} --to wordpress:80
+                  image: caddy:2.9.1-alpine
+                  ports:
+                    - 80:80
+                    - 443:443
+                  restart: unless-stopped
 
-    - name: Extract log_file and log_pos values
-      ansible.builtin.set_fact:
-        db_master_log_file: "{{ master_status.stdout | regex_search('File: (.*)', '\\1') | first }}"
-        db_master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | first }}"
+                db:
+                  environment:
+                    MYSQL_DATABASE: {{ db_name }}
+                    MYSQL_USER: {{ db_user }}
+                    MYSQL_PASSWORD: {{ db_pass }}
+                    MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
+                  image: mysql:8.0.41-bookworm
+                  restart: unless-stopped
+                  volumes:
+                    - ./data:/var/lib/mysql
 
-    - name: Create dump of database
-      ansible.builtin.command:
-        cmd: docker compose exec db mysqldump --add-drop-table --no-tablespaces -u{{ db_user }} -p{{ db_pass }} {{ db_name }}
-      register: dump
+                wordpress:
+                  environment:
+                    WORDPRESS_DB_HOST: db
+                    WORDPRESS_DB_USER: {{ db_user }}
+                    WORDPRESS_DB_PASSWORD: {{ db_pass }}
+                    WORDPRESS_DB_NAME: {{ db_name }}
+                  image: wordpress:6.7.2-php8.4-apache
+                  restart: unless-stopped
 
-    - name: Stop slave
-      ansible.builtin.command:
-        cmd: docker compose exec db2 mysql -uroot -p{{ db_root_pass }} {{ db_name }}
-        stdin: |
-          STOP SLAVE
-
-    - name: Apply database dump on slave
-      ansible.builtin.command:
-        cmd: docker compose exec db2 mysql -uroot -p{{ db_root_pass }} {{ db_name }}
-        stdin: "{{ dump.stdout }}"
-
-    - name: Configure and start slave
-      ansible.builtin.command:
-        cmd: docker compose exec db2 mysql -uroot -p{{ db_root_pass }} {{ db_name }}
-        stdin: |
-          CHANGE MASTER TO
-            MASTER_HOST='db',
-            MASTER_USER='{{ db_slave_user }}',
-            MASTER_PASSWORD='{{ db_slave_pass }}',
-            MASTER_LOG_FILE='{{ db_master_log_file }}',
-            MASTER_LOG_POS={{ db_master_log_pos }};
-          START SLAVE
-
-    - name: Run docker compose up -d
-      ansible.builtin.command:
-        cmd: docker compose up -d
+        - name: Run docker compose up -d
+          ansible.builtin.command:
+            chdir: webapp
+            cmd: docker compose up -d
+          changed_when: false
