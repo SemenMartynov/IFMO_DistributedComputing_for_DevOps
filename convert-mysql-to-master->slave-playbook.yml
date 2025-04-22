@@ -23,7 +23,7 @@
       community.docker.docker_container:
         name: "{{ db_container_name }}slave"
         image: "{{ db_container_image }}"
-        command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so' --mysql-native-password=ON
+        command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so'
         state: started
         restart: yes
         restart_policy: always
@@ -64,6 +64,7 @@
         name: replica_user
         host: '%'
         password: "{{ mysql_root_pw }}"
+        plugin: 'caching_sha2_password'
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
 
@@ -97,7 +98,6 @@
           - SET PERSIST_ONLY server_id = 1
           - SET PERSIST_ONLY enforce_gtid_consistency = ON
           - SET PERSIST_ONLY gtid_mode = ON
-          - SET PERSIST_ONLY mysql_native_password = ON
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
 
     - name: Restart MySQL MASTER container
@@ -118,6 +118,7 @@
         name: replica_user
         host: '%'
         password: "{{ mysql_root_pw }}"
+        plugin: 'caching_sha2_password'
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
     
