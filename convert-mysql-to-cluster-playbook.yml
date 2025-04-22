@@ -1,6 +1,6 @@
 ---
 # https://dev.mysql.com/doc/mysql-shell/8.4/en/mysql-innodb-cluster.html
-- name: convert stanalone MySQL instance to MySQL InnoDB Cluster
+- name: Convert stanalone MySQL instance to MySQL InnoDB Cluster
   hosts: all
   become: true
   vars_files:
@@ -87,19 +87,19 @@
     - name: Pause to start and init MySQL instances
       ansible.builtin.pause:
         seconds: 50
-   
+
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
         dest: create_cluster.js
-          
+
     - name: Run MySQL SHELL script to create Cluster
       ansible.builtin.command: mysqlsh --no-wizard --log-level=DEBUG3 --uri 'root@10.16.1.11' -p'{{ mysql_root_pw }}' -f create_cluster.js
       register: myshell_result
-      
+
     - name: MySQL SHELL script result
       debug:
-        var: myshell_result.stdout_line
+        var: myshell_result.stdout_lines
 
     - name: Install MySQLRouter
       community.docker.docker_container:
@@ -143,7 +143,7 @@
         state: started
         recreate: true
         restart: true
-        restart_policy: always
+        restart_policy: "on-failure"
         networks:
           - name: "{{ wp_int_network }}"
             aliases: wpint
