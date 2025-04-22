@@ -1,0 +1,190 @@
+#
+# Лабораторная работа 2.
+#
+# студент 475134.
+#
+# Задание:
+# Для своего инстанса WordPress, заменить БД на cluster, и обеспечить синхронизацию данных.
+#
+# Примечания:
+# 1. Добавил предыдущую версию в эту ветку и вынес общие переменые в group_vars.
+# 2. Предполагается что этот плейбук запускается после предыдущей версии (playbook.yml).
+# 3. Плейбук идемпотентный, т.е. каждый раз переливает данные из мастера в слейв и настраивает реплику.
+# 4. Убрал все `command` и прогнал `ansible-lint`.
+# 5. Готов обсудить все замечания на созвоне.
+#
+---
+- name: Setup Master-Slave replication for MySQL
+  hosts: all
+  tasks:
+    - name: Install required packages
+      become: true
+      block:
+        - name: Install mysql-client and python3-pymysql packages
+          ansible.builtin.apt:
+            name:
+              - mysql-client=8.0.41-0ubuntu0.24.04.1
+              - python3-pymysql=1.0.2-2ubuntu1.1
+            state: present
+            update_cache: true
+
+        - name: Reset ssh connection to drop privileges
+          ansible.builtin.meta: reset_connection
+
+    - name: Deploy a new version of application
+      block:
+        - name: Copy webapp/docker-compose.yml
+          ansible.builtin.copy:
+            dest: webapp/docker-compose.yml
+            mode: "0644"
+            content: |
+              services:
+                caddy:
+                  command: caddy reverse-proxy --from {{ caddy_domain }} {{ caddy_opts }} --to wordpress:80
+                  image: caddy:2.9.1-alpine
+                  ports:
+                    - 80:80
+                    - 443:443
+                  restart: unless-stopped
+
+                db: # master
+                  command:
+                    - --binlog-do-db={{ db_name }}
+                    - --log-bin=mysql-bin
+                  environment:
+                    MYSQL_DATABASE: {{ db_name }}
+                    MYSQL_USER: {{ db_user }}
+                    MYSQL_PASSWORD: {{ db_pass }}
+                    MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
+                  healthcheck:
+                    test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+                    timeout: 5s
+                    retries: 5
+                  image: mysql:8.0.41-bookworm
+                  restart: unless-stopped
+                  volumes:
+                    - ./data:/var/lib/mysql
+
+                db2: # slave
+                  command:
+                    - --relay-log=slave-relay-bin
+                    - --server-id=2
+                  depends_on:
+                    - db
+                  environment:
+                    MYSQL_DATABASE: {{ db_name }}
+                    MYSQL_USER: {{ db_user }}
+                    MYSQL_PASSWORD: {{ db_pass }}
+                    MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
+                  healthcheck:
+                    test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+                    timeout: 5s
+                    retries: 5
+                  image: mysql:8.0.41-bookworm
+                  restart: unless-stopped
+                  volumes:
+                    - ./slave:/var/lib/mysql
+
+                wordpress:
+                  depends_on:
+                    - db
+                  environment:
+                    WORDPRESS_DB_HOST: db
+                    WORDPRESS_DB_USER: {{ db_user }}
+                    WORDPRESS_DB_PASSWORD: {{ db_pass }}
+                    WORDPRESS_DB_NAME: {{ db_name }}
+                  image: wordpress:6.7.2-php8.4-apache
+                  restart: unless-stopped
+
+        - name: Recreate db and db2 containers
+          community.docker.docker_compose_v2:
+            project_src: webapp
+            wait: true
+
+        - name: Receive info about db container
+          community.docker.docker_container_info:
+            name: webapp-db-1
+          register: dbinfo
+
+        # this is just a workaround to access mysql without publish port directly
+        - name: Extract ip address of the db container
+          ansible.builtin.set_fact:
+            db_ip: "{{ dbinfo.container.NetworkSettings.Networks.webapp_default.IPAddress }}"
+          when: dbinfo.exists
+
+        - name: Dump master database
+          community.mysql.mysql_db:
+            login_host: "{{ db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            master_data: 1
+            name: "{{ db_name }}"
+            state: dump
+            target: /tmp/dump.sql
+
+        - name: Create replication user on master
+          community.mysql.mysql_user:
+            login_host: "{{ db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            name: "{{ db_slave_user }}"
+            password: "{{ db_slave_pass }}"
+            priv:
+              "*.*": "REPLICATION SLAVE"
+            host: "%"
+            column_case_sensitive: true
+            state: present
+
+        - name: Receive info about db2 container
+          community.docker.docker_container_info:
+            name: webapp-db2-1
+          register: dbinfo2
+
+        - name: Extract ip address of the db2 container
+          ansible.builtin.set_fact:
+            slave_db_ip: "{{ dbinfo2.container.NetworkSettings.Networks.webapp_default.IPAddress }}"
+          when: dbinfo2.exists
+
+        - name: Stop replication if exists
+          community.mysql.mysql_replication:
+            login_host: "{{ slave_db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            mode: "stopreplica"
+
+        - name: Change replication source
+          community.mysql.mysql_replication:
+            login_host: "{{ slave_db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            mode: changereplication
+            primary_host: db
+            primary_user: "{{ db_slave_user }}"
+            primary_password: "{{ db_slave_pass }}"
+
+        - name: Restore database on slave
+          community.mysql.mysql_db:
+            login_host: "{{ slave_db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            name: "{{ db_name }}"
+            state: import
+            target: /tmp/dump.sql
+
+        - name: Start replication
+          community.mysql.mysql_replication:
+            login_host: "{{ slave_db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+            mode: "startreplica"
+
+        - name: Get slave status
+          community.mysql.mysql_replication:
+            login_host: "{{ slave_db_ip }}"
+            login_user: root
+            login_password: "{{ db_root_pass }}"
+          register: slave_status
+
+        - name: Display slave status
+          ansible.builtin.debug:
+            msg: "{{ slave_status }}"

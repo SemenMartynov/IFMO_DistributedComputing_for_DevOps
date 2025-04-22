@@ -1,0 +1,108 @@
+#
+# Лабораторная работа 1.
+#
+# студент 475134.
+#
+# Задание:
+# ДЗ: Запустить WordPress в Docker.
+# [✓] Создание простого мультиконтейнерного приложения (веб-сервер + БД).
+# [✓] Настройка сетевого взаимодействия между контейнерами.
+# [✓] Опционально, настроить TLS (Let's Encrypt).
+#
+# Примечание:
+# Мне показалось интересным выполнить работу минимальными средствами (один плейбук), но полностью функциональную.
+# Для получения сертификата Let's Encrypt необходимо использовать реальный домен (dns указывает на правильный ip),
+# и убрать опцию `--internal-certs` из `caddy_opts`. В противном случае, Caddy выпустит самоподписанный сертификат.
+#
+---
+- name: Deploy WordPress and MySQL with Docker
+  hosts: all
+  tasks:
+    - name: Install Docker Engine on Ubuntu
+      become: true
+      block:
+        - name: Install required packages
+          ansible.builtin.apt:
+            name:
+              - ca-certificates=20240203
+              - curl=8.5.0-2ubuntu10.6
+            state: present
+            update_cache: true
+
+        - name: Add Docker's official GPG key
+          ansible.builtin.apt_key:
+            state: present
+            url: https://download.docker.com/linux/ubuntu/gpg
+
+        - name: Add the repository to Apt sources
+          ansible.builtin.apt_repository:
+            repo: deb https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+            state: present
+
+        - name: Install the Docker packages
+          ansible.builtin.apt:
+            name:
+              - containerd.io=1.7.26-1
+              - docker-ce=5:28.0.4-1~ubuntu.24.04~noble
+              - docker-ce-cli=5:28.0.4-1~ubuntu.24.04~noble
+              - docker-buildx-plugin=0.22.0-1~ubuntu.24.04~noble
+              - docker-compose-plugin=2.34.0-1~ubuntu.24.04~noble
+            state: present
+            update_cache: true
+
+        - name: Add user to the docker group
+          ansible.builtin.user:
+            append: true
+            groups: docker
+            name: "{{ ansible_env.USER }}"
+
+    - name: Deploy WordPress with Docker Compose
+      block:
+        - name: Reset ssh connection to allow user changes to affect
+          ansible.builtin.meta: reset_connection
+
+        - name: Create webapp directory
+          ansible.builtin.file:
+            mode: "0755"
+            path: webapp
+            state: directory
+
+        - name: Copy webapp/docker-compose.yml
+          ansible.builtin.copy:
+            dest: webapp/docker-compose.yml
+            mode: "0644"
+            content: |
+              services:
+                caddy:
+                  command: caddy reverse-proxy --from {{ caddy_domain }} {{ caddy_opts }} --to wordpress:80
+                  image: caddy:2.9.1-alpine
+                  ports:
+                    - 80:80
+                    - 443:443
+                  restart: unless-stopped
+
+                db:
+                  environment:
+                    MYSQL_DATABASE: {{ db_name }}
+                    MYSQL_USER: {{ db_user }}
+                    MYSQL_PASSWORD: {{ db_pass }}
+                    MYSQL_ROOT_PASSWORD: {{ db_root_pass }}
+                  image: mysql:8.0.41-bookworm
+                  restart: unless-stopped
+                  volumes:
+                    - ./data:/var/lib/mysql
+
+                wordpress:
+                  environment:
+                    WORDPRESS_DB_HOST: db
+                    WORDPRESS_DB_USER: {{ db_user }}
+                    WORDPRESS_DB_PASSWORD: {{ db_pass }}
+                    WORDPRESS_DB_NAME: {{ db_name }}
+                  image: wordpress:6.7.2-php8.4-apache
+                  restart: unless-stopped
+
+        - name: Run docker compose up -d
+          ansible.builtin.command:
+            chdir: webapp
+            cmd: docker compose up -d
+          changed_when: false

@@ -1,0 +1,8 @@
+caddy_domain: web.example.com
+caddy_opts: --internal-certs
+db_user: wordpress
+db_pass: wordpress
+db_name: wordpress
+db_root_pass: 123
+db_slave_user: slave
+db_slave_pass: slave
