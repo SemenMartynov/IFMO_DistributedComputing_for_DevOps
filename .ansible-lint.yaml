@@ -1,7 +1,7 @@
 ---
 # .ansible-lint
 
-profile: moderate # min, basic, moderate,safety, shared, production
+profile: basic # min, basic, moderate,safety, shared, production
 
 # Also recognize these versions of Ansible as supported:
 # supported_ansible_also:
