@@ -13,5 +13,8 @@
 - name: Prepare a database (Replica)
   ansible.builtin.import_tasks: prepare_replica_db.yml
 
+- name: Check if the database is ready
+  ansible.builtin.import_tasks: check_replica_status.yml
+
 - name: Test replication
   ansible.builtin.import_tasks: test_replication.yml
