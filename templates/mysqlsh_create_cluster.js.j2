@@ -1,6 +1,6 @@
 dba.verbose = 2;
 var dbPass = "{{ mysql_root_pw }}";
-var clusterName = "{{ clustername }}";
+var clusterName = "{{ wp_clustername }}";
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
