@@ -2,15 +2,22 @@
 - name: Migrate from homework1 to homework2
   become: yes
   block:
-    - name: Dump database
-      become: yes
-      args:
-        executable: /bin/bash
-      shell: docker exec -i wordpress-db-1 mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }} --all-databases --source-data=2 > /tmp/dmp.sql
+    - name: Execute mysqldump in container
+      community.docker.docker_container_exec:
+        container: wordpress-db-1
+        command: >
+          mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }}
+          --all-databases --source-data=2
       register: dump
       until: dump.rc == 0
       retries: 6
       delay: 5
+
+    - name: Save dump to file
+      ansible.builtin.copy:
+        dest: /tmp/dmp.sql
+        content: "{{ dump.stdout }}"
+        mode: 0644
 
     - name: Gracefull shutdown containers
       command: docker-compose down
@@ -42,22 +49,19 @@
   become: yes
   block:
     - name: Copy SQL dump into container
-      become: yes
-      shell: docker cp /tmp/dmp.sql mysql_primary:/tmp/dmp.sql
+      community.docker.docker_container_copy_into:
+        container: mysql_primary
+        path: /tmp/dmp.sql
+        container_path: /tmp/dmp.sql
 
     - name: Recover SQL dump inside container
-      become: yes
-      args:
-        executable: /bin/bash
-      shell: docker exec mysql_primary bash -c "mysql -uroot -p{{ mysql_root_password }} < /tmp/dmp.sql"
+      community.docker.docker_container_exec:
+        container: mysql_primary
+        command: bash -c "mysql -uroot -p{{ mysql_root_password }} < /tmp/dmp.sql"
       register: dump_recovery
       until: dump_recovery.rc == 0
       retries: 6
       delay: 10
-
-    - name: Get primary binlog coordinates
-      shell: docker exec mysql_primary mysql -uroot -p{{ mysql_root_password }} -e "SHOW MASTER STATUS"
-      register: primary_status
 
     - name: Extract primary log file and position
       community.mysql.mysql_query:
@@ -78,18 +82,22 @@
         primary_log_pos:  "{{ primary_query.query_result[0][0].Position }}"
 
     - name: Configure replication on secondary server
-      shell: |
-        docker exec -i mysql_secondary mysql -uroot -p{{ mysql_root_password }} -e "
-        CHANGE MASTER TO
-          MASTER_HOST='mysql_primary',
-          MASTER_USER='repl_user',
-          MASTER_PASSWORD='{{ mysql_replication_password }}',
-          MASTER_LOG_FILE='{{ primary_log_file }}',
-          MASTER_LOG_POS={{ primary_log_pos }};
-        START SLAVE;"
+      community.docker.docker_container_exec:
+        container: mysql_secondary
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e "
+          CHANGE MASTER TO
+            MASTER_HOST='mysql_primary',
+            MASTER_USER='repl_user',
+            MASTER_PASSWORD='{{ mysql_replication_password }}',
+            MASTER_LOG_FILE='{{ primary_log_file }}',
+            MASTER_LOG_POS={{ primary_log_pos }};
+          START SLAVE;"
 
     - name: Check secondary replication status
-      shell: docker exec mysql_secondary mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+      community.docker.docker_container_exec:
+        container: mysql_secondary
+        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
       register: secondary_status
 
     - name: Display replication status
