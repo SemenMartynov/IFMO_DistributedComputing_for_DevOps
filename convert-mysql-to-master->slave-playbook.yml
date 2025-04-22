@@ -111,15 +111,6 @@
       ansible.builtin.pause:
         seconds: 15
         
-#    - name: Start replication on SLAVE
-#      community.mysql.mysql_query:
-#        login_db: mysql
-#        login_host: "10.16.1.4"
-#        login_port: 3306
-#        login_password: "{{ mysql_root_pw }}"
-#        query:
-#          - CHANGE REPLICATION SOURCE TO SOURCE_HOST='{{ db_container_name }}', SOURCE_PORT=3306, SOURCE_USER='replica_user', SOURCE_PASSWORD = '{{ mysql_root_pw }}', SOURCE_AUTO_POSITION = 1 FOR CHANNEL 'db1s'
-#          - START REPLICA FOR CHANNEL 'db1s'
     - name: Set replication on SLAVE
       community.mysql.mysql_replication:
         login_host: "10.16.1.4"
@@ -140,11 +131,6 @@
         login_password: "{{ mysql_root_pw }}"
         mode: "startreplica"
         channel: "db1s"
-        primary_auto_position: true
-        primary_host: "{{ db_container_name }}"
-        primary_port: 3306
-        primary_user: "replica_user"
-        primary_password: "{{ mysql_root_pw }}"
 
     - name: Start WP container
       community.docker.docker_container:
