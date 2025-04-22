@@ -52,7 +52,7 @@
       shell: docker exec mysql_primary bash -c "mysql -uroot -p{{ mysql_root_password }} < /tmp/dmp.sql"
       register: dump_recovery
       until: dump_recovery.rc == 0
-      retries: 12
+      retries: 6
       delay: 10
 
     - name: Get primary binlog coordinates
@@ -60,9 +60,22 @@
       register: primary_status
 
     - name: Extract primary log file and position
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3306
+        query: "SHOW MASTER STATUS"
+      register: primary_query
+
+    - name: Debug master_query
+      debug:
+        var: primary_query
+
+    - name: Set replication params
       set_fact:
-        primary_log_file: "{{ primary_status.stdout | regex_search('File: (.*)', '\\1') }}"
-        primary_log_pos: "{{ primary_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+        primary_log_file: "{{ primary_query.query_result[0][0].File }}"
+        primary_log_pos:  "{{ primary_query.query_result[0][0].Position }}"
 
     - name: Configure replication on secondary server
       shell: |
