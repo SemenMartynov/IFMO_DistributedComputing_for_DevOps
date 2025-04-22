@@ -84,7 +84,7 @@
         image: "{{ db_container_image }}"
         state: started
         restart: true
-        restart_policy: always
+        restart_policy: "on-failure"
         networks:
           - name: "{{ wp_int_network }}"
             aliases: "{{ db_container_name }}"
@@ -108,7 +108,7 @@
         image: "{{ wp_container_image }}"
         state: started
         restart: true
-        restart_policy: always
+        restart_policy: "on-failure"
         networks:
           - name: "{{ wp_int_network }}"
             aliases: "{{ wp_container_name }}int"
