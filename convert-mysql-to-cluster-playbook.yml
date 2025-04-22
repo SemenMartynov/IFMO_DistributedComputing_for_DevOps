@@ -93,7 +93,7 @@
         dest: create_cluster.js
           
     - name: Run MySQL SHELL script to create Cluster
-      ansible.builtin.shell: mysqlsh --no-wizard --log-level=DEBUG3 --uri 'root@10.16.1.11' -p'{{ mysql_root_pw }}' -f create_cluster.js
+      ansible.builtin.command: mysqlsh --no-wizard --log-level=DEBUG3 --uri 'root@10.16.1.11' -p'{{ mysql_root_pw }}' -f create_cluster.js
       register: myshell_result
       
     - name: MySQL SHELL script result
