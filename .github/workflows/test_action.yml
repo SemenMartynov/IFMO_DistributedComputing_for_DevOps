@@ -15,7 +15,7 @@ jobs:
       - name: "Install Ansible"
         run: |
           pip install ansible      
-          ansible-galaxy collection install community.docker --force
+          ansible-galaxy collection install community.docker community.mysql --force
       - name: Run ansible-lint
         uses: ansible/ansible-lint@main
         # optional (see below):
