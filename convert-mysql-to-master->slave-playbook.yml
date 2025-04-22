@@ -25,7 +25,7 @@
         image: "{{ db_container_image }}"
         command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON --plugin-load-add='clone=mysql_clone.so'
         state: started
-        restart: yes
+        restart: true
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
@@ -47,33 +47,6 @@
       ansible.builtin.pause:
         seconds: 15
 
-#    - name: Prepare SLAVE for replication
-#      community.mysql.mysql_query:
-#        login_db: mysql
-#        login_host: "10.16.1.4"
-#        login_port: 3306
-#        login_password: "{{ mysql_root_pw }}"
-#        query:
-#          - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
-
-    - name: Create replication user on SLAVE
-      community.mysql.mysql_user:
-        login_host: "10.16.1.4"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"      
-        name: replica_user
-        host: '%'
-        plugin_auth_string: "{{ mysql_root_pw }}"
-        plugin: 'caching_sha2_password'
-        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
-        state: present
-
-#    - name: Restart MySQL SLAVE container
-#      community.docker.docker_container:
-#        name: "{{ db_container_name }}slave"
-#        state: started
-#        restart: true
-        
     - name: Stop WP container
       community.docker.docker_container:
         name: "{{ wp_container_name }}"
@@ -88,7 +61,20 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"
 
-    - name: Install CLONE plugin on MASTER
+    - name: Create replication user on MASTER and SLAVE
+      community.mysql.mysql_user:
+        login_host: "10.16.1.{{ item }}"
+        login_port: 3306
+        login_password: "{{ mysql_root_pw }}"      
+        name: replica_user
+        host: '%'
+        plugin_auth_string: "{{ mysql_root_pw }}"
+        plugin: 'caching_sha2_password'
+        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
+        state: present
+      with_sequence: start=3 end=4
+
+    - name: Prepare MASTER for Cloning
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.3"
@@ -109,21 +95,9 @@
     - name: Pause for 15s to start MASTER
       ansible.builtin.pause:
         seconds: 15
-        
-    - name: Create replication user on MASTER
-      community.mysql.mysql_user:
-        login_host: "10.16.1.3"
-        login_port: 3306
-        login_password: "{{ mysql_root_pw }}"      
-        name: replica_user
-        host: '%'
-        plugin_auth_string: "{{ mysql_root_pw }}"
-        plugin: 'caching_sha2_password'
-        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
-        state: present
-    
+
     - name: Cloning DB from MASTER to SLAVE
-      ignore_errors: true # mysql will restart after after clone completed
+      ignore_errors: true # mysql will restart and disconnect after clone completed
       community.mysql.mysql_query:
         login_db: mysql
         login_host: "10.16.1.4"
