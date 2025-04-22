@@ -62,7 +62,7 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"      
         name: replica_user
-        host_all: true
+        host: '%'
         password: "{{ mysql_root_pw }}"
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
@@ -105,7 +105,7 @@
         login_port: 3306
         login_password: "{{ mysql_root_pw }}"      
         name: replica_user
-        host_all: true
+        host: '%'
         password: "{{ mysql_root_pw }}"
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
