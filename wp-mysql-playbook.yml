@@ -63,9 +63,6 @@
           - subnet:  10.16.1.0/28
             gateway: 10.16.1.1
             iprange: 10.16.1.0/29
-            aux_addresses:
-              "{{ wp_container_name }}": 10.16.1.2
-              "{{ db_container_name }}": 10.16.1.3
 
     - name: Create WP docker network
       community.docker.docker_network:
@@ -114,10 +111,9 @@
         restart_policy: always
         networks:
           - name: "{{ wp_int_network }}"
-            aliases: wpint
+            aliases: "{{ wp_container_name }}int"
             ipv4_address: "10.16.1.2"
           - name: "{{ wp_ext_network }}"
-            aliases: wp
         ports:
           - "80:80"
         volumes:
