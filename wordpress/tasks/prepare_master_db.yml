@@ -10,9 +10,6 @@
   delay: 6
   until: master_ping.query_result is defined and master_ping.query_result[0][0]["1"] == 1
 
-- name: Check if a replica is ready
-
-
 - name: Create replication user on master
   community.mysql.mysql_user:
     login_host: 127.0.0.1
