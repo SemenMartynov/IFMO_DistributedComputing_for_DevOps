@@ -63,7 +63,7 @@
         login_password: "{{ mysql_root_pw }}"      
         name: replica_user
         host: '%'
-        password: "{{ mysql_root_pw }}"
+        plugin_auth_string: "{{ mysql_root_pw }}"
         plugin: 'caching_sha2_password'
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
@@ -117,7 +117,7 @@
         login_password: "{{ mysql_root_pw }}"      
         name: replica_user
         host: '%'
-        password: "{{ mysql_root_pw }}"
+        plugin_auth_string: "{{ mysql_root_pw }}"
         plugin: 'caching_sha2_password'
         priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
         state: present
