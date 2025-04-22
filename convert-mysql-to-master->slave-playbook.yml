@@ -9,14 +9,15 @@
 
   tasks:
     - name: Generate MySQL password
-      ansible.builtin.set_fact: mysql_passwd="{{ pwd_alias }}"
+      ansible.builtin.set_fact:
+        mysql_passwd: "{{ pwd_alias }}"
 
     - name: Install aptitude
       apt:
         name: aptitude
         state: latest
         update_cache: true
-        
+
     - name: Install packages required by Ansible modules
       apt:
         pkg: # https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_db_module.html#requirements
@@ -60,8 +61,7 @@
         name: "{{ wp_container_name }}"
         state: stopped
 
-    - name: Backup current WP databases
-    # just for sake of safety    
+    - name: Backup current WP databases just for sake of safety    
       mysql_db:
         state: dump
         name: all
@@ -125,7 +125,7 @@
     - name: Set and Start replication on SLAVE
       community.mysql.mysql_replication:
         login_host: "10.16.1.4"
-        login_port: 3306      
+        login_port: 3306
         login_password: "{{ mysql_root_pw }}"
         mode: "{{ item }}"
         channel: "db1s"
