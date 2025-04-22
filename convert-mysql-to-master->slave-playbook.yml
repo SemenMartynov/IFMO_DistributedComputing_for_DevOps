@@ -1,6 +1,6 @@
 ---
 - name: 'Playbook converts standalone mysql instance to master->slave replication'
-- hosts: all
+  hosts: all
   become: true
   vars_files:
     - defaults/main.yml
