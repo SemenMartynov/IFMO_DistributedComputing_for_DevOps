@@ -37,6 +37,7 @@
         networks:
           - name: "{{ wp_int_network }}"
             ipv4_address: "10.16.1.4"
+            alias: "{{ dbslave_container_name }}"
         exposed_ports:
           - 3306
           - 33060
