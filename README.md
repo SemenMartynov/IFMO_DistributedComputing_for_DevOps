@@ -13,9 +13,13 @@ Distributed Computing course for DevOps 2025
 
 1. run `sup local ubuntu-prepare` from the repo root for required packages install
 2. run `sup local provision` from the repo root for the initial setup
+3. run `sup local monitoring-start` from the repo root to start monitoring service
+4. run `sup local monitoring-stop` from the repo root to start monitoring service
 
 ## remote usage
 
 1. run `sup remote ubuntu-prepare` from the repo root for required packages install
 2. run `sup remote provision` from the repo root for the initial setup
+3. run `sup remote monitoring-start` from the repo root to start monitoring service
+4. run `sup remote monitoring-stop` from the repo root to stop monitoring service
 

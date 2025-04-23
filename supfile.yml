@@ -67,6 +67,28 @@ commands:
       sudo apt-get update;
       sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
+  monitoring-start:
+    desc: start app monitoring
+    run: >
+      sudo docker run \
+        --volume=/:/rootfs:ro \
+        --volume=/var/run/docker.sock:/var/run/docker.sock:rw \
+        --volume=/sys:/sys:ro \
+        --volume=/var/lib/docker/:/var/lib/docker:ro \
+        --volume=/dev/disk/:/dev/disk:ro \
+        --publish=8070:8080 \
+        --detach=true \
+        --name=cadvisor \
+        --privileged \
+        --device=/dev/kmsg \
+        gcr.io/cadvisor/cadvisor:v0.52.1
+
+  monitoring-stop:
+    desc: stop app monitoring
+    run: >
+      sudo docker stop cadvisor || true;
+      sudo docker rm cadvisor || true;
+
 targets:
   deploy:
     - pull
