@@ -1,0 +1,171 @@
+#запуск с запросом на рута 
+#ansible-playbook -i inventory.ini ans.yml --ask-become-pass
+#ссылки, которые использовал как опорный материал
+#https://habr.com/ru/articles/532216/
+#https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_variables_module.html#ansible-collections-community-mysql-mysql-variables-module
+#https://dev.mysql.com/doc/refman/8.4/en/replication-gtids-howto.html
+---
+
+
+- name: Развертывание WordPress с Docker
+  hosts: all
+  become: yes
+  vars:
+    mysql_root_password: "my_root_password"
+    mysql_database: "wordpress_db"
+    mysql_user: "wp_user"
+    mysql_password: "wp_password"
+    docker_network: "wp_network"
+    cluster_network: "ms_network"
+    replica_user: "replica_user"
+    replica_password: "password"
+
+## Клонирование репозитория с шаблонамиИспользуется модуль ansible.builtin.git для загрузки ветки add-cluster:
+  tasks:
+    - name: Скачиваем официальный дистрибутив docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
+        state: present
+        update_cache: yes
+
+## Обновление кеша apt и установка Docker, Python-пакетов и Docker Compose:
+    - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - python3-pip
+          - python3-docker
+          - python3-pymysql
+        state: present
+        update_cache: yes
+
+## Запуск серивиса Docker
+    - name: запускаю сервис Docker
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+## Создание docker  сети для связи контейнера WP и Мастера mysql
+    - name: Создаю Docker-сеть для WP и БД
+      community.docker.docker_network:
+        name: "{{ docker_network }}"
+        state: present
+
+## Создание docker  сети для связи контейнера Мастера mysql и реплики
+    - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
+      community.docker.docker_network:
+        name: "{{ cluster_network }}"
+        state: present
+
+## Создание Docker-томов (volumes), без них образы поднимаются слишком долго, заменил на луп
+    - name: Create Docker volumes for persistent data
+      community.docker.docker_volume:
+        name: "{{ item }}"
+      loop:
+        - mysql_master_data
+        - mysql_slave_data
+        - wp_data
+
+  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
+
+    - name: Сгенерировать SQL-файл для инициализации мастера
+      template:
+        src: "templates/user_init_master.sql.j2"
+        dest: "/tmp/user_init_master.sql"
+        mode: '0644'
+
+    - name: Сгенерировать SQL-файл для инициализации реплики
+      template:
+        src: "templates/user_init_slave.sql.j2"
+        dest: "/tmp/user_init_slave.sql"
+        mode: '0644'
+
+  ## Запуск MySQL Master Порт на хосте: 3307, добавляем и настраиваем стартогого пользователя для репликации, меняем конфиги.
+    - name: запускаю контейнер базы данных MySQL -master
+      community.docker.docker_container:
+        name: wp_db_master
+        image: mysql:5.7
+        state: started
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+        volumes:
+          - mysql_master_data:/var/lib/mysql
+          - "/tmp/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
+          - "templates/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+        networks:
+          - name: "{{ docker_network }}"
+          - name: "{{ cluster_network }}"
+        published_ports:
+            - "3307:3306"
+
+  ## Порт на хосте: 3308
+    - name: запускаю контейнер базы данных MySQL - slave
+      community.docker.docker_container:
+        name: wp_db_slave
+        image: mysql:5.7
+        state: started
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+
+        volumes:
+          - mysql_slave_data:/var/lib/mysql
+          - "/tmp/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"
+          - "templates/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+        networks:
+          - name: "{{ cluster_network }}"
+        published_ports:
+            - "3308:3306"
+            
+  # ## Обязательно ждем пока начнется реплликация, обычно начинается через 5-10 секунд
+  #   - name: Проверка готовности MySQL в wp_db_slave
+  #     command: docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SELECT 1"
+  #     register: mysql_ready
+  #     retries: 10
+  #     delay: 5
+  #     until: mysql_ready.rc == 0
+  
+
+    # - name: Задержка 30 секунд для запуска сервиса
+    #   pause:
+    #     seconds: 30
+    - name: Wait for MySQL slave to be reachable on host port
+      wait_for:
+        port: 3308
+        delay: 5
+        timeout: 60
+
+    - name: Проверяю статус реплики
+      command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SHOW SLAVE STATUS\G"'
+      register: replica_status
+      changed_when: false
+    - debug:
+        msg: "{{ replica_status.stdout }}"
+
+  ## Запуск WordPress, Доступ по HTTP на порту 80
+    - name: запускаю контейнер WordPress
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - "80:80"
+        env:
+          WORDPRESS_DB_HOST: "wp_db_master:3306"
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+          
+        volumes:
+            - wp_data:/var/www/html
+        networks:
+          - name: "{{ docker_network }}"
