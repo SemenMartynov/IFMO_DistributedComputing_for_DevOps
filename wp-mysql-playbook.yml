@@ -5,7 +5,8 @@
     - defaults/main.yml
   tasks:
     - name: Generate MySQL password
-      ansible.builtin.set_fact: 'mysql_passwd="{{ pwd_alias }}"'
+      ansible.builtin.set_fact:
+        mysql_passwd: '{{ pwd_alias }}'
     - name: Install aptitude
       apt:
         name: aptitude
