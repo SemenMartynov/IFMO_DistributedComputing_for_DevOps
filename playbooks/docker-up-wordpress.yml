@@ -3,10 +3,10 @@
   hosts: all
   vars:
     mysql_root_password: "test_db_root_password"
-    master_container_name: "mysql-master"
-    slave_container_name: "mysql-slave"
+    slave_mysql_port: "3307"
     replication_user: "test_db_replication_user"
     replication_password: "test_db_replication_password"
+    mysql_connect_timeout: "3"
 
   tasks:
     - name: Создать каталог для приложения
@@ -31,87 +31,138 @@
         state: present
 
     - name: Ожидание готовности Master (первый раз поднимается долго!)
-      become: yes
-      community.docker.docker_container_exec:
-        container: "{{ master_container_name }}"
-        command: "mysql -uroot -p{{ mysql_root_password }} -e 'SELECT 1'"
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "SELECT 1;"
       register: mysql_check
-      until: mysql_check.rc == 0
+      until: mysql_check is succeeded
       retries: 40
       delay: 3
 
     - name: Ожидание готовности Master (проверка результата)
       ansible.builtin.assert:
         that:
-          - mysql_check.rc == 0
+          - mysql_check is succeeded
         success_msg: "MySQL Master готов к работе"
         fail_msg: "MySQL Master не ответил на ping за 2 минуты"
 
     - name: Ожидание готовности Slave (первый раз поднимается долго!)
-      become: yes
-      community.docker.docker_container_exec:
-        container: "{{ slave_container_name }}"
-        command: "mysql -uroot -p{{ mysql_root_password }} -e 'SELECT 1'"
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "SELECT 1;"
       register: mysql_check
-      until: mysql_check.rc == 0
+      until: mysql_check is succeeded
       retries: 40
       delay: 3
 
     - name: Ожидание готовности Slave (проверка результата)
       ansible.builtin.assert:
         that:
-          - mysql_check.rc == 0
+          - mysql_check is succeeded
         success_msg: "MySQL Slave готов к работе"
         fail_msg: "MySQL Slave не ответил на ping за 2 минуты"
 
-    - name: На master создать пользователя для репликации
-      become: yes
-      community.docker.docker_container_exec:
-        container: "{{ master_container_name }}"
-        command: >
-          mysql -uroot -p{{ mysql_root_password }} -e
-          "CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ replication_password }}';
-          GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
-          FLUSH PRIVILEGES;"
+    - name: На Master создать пользователя для репликации
+      community.mysql.mysql_user:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        name: "{{ replication_user }}"
+        host: "%"
+        password: "{{ replication_password }}"
+        plugin: mysql_native_password
+        state: present
 
-    - name: Получить информацию о репликации (может она уже работает)
-      community.docker.docker_container_exec:
-        container: "{{ slave_container_name }}"
-        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+    - name: Выдать права репликации
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%'"
+
+    - name: Применить привилегии
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "FLUSH PRIVILEGES"
+
+    - name: Получить информацию о репликации
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "SHOW REPLICA STATUS"
       register: replication_status
 
     - name: Парсинг статуса репликации (для проверки, нужно ли ее запускать)
       set_fact:
-        replica_io_running: "{{ 'Replica_IO_Running: Yes' in replication_status.stdout }}"
-        replica_sql_running: "{{ 'Replica_SQL_Running: Yes' in replication_status.stdout }}"
+        replica_io_running: "{{ replication_status.query_result[0][0].Replica_IO_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
+        replica_sql_running: "{{ replication_status.query_result[0][0].Replica_SQL_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
 
-    - name: На slave настроить репликацию (только если она еще не настроена)
-      community.docker.docker_container_exec:
-        container: "{{ slave_container_name }}"
-        command: >
-          mysql -uroot -p{{ mysql_root_password }} -e "
-          CHANGE REPLICATION SOURCE TO
-          SOURCE_HOST='{{ master_container_name }}',
-          SOURCE_USER='{{ replication_user }}',
-          SOURCE_PASSWORD='{{ replication_password }}',
-          SOURCE_AUTO_POSITION=1;
-          START REPLICA;"
-      when: not replica_io_running and not replica_sql_running
+    - name: Остановить репликацию перед изменением настроек
+      community.mysql.mysql_replication:
+        mode: stopreplica
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+      when: replica_io_running or replica_sql_running
+
+    - name: На Slave настроить репликацию (только если она еще не настроена)
+      community.mysql.mysql_replication:
+        mode: changereplication
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        master_host: "{{ ansible_host }}"
+        master_user: "{{ replication_user }}"
+        master_password: "{{ replication_password }}"
+        master_auto_position: 1
+
+    - name: Запустить репликацию
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
 
     - name: Получить информацию о репликации еще раз
-      community.docker.docker_container_exec:
-        container: "{{ slave_container_name }}"
-        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+      community.mysql.mysql_query:
+        login_host: "{{ ansible_host }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_port: "{{ slave_mysql_port }}"
+        connect_timeout: "{{ mysql_connect_timeout }}"
+        query: "SHOW REPLICA STATUS"
       register: replication_status
 
-#    - name: Посмотреть вывод информации о репликации
-#      debug:
-#        var: replication_status.stdout_lines
+    - name: Парсинг статуса репликации (для проверки, нужно ли ее запускать)
+      set_fact:
+        replica_io_running: "{{ replication_status.query_result[0][0].Replica_IO_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
+        replica_sql_running: "{{ replication_status.query_result[0][0].Replica_SQL_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
 
     - name: Убедиться, что репликация работает
       assert:
         that:
-          - "'Replica_IO_Running: Yes' in replication_status.stdout"
-          - "'Replica_SQL_Running: Yes' in replication_status.stdout"
+          - replica_io_running
+          - replica_sql_running
         success_msg: "Репликация работает!"
         fail_msg: "Репликация работает некорректно"
