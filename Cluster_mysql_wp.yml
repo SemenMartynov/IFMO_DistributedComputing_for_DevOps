@@ -22,6 +22,11 @@
 
 ## Клонирование репозитория с шаблонамиИспользуется модуль ansible.builtin.git для загрузки ветки add-cluster:
   tasks:
+    - name: Добавление GPG ключа
+      apt_key:
+        url: "https://download.docker.com/linux/ubuntu/gpg"
+        state: present
+
     - name: Скачиваем официальный дистрибутив docker
       apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
@@ -98,12 +103,19 @@
         volumes:
           - mysql_master_data:/var/lib/mysql
           - "/tmp/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
-          - "templates/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+          - "./templates/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
         networks:
           - name: "{{ docker_network }}"
           - name: "{{ cluster_network }}"
         published_ports:
             - "3307:3306"
+    
+    - name: Wait for MySQL slave to be reachable on host port
+      wait_for:
+        port: 3307
+        delay: 5
+        timeout: 60
+
 
   ## Порт на хосте: 3308
     - name: запускаю контейнер базы данных MySQL - slave
@@ -114,12 +126,11 @@
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-          MYSQL_DATABASE: "{{ mysql_database }}"
 
         volumes:
           - mysql_slave_data:/var/lib/mysql
           - "/tmp/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"
-          - "templates/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+          - "./templates/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
         networks:
           - name: "{{ cluster_network }}"
         published_ports:
@@ -137,22 +148,40 @@
     # - name: Задержка 30 секунд для запуска сервиса
     #   pause:
     #     seconds: 30
+
     - name: Wait for MySQL slave to be reachable on host port
       wait_for:
         port: 3308
         delay: 5
         timeout: 60
 
-    - name: НАстраиваю репликацию
+    # - name: Настраиваю репликацию внутри контейнера wp_db_slave
+    #   community.docker.docker_container_exec:
+    #     container: wp_db_slave
+    #     command: >
+    #       mysql -uroot -p{{ mysql_root_password }} -e "
+    #       CHANGE REPLICATION SOURCE TO
+    #         SOURCE_HOST='wp_db_master',
+    #         SOURCE_PORT=3306,
+    #         SOURCE_USER='{{ replica_user }}',
+    #         SOURCE_PASSWORD='{{ replica_password }}',
+    #         SOURCE_AUTO_POSITION=1;
+    #       START REPLICA;"
+
+
+    - name: Настраиваю репликацию
       community.mysql.mysql_replication:
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        mode: slave
-        master_host: "wp_db_master"
-        master_port: 3306
-        master_user: "{{ replica_user }}"
-        master_password: "{{ replica_password }}"
-        master_auto_position: yes
+        login_host: localhost
+        login_port: 3307
+        mode: changeprimary
+        primary_host: "wp_db_master"
+        primary_port: 3306
+        primary_user: "{{ replica_user }}"
+        primary_password: "{{ replica_password }}"
+        primary_auto_position: yes
+
 
     # - name: Проверяю статус реплики
     #   command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SHOW SLAVE STATUS\G"'
