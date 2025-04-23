@@ -1,0 +1,4 @@
+monitoring_password: MonitoringPassword123#
+grafana_admin_pass: Adminadmin123#
+mariadb_root_user: root
+mariadb_root_password: wordpress

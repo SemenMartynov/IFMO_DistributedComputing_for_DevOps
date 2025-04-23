@@ -12,6 +12,7 @@ services:
       - "{{ backup_dest }}/db.sql:/docker-entrypoint-initdb.d/db.sql"
     environment:
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ cluster_vars.backup_password }}"
+      MARIADB_AUTHENTICATION_PLUGIN: "plugin_auth_string"
       MARIADB_ROOT_PASSWORD: "{{ cluster_vars.root_password }}"
       MARIADB_DATABASE: "{{ wordpress_db.name }}"
       MARIADB_USER: "{{ wordpress_db.user }}"
@@ -35,6 +36,7 @@ services:
     volumes:
       - "mysql_slave:/var/lib/mysql"
     environment:
+      MARIADB_AUTHENTICATION_PLUGIN: "plugin_auth_string"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ cluster_vars.backup_password }}"
       MARIADB_ROOT_PASSWORD: "{{ cluster_vars.root_password }}"
       MARIADB_GALERA_CLUSTER_NAME: "{{ cluster_vars.cluster_name }}"
