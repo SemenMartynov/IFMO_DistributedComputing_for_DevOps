@@ -34,12 +34,15 @@
     timeout: 60
 
 - name: Configure slave
-  shell: |
-    docker exec mysql_slave mysql -uroot -prootpassword -e "
-    STOP SLAVE;
-    CHANGE MASTER TO
-      MASTER_HOST='mysql',
-      MASTER_USER='replica',
-      MASTER_PASSWORD='replica_pass';
-    START SLAVE;
-    "
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: 3307
+    login_user: root
+    login_password: rootpassword
+    query:
+      - STOP SLAVE;
+      - CHANGE MASTER TO
+          MASTER_HOST='mysql',
+          MASTER_USER='replica',
+          MASTER_PASSWORD='replica_pass';
+      - START SLAVE;
