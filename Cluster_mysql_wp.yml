@@ -76,10 +76,24 @@
 
   ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
 
+    - name:  Copy file
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/master.cnf"
+        dest: "master.cnf"
+        mode: '0644'
+  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
+
+    - name:  Copy file
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/slave.cnf/"
+        dest: "slave.cnf"
+        mode: '0644'
+  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
+
     - name: Сгенерировать SQL-файл для инициализации мастера
       template:
-        src: "templates/user_init_master.sql.j2"
-        dest: "/tmp/user_init_master.sql"
+        src: "{{ playbook_dir }}/templates/user_init_master.sql.j2/"
+        dest: "user_init_master.sql"
         mode: '0644'
 
     # - name: Сгенерировать SQL-файл для инициализации реплики
@@ -102,19 +116,19 @@
           MYSQL_PASSWORD: "{{ mysql_password }}"
         volumes:
           - mysql_master_data:/var/lib/mysql
-          - "/tmp/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
-          - "./templates/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+          - "user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
+          - "/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
         networks:
           - name: "{{ docker_network }}"
           - name: "{{ cluster_network }}"
         published_ports:
             - "3307:3306"
     
-    - name: Wait for MySQL slave to be reachable on host port
-      wait_for:
-        port: 3307
-        delay: 5
-        timeout: 60
+    # - name: Wait for MySQL slave to be reachable on host port
+    #   wait_for:
+    #     port: 3307
+    #     delay: 5
+    #     timeout: 60
 
 
   ## Порт на хосте: 3308
@@ -129,8 +143,8 @@
 
         volumes:
           - mysql_slave_data:/var/lib/mysql
-          - "/tmp/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"
-          - "./templates/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+          # - "/templates/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"
+          - "/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
         networks:
           - name: "{{ cluster_network }}"
         published_ports:
@@ -190,16 +204,16 @@
     # - debug:
     #     msg: "{{ replica_status.stdout }}"
 
-    - name: Проверяю статус реплики
-      community.mysql.mysql_replication:
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-        mode: status
-      register: repl_status
+    # - name: Проверяю статус реплики
+    #   community.mysql.mysql_replication:
+    #     login_user: root
+    #     login_password: "{{ mysql_root_password }}"
+    #     mode: status
+    #   register: repl_status
 
-    - name: Вывожу статус реплики
-      debug:
-        var: repl_status
+    # - name: Вывожу статус реплики
+    #   debug:
+    #     var: repl_status
 
 
   ## Запуск WordPress, Доступ по HTTP на порту 80
