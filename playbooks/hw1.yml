@@ -1,0 +1,26 @@
+- hosts: vm1
+  become: true
+
+  pre_tasks:
+    - name: Ensure Docker network exists
+      community.docker.docker_network:
+        name: pg_cluster_net
+
+  roles:
+    - pg_cluster_master
+    - strapi
+
+  post_tasks:
+    - name: Waiting {{ strapi_check_delay }}s for Strapi to become available
+      uri:
+        url: "http://{{ hostvars[inventory_hostname].ansible_host }}:1337"
+        method: GET
+        status_code: 200
+      register: strapi_check
+      retries: "{{ strapi_check_retries }}"
+      delay: "{{ strapi_check_delay }}"
+      until: strapi_check.status == 200
+
+    - name: Confirm Strapi is live
+      debug:
+        msg: "Strapi is live at http://{{ hostvars[inventory_hostname].ansible_host }}:1337"

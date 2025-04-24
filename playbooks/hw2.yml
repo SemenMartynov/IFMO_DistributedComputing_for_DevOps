@@ -1,0 +1,15 @@
+- hosts: vm1
+  become: true
+
+  pre_tasks:
+    - name: Ensure Docker network for cluster exists
+      community.docker.docker_network:
+        name: pg_cluster_net
+
+  roles:
+    - pg_cluster_replica
+
+  post_tasks:
+    - name: Final status message
+      debug:
+        msg: "Replica added. PostgreSQL cluster now has master and slave running."
