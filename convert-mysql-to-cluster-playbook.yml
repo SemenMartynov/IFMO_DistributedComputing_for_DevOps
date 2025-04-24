@@ -157,7 +157,7 @@
     - name: Wait for MySQL server to restart
       local_action:
         module: ansible.builtin.wait_for
-          host='10.16.1.11'
+          host='10.16.1.13'
           port=3306
           delay=10
         become: false
