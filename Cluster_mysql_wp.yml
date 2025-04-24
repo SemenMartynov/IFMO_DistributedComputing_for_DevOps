@@ -76,25 +76,24 @@
 
   ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
 
-    - name:  Copy file
+    - name: Копирование master.cnf
       ansible.builtin.template:
         src: "{{ playbook_dir }}/templates/master.cnf"
-        dest: "master.cnf"
+        dest: "/tmp/master.cnf"  # или "{{ playbook_dir }}/master.cnf"
         mode: '0644'
-  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
 
-    - name:  Copy file
+    - name: Копирование slave.cnf
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/templates/slave.cnf/"
-        dest: "slave.cnf"
+        src: "{{ playbook_dir }}/templates/slave.cnf"
+        dest: "/tmp/slave.cnf"
         mode: '0644'
-  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
 
-    - name: Сгенерировать SQL-файл для инициализации мастера
+    - name: Сгенерировать SQL-файл для мастера
       template:
-        src: "{{ playbook_dir }}/templates/user_init_master.sql.j2/"
-        dest: "user_init_master.sql"
+        src: "{{ playbook_dir }}/templates/user_init_master.sql.j2"
+        dest: "/tmp/user_init_master.sql"
         mode: '0644'
+
 
     # - name: Сгенерировать SQL-файл для инициализации реплики
     #   template:
@@ -116,19 +115,21 @@
           MYSQL_PASSWORD: "{{ mysql_password }}"
         volumes:
           - mysql_master_data:/var/lib/mysql
-          - "user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
-          - "/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
+          - "/tmp/user_init_master.sql:/docker-entrypoint-initdb.d/user_init_master.sql:ro"
+          - "/tmp/master.cnf:/etc/mysql/conf.d/master.cnf:ro"
         networks:
           - name: "{{ docker_network }}"
           - name: "{{ cluster_network }}"
         published_ports:
             - "3307:3306"
-    
-    # - name: Wait for MySQL slave to be reachable on host port
-    #   wait_for:
-    #     port: 3307
-    #     delay: 5
-    #     timeout: 60
+
+    - name: Ожидание запуска MySQL Master
+      wait_for:
+        host: localhost
+        port: 3307
+        delay: 10
+        timeout: 120
+        state: started
 
 
   ## Порт на хосте: 3308
@@ -140,34 +141,22 @@
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-
         volumes:
           - mysql_slave_data:/var/lib/mysql
-          # - "/templates/user_init_slave.sql:/docker-entrypoint-initdb.d/user_init_slave.sql:ro"
-          - "/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
+          - "/tmp/slave.cnf:/etc/mysql/conf.d/slave.cnf:ro"
         networks:
           - name: "{{ cluster_network }}"
         published_ports:
             - "3308:3306"
-            
-  # ## Обязательно ждем пока начнется реплликация, обычно начинается через 5-10 секунд
-  #   - name: Проверка готовности MySQL в wp_db_slave
-  #     command: docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SELECT 1"
-  #     register: mysql_ready
-  #     retries: 10
-  #     delay: 5
-  #     until: mysql_ready.rc == 0
   
 
-    # - name: Задержка 30 секунд для запуска сервиса
-    #   pause:
-    #     seconds: 30
-
-    - name: Wait for MySQL slave to be reachable on host port
+    - name: Ожидание запуска MySQL Slave
       wait_for:
+        host: localhost
         port: 3308
-        delay: 5
-        timeout: 60
+        delay: 10
+        timeout: 120
+        state: started
 
     # - name: Настраиваю репликацию внутри контейнера wp_db_slave
     #   community.docker.docker_container_exec:
@@ -182,39 +171,30 @@
     #         SOURCE_AUTO_POSITION=1;
     #       START REPLICA;"
 
+    - name: Настраиваю репликацию на Slave
+      community.docker.docker_container_exec:
+        container: wp_db_slave
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e "
+          CHANGE MASTER TO
+            MASTER_HOST='wp_db_master',
+            MASTER_PORT=3306,
+            MASTER_USER='{{ replica_user }}',
+            MASTER_PASSWORD='{{ replica_password }}',
+            MASTER_AUTO_POSITION=1;
+          START SLAVE;"
 
-    - name: Настраиваю репликацию
-      community.mysql.mysql_replication:
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-        login_host: localhost
-        login_port: 3307
-        mode: changeprimary
-        primary_host: "wp_db_master"
-        primary_port: 3306
-        primary_user: "{{ replica_user }}"
-        primary_password: "{{ replica_password }}"
-        primary_auto_position: yes
+    - name: Проверка статуса репликации
+      community.docker.docker_container_exec:
+        container: wp_db_slave
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+      changed_when: false
 
-
-    # - name: Проверяю статус реплики
-    #   command: 'docker exec -e MYSQL_PWD={{ mysql_root_password }} wp_db_slave mysql -uroot -e "SHOW SLAVE STATUS\G"'
-    #   register: replica_status
-    #   changed_when: false
-    # - debug:
-    #     msg: "{{ replica_status.stdout }}"
-
-    # - name: Проверяю статус реплики
-    #   community.mysql.mysql_replication:
-    #     login_user: root
-    #     login_password: "{{ mysql_root_password }}"
-    #     mode: status
-    #   register: repl_status
-
-    # - name: Вывожу статус реплики
-    #   debug:
-    #     var: repl_status
-
+    - name: Вывод статуса репликации
+      debug:
+        var: slave_status.stdout_lines
 
   ## Запуск WordPress, Доступ по HTTP на порту 80
     - name: запускаю контейнер WordPress
