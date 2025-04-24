@@ -77,11 +77,11 @@
           MYSQL_USER: '{{ wp_dbuser }}'
           MYSQL_PASSWORD: '{{ mysql_passwd }}'
       with_sequence: start=1 end=3
-    - name: Wait for MySQL instance to start
+    - name: Wait for MySQL instances to start
       ansible.builtin.wait_for:
-        host='10.16.1.1{{ item }}'
-        port=3306
-        delay=10
+        host: '10.16.1.1{{ item }}'
+        port: 3306
+        delay: 10
       delegate_to: localhost
       with_sequence: start=1 end=3
     - name: Generate MySQL SHELL config
@@ -119,9 +119,9 @@
           MYSQL_INNODB_CLUSTER_MEMBERS: '3'
     - name: Wait for MySQL Router to start
       ansible.builtin.wait_for:
-        host='10.16.1.10'
-        port=6446
-        delay=10
+        host: '10.16.1.10'
+        port: 6446
+        delay: 10
       delegate_to: localhost
     - name: 'Restore current WP database to node #1'
       mysql_db:
