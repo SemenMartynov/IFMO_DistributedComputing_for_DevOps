@@ -48,8 +48,6 @@
         name: '{{ db_container_name }}'
         state: absent
     - name: Init MySQL instances
-#      notify:
-#        - Wait for MySQL server to restart
       community.docker.docker_container:
         name: '{{ db_container_name }}{{ item }}'
         hostname: '{{ db_container_name }}{{ item }}'
@@ -80,12 +78,12 @@
           MYSQL_PASSWORD: '{{ mysql_passwd }}'
       with_sequence: start=1 end=3
     - name: Wait for MySQL server to start
-      local_action:
-        module: ansible.builtin.wait_for
-          host='10.16.1.13'
-          port=3306
-          delay=10
-        become: false
+      ansible.builtin.wait_for:
+        host='10.16.1.1{{ item }}'
+        port=3306
+        delay=10
+      delegate_to: localhost
+      with_sequence: start=1 end=3
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
@@ -159,12 +157,5 @@
         module: ansible.builtin.wait_for
           host='10.16.1.10'
           port=6446
-          delay=10
-        become: false
-    - name: Wait for MySQL server to restart
-      local_action:
-        module: ansible.builtin.wait_for
-          host='10.16.1.13'
-          port=3306
           delay=10
         become: false
