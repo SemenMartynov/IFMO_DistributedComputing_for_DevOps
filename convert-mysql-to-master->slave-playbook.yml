@@ -114,7 +114,8 @@
         host: '10.16.1.4'
         port: 3306
         delay: 10
-      delegate_to: localhost    - name: Set and Start replication on SLAVE
+      delegate_to: localhost
+    - name: Set and Start replication on SLAVE
       community.mysql.mysql_replication:
         login_host: 10.16.1.4
         login_port: 3306
