@@ -39,6 +39,13 @@
     update_cache: yes
   become: yes
 
+- name: Install PyMySQL for Ansible MySQL modules
+  apt:
+    name: python3-pymysql
+    state: present
+    update_cache: yes
+  become: yes
+
 - name: Ensure Docker service is started and enabled
   service:
     name: docker
