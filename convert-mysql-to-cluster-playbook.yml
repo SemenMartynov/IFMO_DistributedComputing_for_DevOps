@@ -48,6 +48,8 @@
         name: '{{ db_container_name }}'
         state: absent
     - name: Init MySQL instances
+      notify:
+        - Wait for MySQL server to restart
       community.docker.docker_container:
         name: '{{ db_container_name }}{{ item }}'
         hostname: '{{ db_container_name }}{{ item }}'
@@ -77,9 +79,6 @@
           MYSQL_USER: '{{ wp_dbuser }}'
           MYSQL_PASSWORD: '{{ mysql_passwd }}'
       with_sequence: start=1 end=3
-    - name: Pause to start and init MySQL instances
-      ansible.builtin.pause:
-        seconds: 50
     - name: Generate MySQL SHELL config
       template:
         src: templates/mysqlsh_create_cluster.js.j2
@@ -93,6 +92,8 @@
       debug:
         var: myshell_result.stdout_lines
     - name: Install MySQLRouter
+      notify:
+        - Wait for MySQL Router to restart
       community.docker.docker_container:
         name: mysqlrouter
         image: '{{ mysqlrouter_container_image }}'
@@ -113,9 +114,6 @@
           MYSQL_USER: root
           MYSQL_PASSWORD: '{{ mysql_root_pw }}'
           MYSQL_INNODB_CLUSTER_MEMBERS: '3'
-    - name: Pause for bootstraping MySQLRouter
-      ansible.builtin.pause:
-        seconds: 15
     - name: 'Restore current WP database to node #1'
       mysql_db:
         state: import
@@ -147,3 +145,19 @@
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
           WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
           WORDPRESS_DB_NAME: '{{ wp_dbname }}'
+# https://stackoverflow.com/questions/23877781/how-to-wait-for-server-restart-using-ansible
+  handlers:
+    - name: Wait for MySQL Router to restart
+      local_action:
+        module: ansible.builtin.wait_for
+          host='10.16.1.10'
+          port=6446
+          delay=10
+        become: false
+    - name: Wait for MySQL server to restart
+      local_action:
+        module: ansible.builtin.wait_for
+          host='10.16.1.11'
+          port=3306
+          delay=10
+        become: false
