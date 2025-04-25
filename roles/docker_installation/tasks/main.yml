@@ -8,7 +8,7 @@
       - gnupg
       - lsb-release
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Добавить официальный GPG ключ Docker
   ansible.builtin.apt_key:
@@ -29,20 +29,20 @@
       - containerd.io
       - docker-buildx-plugin
       - docker-compose-plugin
-    state: latest
-    update_cache: yes
+    state: present
+    update_cache: true
 
 - name: Убедиться, что Docker запущен и включен
   ansible.builtin.systemd:
     name: docker
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Добавить пользователя в группу Docker
   ansible.builtin.user:
-    name: "{{ ansible_user | default('user') }}"
+    name: "{{ server_user }}"
     groups: docker
-    append: yes
+    append: true
 
 - name: Перезапустить Docker
   ansible.builtin.systemd:

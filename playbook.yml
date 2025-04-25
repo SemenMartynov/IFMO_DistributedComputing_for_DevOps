@@ -5,13 +5,15 @@
   vars:
     mysql_image: mysql:8.3
     wordpress_image: wordpress:latest
-    MYSQL_ROOT_PASSWORD: rootpass
-    MYSQL_DATABASE: wordpress
-    MYSQL_USER: wpuser
-    MYSQL_PASSWORD: wppass
-    MYSQL_REPLICA_USER: replica
-    MYSQL_REPLICA_PASSWORD: slavepass
-    WORDPRESS_DB_HOST: mysql_master:3306
+    mysql_root_password: rootpass
+    mysql_database: wordpress
+    mysql_user: wpuser
+    mysql_password: wppass
+    mysql_replica_user: replica
+    mysql_replica_password: slavepass
+    wordpress_db_host: mysql_master:3306
+    server_user: user
+
   roles:
     - docker_installation
 
@@ -20,15 +22,14 @@
       ansible.builtin.apt:
         name: python3-pymysql
         state: present
-      become: true
 
     - name: Скопировать конфиги MySQL
       loop:
         - master.cnf
         - slave.cnf
-      copy:
+      ansible.builtin.copy:
         src: "{{ item }}"
-        dest: "/home/user/{{ item }}"
+        dest: "/home/{{ server_user }}/{{ item }}"
         mode: '0644'
 
     - name: Создать сеть Docker
@@ -43,127 +44,112 @@
         - mysql_slave_data
         - wordpress_data
 
-    - name: Временно запустить mysql_master с пробросом порта для прямого подключения
+    - name: Запустить mysql_master
       community.docker.docker_container:
         name: mysql_master
         image: "{{ mysql_image }}"
         restart_policy: always
-        ports:
-          - "3306:3306"
         volumes:
           - mysql_master_data:/var/lib/mysql
-          - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
+          - "/home/{{ server_user }}/master.cnf:/etc/mysql/conf.d/master.cnf"
         networks:
           - name: wp_net
         env:
-          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
-          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
-          MYSQL_USER: "{{ MYSQL_USER }}"
-          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
-        recreate: true
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+        recreate: false
+        state: started
+      register: mysql_master_container
 
-    - name: Ждать, пока MySQL Master полностью запустится
-      community.mysql.mysql_info:
-        login_host: 127.0.0.1
-        login_port: 3306
-        login_user: root
-        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-      register: mysql_master_ready
-      retries: 10
-      delay: 6
-      until: mysql_master_ready is succeeded
-
-    - name: Создать пользователя репликации
-      community.mysql.mysql_query:
-        login_host: 127.0.0.1
-        login_port: 3306
-        login_user: root
-        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-        query:
-          - "CREATE USER IF NOT EXISTS '{{ MYSQL_REPLICA_USER }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ MYSQL_REPLICA_PASSWORD }}'"
-          - "GRANT REPLICATION SLAVE ON *.* TO '{{ MYSQL_REPLICA_USER }}'@'%'"
-          - "FLUSH PRIVILEGES"
-          - "FLUSH TABLES WITH READ LOCK"
-
-    - name: Получить статус мастера
-      community.mysql.mysql_replication:
-        mode: getprimary
-        login_host: 127.0.0.1
-        login_port: 3306
-        login_user: root
-        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-      register: master_status
-
-    - name: Временно запустить mysql_slave с пробросом порта для прямого подключения
+    - name: Запустить mysql_slave
       community.docker.docker_container:
         name: mysql_slave
         image: "{{ mysql_image }}"
         restart_policy: always
-        ports:
-          - "3307:3306"
         volumes:
           - mysql_slave_data:/var/lib/mysql
-          - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
+          - "/home/{{ server_user }}/slave.cnf:/etc/mysql/conf.d/slave.cnf"
         networks:
           - name: wp_net
         env:
-          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
-          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
-          MYSQL_USER: "{{ MYSQL_USER }}"
-          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
-        recreate: true
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+        recreate: false
+        state: started
+      register: mysql_slave_container
+
+    - name: Записать IP-адреса mysql_master и mysql_slave в переменные
+      ansible.builtin.set_fact:
+        mysql_master_ip: "{{ mysql_master_container.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+        mysql_slave_ip: "{{ mysql_slave_container.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Ждать, пока MySQL Master полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ mysql_master_ip }}"
+        port: 3306
+        timeout: 180
+        state: started
+
+    - name: Создать пользователя репликации
+      community.mysql.mysql_user:
+        name: "{{ mysql_replica_user }}"
+        host: "%"
+        password: "{{ mysql_replica_password }}"
+        priv: "*.*:REPLICATION SLAVE"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ mysql_master_ip }}"
+        state: present
+        column_case_sensitive: false
+
+    - name: Получить статус мастера
+      community.mysql.mysql_replication:
+        mode: getprimary
+        login_host: "{{ mysql_master_ip }}"
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: master_status
 
     - name: Ждать, пока MySQL Slave полностью запустится
-      community.mysql.mysql_info:
-        login_host: 127.0.0.1
-        login_port: 3307
+      ansible.builtin.wait_for:
+        host: "{{ mysql_slave_ip }}"
+        port: 3306
+        timeout: 180
+        state: started
+
+    - name: Остановить репликацию на mysql_slave
+      community.mysql.mysql_replication:
+        mode: stopreplica
+        login_host: "{{ mysql_slave_ip }}"
+        login_port: 3306
         login_user: root
-        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-      register: mysql_slave_ready
-      retries: 10
-      delay: 6
-      until: mysql_slave_ready is succeeded
+        login_password: "{{ mysql_root_password }}"
 
     - name: Настройка репликации на mysql_slave
-      community.mysql.mysql_query:
-        login_host: 127.0.0.1
-        login_port: 3307
+      community.mysql.mysql_replication:
+        mode: changereplication
+        login_host: "{{ mysql_slave_ip }}"
+        login_port: 3306
         login_user: root
-        login_password: "{{ MYSQL_ROOT_PASSWORD }}"
-        query:
-          - >-
-            CHANGE REPLICATION SOURCE TO
-              SOURCE_HOST='mysql_master',
-              SOURCE_USER='{{ MYSQL_REPLICA_USER }}',
-              SOURCE_PASSWORD='{{ MYSQL_REPLICA_PASSWORD }}',
-              SOURCE_LOG_FILE='{{ master_status.File }}',
-              SOURCE_LOG_POS={{ master_status.Position }}
-          - "START REPLICA"
+        login_password: "{{ mysql_root_password }}"
+        primary_host: "{{ mysql_master_ip }}"
+        primary_log_file: "{{ master_status.File }}"
+        primary_log_pos: "{{ master_status.Position }}"
+        primary_user: "{{ mysql_replica_user }}"
+        primary_password: "{{ mysql_replica_password }}"
 
-    - name: Перезапустить mysql_master и mysql_slave без проброса портов
-      community.docker.docker_container:
-        name: "{{ item.name }}"
-        image: "{{ mysql_image }}"
-        restart_policy: always
-        volumes: "{{ item.volumes }}"
-        networks:
-          - name: wp_net
-        env:
-          MYSQL_ROOT_PASSWORD: "{{ MYSQL_ROOT_PASSWORD }}"
-          MYSQL_DATABASE: "{{ MYSQL_DATABASE }}"
-          MYSQL_USER: "{{ MYSQL_USER }}"
-          MYSQL_PASSWORD: "{{ MYSQL_PASSWORD }}"
-        recreate: true
-        state: started
-      loop:
-        - name: mysql_master
-          volumes:
-            - mysql_master_data:/var/lib/mysql
-            - /home/user/master.cnf:/etc/mysql/conf.d/master.cnf
-        - name: mysql_slave
-          volumes:
-            - mysql_slave_data:/var/lib/mysql
-            - /home/user/slave.cnf:/etc/mysql/conf.d/slave.cnf
+    - name: Запустить репликацию на mysql_slave
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_host: "{{ mysql_slave_ip }}"
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
 
     - name: Запустить WordPress контейнер
       community.docker.docker_container:
@@ -177,8 +163,8 @@
         networks:
           - name: wp_net
         env:
-          WORDPRESS_DB_HOST: "{{ WORDPRESS_DB_HOST }}"
-          WORDPRESS_DB_USER: "{{ MYSQL_USER }}"
-          WORDPRESS_DB_PASSWORD: "{{ MYSQL_PASSWORD }}"
-          WORDPRESS_DB_NAME: "{{ MYSQL_DATABASE }}"
+          WORDPRESS_DB_HOST: "{{ wordpress_db_host }}"
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
         state: started
