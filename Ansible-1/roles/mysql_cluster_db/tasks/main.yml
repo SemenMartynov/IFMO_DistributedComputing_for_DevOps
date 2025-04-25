@@ -36,12 +36,6 @@
     networks:
       - name: "{{ wp_network }}"
 
-- name: Wait for master to be ready
-  include_tasks: containers_ready.yml
-  vars:
-    mysql_containers:
-      - mysql_db_master
-
 - name: Create replication user in master
   community.mysql.mysql_query:
     login_host: localhost
@@ -83,13 +77,6 @@
       - mysql_data_replica:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
-
-- name: Wait for all mysql containers to be ready
-  include_tasks: containers_ready.yml
-  vars:
-    mysql_containers:
-      - mysql_db_master
-      - mysql_db_replica
 
 - name: Get master binlog info
   community.mysql.mysql_query:

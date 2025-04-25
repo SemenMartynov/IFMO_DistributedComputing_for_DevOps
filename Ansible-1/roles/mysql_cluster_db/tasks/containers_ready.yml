@@ -1,9 +1,0 @@
-- name: Subtask - Wait for mysql containers to be ready
-  shell: >
-    until docker exec {{ item }} mysqladmin ping -uroot -p{{ mysql_root_password }} --silent;
-    do sleep 2; done
-  loop: "{{ mysql_containers }}"
-  retries: 20
-  delay: 3
-  register: mysql_ready
-  until: mysql_ready.rc == 0
