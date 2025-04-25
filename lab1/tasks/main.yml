@@ -10,16 +10,8 @@
 ##### Install WordPress
 - include_tasks: install_wordpress.yml
   tags: wordpress
-##### Setup Nginx
-- include_tasks: setup_nginx.yml
-  tags: setup_nginx
-  when: "'setup_nginx' in ansible_run_tags and ansible_run_tags != []"
-##### Create MariaDb master
-- include_tasks: create_master.yml
-  tags: create_master
-  when: "'create_master' in ansible_run_tags and ansible_run_tags != []"
 ##### Create MariaDB replica
 - include_tasks: create_replica.yml
-  tags: create_replica
-  when: "'create_replica' in ansible_run_tags and ansible_run_tags != []"
+
+
 

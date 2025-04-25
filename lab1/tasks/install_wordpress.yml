@@ -34,3 +34,6 @@
     src: files/docker-compose-slave-sql.yml
     dest: /data/docker-compose-slave-sql.yml
   notify: "restart docker-compose-slave-sql"
+
+- name: Flush handlers after copying docker-compose
+  meta: flush_handlers

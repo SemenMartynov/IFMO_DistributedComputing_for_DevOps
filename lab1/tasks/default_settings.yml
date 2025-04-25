@@ -3,7 +3,31 @@
     pkg:
       - ca-certificates
       - curl
+      - python3
+      - python3-virtualenv
+      - python3-pip
     update_cache: yes
+
+- name: Create Python3-virtual environment folder
+  file:
+    name: /opt/ansible_venv
+    mode: 0755
+    state: directory
+
+- name: Install Python modules in virtual environment
+  ansible.builtin.pip:
+    name:
+      - PyMySQL
+      - mysql-connector-python
+      - cryptography
+      - requests
+    virtualenv: /opt/ansible_venv
+    virtualenv_python: python3
+    state: present
+
+- name: Set Python interpreter to virtual environment
+  set_fact:
+    ansible_python_interpreter: /opt/ansible_venv/bin/python
 
 - name: Setup timezone
   shell:
