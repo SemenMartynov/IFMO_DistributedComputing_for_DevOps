@@ -42,3 +42,23 @@ ansible-playbook -i inventory/hosts playbooks/wordpress_with_cluster.yml
 ```bash
 SHOW REPLICA STATUS;
 ```
+
+## Лабораторная работа 3
+
+Роль для автоматического развёртывания Prometheus + Grafana для MySQL.
+
+Дополнительно нужно поменять значение в hosts и roles/monitoring/files/prometheus_grafana.yml
+
+### Файлы выполнения плейбука
+После выполнения плейбука все файлы хранятся по пути, указанному в переменной `monitoring_dir`.
+
+### Запуск развёртывания
+```bash
+cd Ansible/
+ansible-playbook -i inventory/hosts playbooks/monitoring.yml
+```
+
+### Результат развёртывания
+В результате должны быть доступны приложения по портам из `roles/monitoring/defaults/main.yml`
+
+Grafana идёт с предустановленным саморучно созданным dashboard с одной метрикой на потребление CPU (как proof of concept, что оно работает). Логин и пароль для входа в Grafana стандартный и не менялся: admin/admin

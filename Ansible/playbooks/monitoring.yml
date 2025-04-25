@@ -1,0 +1,5 @@
+---
+- hosts: my_group
+  become: yes
+  roles:
+    - monitoring

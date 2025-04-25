@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'mysql_master'
+    static_configs:
+      - targets: ['{{ hostvars['wordpress_vm'].ansible_host }}:{{ exporter_port }}']
+        labels:
+          instance: master_database
+    
+  - job_name: 'mysql_replica'
+    static_configs:
+      - targets: ['{{ hostvars['wordpress_vm'].ansible_host }}:{{ exporter_port + 1 }}']
+        labels:
+          instance: replica_database
