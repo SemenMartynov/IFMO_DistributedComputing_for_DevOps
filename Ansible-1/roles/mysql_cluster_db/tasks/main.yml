@@ -4,6 +4,19 @@
     name: mysql_db
     state: absent
 
+- name: Set up pymysql
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+
+- name: Copy master config
+  copy:
+    src: "{{ role_path }}/files/mysql.cnf.master"
+    dest: /tmp/mysql.cnf.master
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Restart mysql_db container as mysql_db_master
   community.docker.docker_container:
     name: mysql_db_master
@@ -15,70 +28,61 @@
       MYSQL_DATABASE: "{{ mysql_database }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
-    command: --server-id=1 --log-bin=mysql-bin
+    published_ports:
+      - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql #keep data
+      - /tmp/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - mysql_data:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
 
+- name: Wait for master to be ready
+  include_tasks: containers_ready.yml
+  vars:
+    mysql_containers:
+      - mysql_db_master
+
+- name: Create replication user in master
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query:
+      - "CREATE USER IF NOT EXISTS '{{ mysql_replica_user }}'@'%' IDENTIFIED BY '{{ mysql_replica_password }}';"
+      - "GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_replica_user }}'@'%';"
+      - "FLUSH PRIVILEGES;"
+
+- name: Copy replica config
+  copy:
+    src: "{{ role_path }}/files/mysql.cnf.replica"
+    dest: /tmp/mysql.cnf.replica
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Create mysql replica docker volume
   community.docker.docker_volume:
-    name: mysql_replica_data
+    name: mysql_data_replica
 
 - name: Create & start mysql replica container
   community.docker.docker_container:
     name: mysql_db_replica
     image: mysql:latest
-    state: stopped
+    state: started
     restart_policy: always
     env:
       MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
       MYSQL_DATABASE: "{{ mysql_database }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
-    command: --server-id=2 --log-bin=mysql-bin
+    published_ports:
+      - "3307:3306"
     volumes:
-      - mysql_replica_data:/var/lib/mysql
+      - "/tmp/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - mysql_data_replica:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
-
-- name: Wait for mysql_db_master container to be ready
-  include_tasks: containers_ready.yml
-  vars:
-    mysql_containers:
-      - mysql_db_master
-
-- name: Dump mysql data, copy to replica and clean
-  shell: >
-    docker exec mysql_db_master sh -c 'mysqldump -uroot -p{{ mysql_root_password }} --all-databases > /tmp/db_dump.sql' &&
-    docker cp mysql_db_master:/tmp/db_dump.sql /tmp/db_dump.sql &&
-    docker cp /tmp/db_dump.sql mysql_db_replica:/tmp/db_dump.sql &&
-    docker exec mysql_db_master rm /tmp/db_dump.sql &&
-    rm /tmp/db_dump.sql
-
-- name: Start replica for import
-  community.docker.docker_container:
-    name: mysql_db_replica
-    state: started
-    restart_policy: always
-
-- name: Wait for mysql_db_replica container to be ready
-  include_tasks: containers_ready.yml
-  vars:
-    mysql_containers:
-      - mysql_db_replica
-
-- name: Import data to replica
-  shell: >
-    docker exec mysql_db_replica sh -c 'mysql -uroot -p{{ mysql_root_password }} < /tmp/db_dump.sql' &&
-    docker exec mysql_db_replica rm /tmp/db_dump.sql
-
-- name: Restart replica as replica
-  community.docker.docker_container:
-    name: mysql_db_replica
-    state: started
-    restart_policy: always
-    command: --server-id=2 --log-bin=mysql-bin
 
 - name: Wait for all mysql containers to be ready
   include_tasks: containers_ready.yml
@@ -87,52 +91,53 @@
       - mysql_db_master
       - mysql_db_replica
 
-- name: Create replication user in master
-  shell: >
-    docker exec mysql_db_master mysql -uroot -p{{ mysql_root_password }} -e "
-    CREATE USER IF NOT EXISTS '{{ mysql_replica_user }}'@'%' IDENTIFIED BY '{{ mysql_replica_password }}';
-    GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_replica_user }}'@'%';
-    FLUSH PRIVILEGES;"
-
 - name: Get master binlog info
-  shell: >
-    docker exec mysql_db_master mysql -uroot -p{{ mysql_root_password }}
-    -e "SHOW BINARY LOG STATUS\G" | awk '/File:/ {print $2} /Position:/ {print $2}'
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW BINARY LOG STATUS"
   register: master_status
-  changed_when: false
 
-- name: Fail if log data is empty
-  fail:
-    msg: "Log data is empty"
-  when: >
-    (master_status.stdout_lines | length < 2) or
-    (master_status.stdout_lines[0] | trim == '') or (master_status.stdout_lines[1] | trim == '')
+- set_fact:
+    master_log_file: "{{ master_status.query_result[0][0].File }}"
+    master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
 - name: Configure replication on replica
-  shell: >
-    docker exec mysql_db_replica mysql -uroot -p{{ mysql_root_password }} -e
-    "STOP REPLICA; RESET REPLICA ALL;
-     CHANGE REPLICATION SOURCE TO
-       SOURCE_HOST='mysql_db_master',
-       SOURCE_USER='{{ mysql_replica_user }}',
-       SOURCE_PASSWORD='{{ mysql_replica_password }}',
-       SOURCE_LOG_FILE='{{ master_status.stdout_lines[0] }}',
-       SOURCE_LOG_POS={{ master_status.stdout_lines[1] }},
-       GET_SOURCE_PUBLIC_KEY=1;
-     START REPLICA;"
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query:
+      - "STOP REPLICA;"
+      - "RESET REPLICA ALL;"
+      - >-
+        CHANGE REPLICATION SOURCE TO
+          SOURCE_HOST='mysql_db_master',
+          SOURCE_USER='{{ mysql_replica_user }}',
+          SOURCE_PASSWORD='{{ mysql_replica_password }}',
+          SOURCE_LOG_FILE='{{ master_log_file }}',
+          SOURCE_LOG_POS={{ master_log_pos }},
+          GET_SOURCE_PUBLIC_KEY=1;
+      - "START REPLICA;"
 
-- name: Check status on replica
-  shell: >
-    docker exec mysql_db_replica mysql -uroot -p{{ mysql_root_password }}
-    -e "SHOW REPLICA STATUS\G" | grep -E 'Replica_IO_Running:|Replica_SQL_Running:'
+- name: Get replica status
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW REPLICA STATUS"
   register: replica_status
 
 - name: Set facts from replica status
   set_fact:
-    replica_io_running: "{{ (replica_status.stdout | regex_findall('Replica_IO_Running: (\\w+)') | default(['']))[0] }}"
-    replica_sql_running: "{{ (replica_status.stdout | regex_findall('Replica_SQL_Running: (\\w+)') | default(['']))[0] }}"
+    replica_io_running: "{{ replica_status.query_result[0][0].Replica_IO_Running }}"
+    replica_sql_running: "{{ replica_status.query_result[0][0].Replica_SQL_Running }}"#
 
-- name: Check if replica is running
+- name: Check if replica is running fine
   fail:
     msg: "Error: mysql replica doesn't work as expected!"
   when: replica_io_running != true or replica_sql_running != true
