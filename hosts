@@ -1,2 +1,0 @@
-[all]
-84.201.151.172 ansible_ssh_private_key_file=/home/ilen/.ssh/id_rsa ansible_user=ilen

@@ -13,6 +13,7 @@
         name:
           - ca-certificates
           - curl
+          - python3-pip
         state: present
 
     - name: Добавление GPG ключа

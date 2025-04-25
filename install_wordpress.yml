@@ -37,7 +37,7 @@
 
     # Запуск контейнеров через Docker Compose
     - name: Запуск Docker Compose
-      shell: "sudo docker compose -f {{ wp_install_dir }}/docker-compose.yml up -d"
+      shell: "docker compose -f {{ wp_install_dir }}/docker-compose.yml up -d" # убрал sudo 
       args:
         chdir: "{{ wp_install_dir }}"
 
