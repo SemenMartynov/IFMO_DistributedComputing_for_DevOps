@@ -86,13 +86,13 @@
 
     - name: Копирование .env файла
       template:
-        src: templates/.env.j2
+        src: roles/wordpress/templates/.env.j2
         dest: /opt/wordpress/.env
         mode: '0600'
 
     - name: Копирование docker-compose.yml
       template:
-        src: templates/docker-compose.yml.j2
+        src: roles/wordpress/templates/docker-compose.yml.j2
         dest: /opt/wordpress/docker-compose.yml
         mode: '0644'
 
