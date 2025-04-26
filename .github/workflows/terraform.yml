@@ -30,19 +30,19 @@ jobs:
         with:
           terraform_version: 1.8.3
       - name: Set up Yandex Cloud service account key
-        #working-directory: ./infra
+        working-directory: ./infra
         run: |
           echo '${{ secrets.YC_KEY_JSON }}' > ./authorized_key.json
 
       - name: Terraform Initialize
-        #working-directory: ./infra
+        working-directory: ./infra
         run: terraform init -backend-config="access_key=$ACCESS_KEY" -backend-config="secret_key=$SECRET_KEY"
         env:
           ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
       - name: Terraform Plan
-        #working-directory: ./infra
+        working-directory: ./infra
         if: ${{ github.event.inputs.action == 'plan' }}
         run: terraform plan
         env:
@@ -50,7 +50,7 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
       - name: Terraform Apply
-        #working-directory: ./infra
+        working-directory: ./infra
         if: ${{ github.event.inputs.action == 'apply' }}
         run: terraform apply -auto-approve
         env:
@@ -58,7 +58,7 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
       - name: Terraform Destroy
-        #working-directory: ./infra
+        working-directory: ./infra
         if: ${{ github.event.inputs.action == 'destroy' }}
         run: terraform destroy -auto-approve
         env:
