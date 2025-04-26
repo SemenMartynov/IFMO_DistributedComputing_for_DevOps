@@ -1,4 +1,4 @@
-name: Install Docker
+name: Deploy
 
 on:
   workflow_dispatch:
