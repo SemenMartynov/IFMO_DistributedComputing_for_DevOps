@@ -1,0 +1,15 @@
+---
+# Playbook для мониторинга кластера MySQL
+- name: Настройка мониторинга кластера MySQL 
+  hosts: wordpress_server
+  become: true
+  become_method: sudo
+  become_user: root
+  roles:
+    - role: monitoring
+
+  post_tasks:
+    - name: Вывод информации о результате настройки
+      debug:
+        msg: |
+          Мониоринг кластера MySQL успешно настроен
