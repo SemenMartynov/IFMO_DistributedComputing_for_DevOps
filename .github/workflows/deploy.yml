@@ -1,10 +1,20 @@
 name: Install Docker
 
-on: push
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Deploy action (deploy)'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.action == 'deploy' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,4 +47,4 @@ jobs:
         run: |
           ansible-playbook \
             -i ansible/inventory/generated/production.yml \
-            ansible/site.yml \
+            ansible/site.yml

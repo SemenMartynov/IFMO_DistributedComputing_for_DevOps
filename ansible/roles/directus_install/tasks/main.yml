@@ -4,13 +4,84 @@
     state: directory
     mode: '0755'
 
-- name: Copy Docker Compose file
-  ansible.builtin.copy:
-    src: files/docker-compose.yml  # Относительный путь внутри роли
-    dest: /opt/directus/docker-compose.yml
-    mode: '0644'
+- name: Create PostgreSQL container
+  community.docker.docker_container:
+    name: database
+    image: postgres:17
+    state: started
+    restart_policy: always
+    volumes:
+      - /opt/directus/data/database:/var/lib/postgresql/data
+    env:
+      POSTGRES_USER: "directus"
+      POSTGRES_PASSWORD: "directus"
+      POSTGRES_DB: "directus"
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=localhost", "--username=directus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_interval: 5s
+      start_period: 30s
+    exposed_ports:
+      - "5432"
 
-- name: Start containers
-  community.docker.docker_compose_v2:
-    project_src: /opt/directus
-    files: /opt/directus/docker-compose.yml
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 5432
+    state: started
+    delay: 10
+    timeout: 300
+
+- name: Create Redis container
+  community.docker.docker_container:
+    name: cache
+    image: redis:6
+    state: started
+    restart_policy: always
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(redis-cli ping) = 'PONG' ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_interval: 5s
+      start_period: 30s
+    exposed_ports:
+      - "6379"
+
+- name: Wait for Redis to be ready
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 6379
+    state: started
+    delay: 10
+    timeout: 300
+
+- name: Create Directus container
+  community.docker.docker_container:
+    name: directus
+    image: directus/directus:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "8055:8055"
+    volumes:
+      - /opt/directus/uploads:/directus/uploads
+      - /opt/directus/extensions:/directus/extensions
+    env:
+      SECRET: "replace-with-secure-random-value"
+      DB_CLIENT: "pg"
+      DB_HOST: "database"
+      DB_PORT: "5432"
+      DB_DATABASE: "directus"
+      DB_USER: "directus"
+      DB_PASSWORD: "directus"
+      CACHE_ENABLED: "true"
+      CACHE_AUTO_PURGE: "true"
+      CACHE_STORE: "redis"
+      REDIS: "redis://cache:6379"
+      ADMIN_EMAIL: "admin@example.com"
+      ADMIN_PASSWORD: "d1r3ctu5"
+    exposed_ports:
+      - "8055"
