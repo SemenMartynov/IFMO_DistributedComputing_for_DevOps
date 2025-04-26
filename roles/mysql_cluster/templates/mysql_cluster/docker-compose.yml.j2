@@ -11,7 +11,7 @@ services:
     volumes:
       - ./wordpress_data:/var/www/html
     networks:
-      - {{ wp_mysql_cluster_name }}
+      - wordpress_network
 
   mysql_node_1:
     image: mysql:8.0
@@ -31,7 +31,7 @@ services:
       - ./mysql_data_1:/var/lib/mysql
       - ./init-primary.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - {{ wp_mysql_cluster_name }}
+      - wordpress_network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
       interval: 10s
@@ -58,7 +58,7 @@ services:
     volumes:
       - ./mysql_data_{{ i }}:/var/lib/mysql
     networks:
-      - {{ wp_mysql_cluster_name }}
+      - wordpress_network
     depends_on:
       - mysql_node_1
     healthcheck:
@@ -69,5 +69,5 @@ services:
 {% endfor %}
 
 networks:
-  {{ wp_mysql_cluster_name }}:
-    external: true
+  wordpress_network:
+    driver: bridge 

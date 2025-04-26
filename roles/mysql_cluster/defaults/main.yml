@@ -3,13 +3,8 @@
 
 # Директории
 mysql_cluster_dir: "/opt/wordpress-mysql-cluster"
+wordpress_dir: "/opt/wordpress"
 
 # Конфигурация кластера
 mysql_cluster_nodes: 3
 wp_mysql_cluster_name: "wp_mysql_cluster"
-
-# Параметры подключения к БД
-mysql_root_password: "root_password"  # Это должно переопределяться в group_vars
-mysql_database: "wordpress"           # Это должно переопределяться в group_vars
-mysql_user: "wordpress"               # Это должно переопределяться в group_vars
-mysql_password: "wordpress_password"  # Это должно переопределяться в group_vars 
