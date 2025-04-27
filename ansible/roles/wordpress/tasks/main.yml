@@ -51,35 +51,28 @@
     timeout: 120
   become: no
 
-# Создание директории для WordPress файлов (фиксированный путь)
+# Создание директории для WordPress файлов
 - name: Создать директорию для WordPress файлов
   file:
-    path: "/home/ubuntu/wordpress"
+    path: "{{ wordpress_dir }}"
     state: directory
     mode: '0755'
   become: yes
 
-# Копирование шаблона docker-compose.yml в директорию (фиксированный путь)
+# Копирование шаблона docker-compose.yml в директорию
 - name: Скопировать шаблон docker-compose.yml в директорию
   template:
     src: templates/docker-compose.yml.j2
-    dest: "/home/ubuntu/wordpress/docker-compose.yml"
+    dest: "{{ wordpress_dir }}/docker-compose.yml"
     mode: '0644'
   become: yes
+  register: compose_template
 
-# Остановка и удаление старых контейнеров, образов и томов
-- name: Остановить и удалить старые контейнеры и тома
+# Запустить контейнеры через Docker Compose (асинхронно)
+- name: Запустить контейнеры через Docker Compose
   community.docker.docker_compose_v2:
-    project_src: "/home/ubuntu/wordpress"
-    state: absent
-  become: yes
-
-# Запустить контейнеры через Docker Compose с пересборкой (асинхронно)
-- name: Запустить контейнеры через Docker Compose с пересборкой
-  community.docker.docker_compose_v2:
-    project_src: "/home/ubuntu/wordpress"
+    project_src: "{{ wordpress_dir }}"
     state: present
-    build: always
   become: yes
   async: 300
   poll: 0
@@ -92,4 +85,3 @@
   until: job_result.finished
   retries: 30
   delay: 10
-

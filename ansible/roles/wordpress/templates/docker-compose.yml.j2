@@ -1,9 +1,10 @@
-version: '3.8'
+version: '3'
 
 services:
   wordpress:
     platform: linux/amd64
     image: wordpress:latest
+    restart: always
     depends_on:
       - db_master
       - db_slave
