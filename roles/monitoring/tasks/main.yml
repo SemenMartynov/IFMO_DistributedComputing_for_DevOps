@@ -1,16 +1,55 @@
 ---
 # Задачи для настройки мониторинга кластера MySQL
 
-- name: Запуск Cadvisor
-  community.docker.docker_container:
-    name: cadvisor
-    image: gcr.io/cadvisor/cadvisor:latest
-    state: started
-    restart_policy: unless-stopped
-    ports:
-      - 8080:8080
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+- name: Создание директории для Мониторинга
+  file:
+    path: "{{ monitoring_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Создание директорий для grafana
+  file:
+    path: "{{ monitoring_dir }}/grafana"
+    state: directory
+    mode: '0755'
+
+- name: Копирование .env файла
+  template:
+    src: .env.j2
+    dest: "{{ monitoring_dir }}/.env"
+    mode: '0644'
+
+- name: Копирование docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ monitoring_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Копирование prometheus.yml
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_dir }}/prometheus.yml"
+    mode: '0644'
+
+- name: Копирование datasource.yaml для Grafana
+  template:
+    src: datasource.yaml.j2
+    dest: "{{ monitoring_dir }}/datasource.yaml"
+    mode: '0644'
+
+- name: Копирование dashboard.yaml для Grafana
+  template:
+    src: dashboard.yaml.j2
+    dest: "{{ monitoring_dir }}/dashboard.yaml"
+    mode: '0644'
+
+- name: Копирование dashboard.json для Grafana
+  template:
+    src: dashboard.json
+    dest: "{{ monitoring_dir }}/dashboard.json"
+    mode: '0644'
+
+- name: Запуск контейнеров
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}/"
+    state: present
