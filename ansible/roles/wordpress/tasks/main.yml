@@ -70,7 +70,7 @@
 
 # Запустить контейнеры через Docker Compose (асинхронно)
 - name: Запустить контейнеры через Docker Compose
-  community.docker.docker_compose:
+  docker_compose:
     project_src: "{{ wordpress_dir }}"
     state: present
   become: true
