@@ -4,7 +4,7 @@
   pre_tasks:
     - name: Ensure Docker network for cluster exists
       community.docker.docker_network:
-        name: pg_cluster_net
+        name: "{{ pg_network }}"
 
   roles:
     - pg_cluster_replica

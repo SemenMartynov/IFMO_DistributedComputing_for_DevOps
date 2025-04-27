@@ -1,16 +1,17 @@
 - name: Run Strapi CMS
   community.docker.docker_container:
-    name: strapi
-    image: strapi/strapi
+    name: "{{ strapi_container_name }}"
+    image: "{{ strapi_image }}"
+    platform: "{{ strapi_platform }}"
     restart_policy: always
     env:
-      DATABASE_CLIENT: "postgres"
-      DATABASE_HOST: "postgres_master"
-      DATABASE_PORT: "5432"
+      DATABASE_CLIENT: "{{ strapi_database_client }}"
+      DATABASE_HOST: "{{ strapi_database_host }}"
+      DATABASE_PORT: "{{ pg_port }}"
       DATABASE_NAME: "{{ pg_database }}"
       DATABASE_USERNAME: "{{ pg_username }}"
       DATABASE_PASSWORD: "{{ pg_password }}"
     ports:
-      - "1337:1337"
+      - "{{ strapi_ports }}"
     networks:
-      - name: pg_cluster_net
+      - name: "{{ pg_network }}"

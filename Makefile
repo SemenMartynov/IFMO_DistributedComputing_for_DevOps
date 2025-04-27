@@ -6,23 +6,26 @@ define LOAD_ENV
 @export $(shell grep -v '^#' $(ENV_FILE) | xargs)
 endef
 
-install-deps:
-	ansible-galaxy collection install community.docker
-
-ping:
-	ansible -i $(INVENTORY) all -m ping
-
 init:
 	$(LOAD_ENV) && echo "Env vars loaded"
 
-hw1:
-	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw1.yml
+docker-install:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/docker/install.yml
 
-hw2:
-	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw2.yml
+docker-remove:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/docker/remove.yml
 
-check:
-	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/check_cluster.yml
+hw1-install:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw1/install.yml
 
-clean:
-	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/cleanup.yml
+hw1-remove:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw1/remove.yml
+
+hw2-install:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw2/install.yml
+
+hw2-test:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw2/test.yml
+
+hw2-remove:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw2/remove.yml

@@ -1,11 +1,11 @@
 - name: Create Docker volume for PostgreSQL master
   community.docker.docker_volume:
-    name: pg_master_data
+    name: "{{ pg_master_volume }}"
 
 - name: Run PostgreSQL master container
   community.docker.docker_container:
-    name: postgres_master
-    image: bitnami/postgresql:15
+    name: "{{ pg_master_container_name }}"
+    image: "{{ pg_master_image }}"
     restart_policy: always
     env:
       POSTGRESQL_REPLICATION_MODE: "master"
@@ -16,6 +16,6 @@
       POSTGRESQL_DATABASE: "{{ pg_database }}"
       POSTGRESQL_POSTGRES_PASSWORD: "{{ pg_postgres_password }}"
     volumes:
-      - pg_master_data:/bitnami/postgresql
+      - "{{ pg_master_volume_path }}"
     networks:
-      - name: pg_cluster_net
+      - name: "{{ pg_network }}"

@@ -2,9 +2,9 @@
   become: true
 
   pre_tasks:
-    - name: Ensure Docker network exists
+    - name: Create Docker network for PostgreSQL cluster
       community.docker.docker_network:
-        name: pg_cluster_net
+        name: "{{ pg_network }}"
 
   roles:
     - pg_cluster_master

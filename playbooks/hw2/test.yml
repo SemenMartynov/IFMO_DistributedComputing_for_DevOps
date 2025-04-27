@@ -1,10 +1,10 @@
 - hosts: vm1
   become: true
-  tasks:
 
+  tasks:
     - name: 🧪 [Master] Create test table and insert test row
       community.docker.docker_container_exec:
-        container: postgres_master
+        container: "{{ pg_master_container_name }}"
         command: >
           psql -U {{ pg_username }} -d {{ pg_database }} -c "
           CREATE TABLE IF NOT EXISTS check_replication (id serial, message text);
@@ -14,7 +14,7 @@
 
     - name: 🔎 [Replica] Select from replicated table
       community.docker.docker_container_exec:
-        container: postgres_replica
+        container: "{{ pg_replica_container_name }}"
         command: >
           psql -U {{ pg_username }} -d {{ pg_database }} -t -c "SELECT * FROM check_replication;"
         env:

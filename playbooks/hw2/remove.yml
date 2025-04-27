@@ -1,0 +1,18 @@
+- hosts: vm1
+  become: true
+
+  tasks:
+    - name: Stop and remove PostgreSQL replica container
+      community.docker.docker_container:
+        name: "{{ pg_replica_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove PostgreSQL replica volume
+      community.docker.docker_volume:
+        name: "{{ pg_replica_volume }}"
+        state: absent
+
+    - name: Status
+      debug:
+        msg: "Cleanup for HW2 completed."

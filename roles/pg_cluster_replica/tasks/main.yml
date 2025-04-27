@@ -1,20 +1,20 @@
 - name: Create Docker volume for PostgreSQL replica
   community.docker.docker_volume:
-    name: pg_replica_data
+    name: "{{ pg_replica_volume }}"
 
 - name: Run PostgreSQL replica container
   community.docker.docker_container:
-    name: postgres_replica
-    image: bitnami/postgresql:15
+    name: "{{ pg_replica_container_name }}"
+    image: "{{ pg_replica_image }}"
     restart_policy: always
     env:
       POSTGRESQL_REPLICATION_MODE: "slave"
-      POSTGRESQL_MASTER_HOST: "postgres_master"
+      POSTGRESQL_MASTER_HOST: "{{ strapi_database_host }}"
       POSTGRESQL_REPLICATION_USER: "{{ pg_replication_user }}"
       POSTGRESQL_REPLICATION_PASSWORD: "{{ pg_replication_password }}"
       POSTGRESQL_USERNAME: "{{ pg_username }}"
       POSTGRESQL_PASSWORD: "{{ pg_password }}"
     volumes:
-      - pg_replica_data:/bitnami/postgresql
+      - "{{ pg_replica_volume_path }}"
     networks:
-      - name: pg_cluster_net
+      - name: "{{ pg_network }}"
