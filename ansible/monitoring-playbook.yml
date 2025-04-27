@@ -1,0 +1,8 @@
+---
+- name: Deploy monitoring stack with Prometheus and Grafana
+  hosts: remote
+  become: yes
+  vars_files:
+    - roles/wordpress/vars/main.yml
+  roles:
+    - monitoring

@@ -1,0 +1,11 @@
+# Monitoring vars
+monitoring_dir: "/home/ubuntu/monitoring"
+prometheus_port: 9090
+grafana_port: 3000
+cadvisor_port: 8081
+
+# Services to monitor
+wordpress_host: "localhost"
+wordpress_port: 8080
+mysql_master_host: "localhost"
+mysql_master_port: 3306

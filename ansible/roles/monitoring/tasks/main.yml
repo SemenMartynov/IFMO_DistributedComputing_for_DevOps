@@ -1,0 +1,73 @@
+---
+- name: Create monitoring directory
+  file:
+    path: "{{ monitoring_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create Grafana provisioning directories
+  file:
+    path: "{{ monitoring_dir }}/grafana/{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - "provisioning/dashboards"
+    - "provisioning/datasources"
+    - "dashboards"
+  become: yes
+
+- name: Copy Prometheus configuration
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_dir }}/prometheus.yml"
+    mode: '0644'
+  become: yes
+
+- name: Copy Grafana datasource provisioning
+  template:
+    src: grafana/provisioning/datasources/prometheus.yml.j2
+    dest: "{{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
+    mode: '0644'
+  become: yes
+
+- name: Copy Grafana dashboard provisioning
+  template:
+    src: grafana/provisioning/dashboards/dashboards.yml.j2
+    dest: "{{ monitoring_dir }}/grafana/provisioning/dashboards/dashboards.yml"
+    mode: '0644'
+  become: yes
+
+- name: Copy Grafana dashboards
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  with_items:
+    - { src: "templates/grafana/dashboards/system_metrics.json", dest: "{{ monitoring_dir }}/grafana/dashboards/system_metrics.json" }
+  become: yes
+
+- name: Copy Docker Compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ monitoring_dir }}/docker-compose.yml"
+    mode: '0644'
+  become: yes
+  register: compose_template
+
+- name: Start monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: present
+  become: yes
+  async: 300
+  poll: 0
+  register: docker_compose_job
+
+- name: Wait for monitoring stack to start
+  async_status:
+    jid: "{{ docker_compose_job.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  delay: 10
