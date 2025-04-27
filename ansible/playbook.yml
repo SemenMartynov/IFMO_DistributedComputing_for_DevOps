@@ -1,5 +1,5 @@
 - name: Развёртывание WordPress на удалённом сервере
   hosts: remote
-  become: yes
+  become: true
   roles:
     - wordpress

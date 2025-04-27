@@ -4,7 +4,7 @@
     path: "{{ monitoring_dir }}"
     state: directory
     mode: '0755'
-  become: yes
+  become: true
 
 - name: Create Grafana provisioning directories
   file:
@@ -15,28 +15,28 @@
     - "provisioning/dashboards"
     - "provisioning/datasources"
     - "dashboards"
-  become: yes
+  become: true
 
 - name: Copy Prometheus configuration
   template:
     src: prometheus.yml.j2
     dest: "{{ monitoring_dir }}/prometheus.yml"
     mode: '0644'
-  become: yes
+  become: true
 
 - name: Copy Grafana datasource provisioning
   template:
     src: grafana/provisioning/datasources/prometheus.yml.j2
     dest: "{{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
     mode: '0644'
-  become: yes
+  become: true
 
 - name: Copy Grafana dashboard provisioning
   template:
     src: grafana/provisioning/dashboards/dashboards.yml.j2
     dest: "{{ monitoring_dir }}/grafana/provisioning/dashboards/dashboards.yml"
     mode: '0644'
-  become: yes
+  become: true
 
 - name: Copy Grafana dashboards
   copy:
@@ -45,21 +45,21 @@
     mode: '0644'
   with_items:
     - { src: "templates/grafana/dashboards/system_metrics.json", dest: "{{ monitoring_dir }}/grafana/dashboards/system_metrics.json" }
-  become: yes
+  become: true
 
 - name: Copy Docker Compose file
   template:
     src: docker-compose.yml.j2
     dest: "{{ monitoring_dir }}/docker-compose.yml"
     mode: '0644'
-  become: yes
+  become: true
   register: compose_template
 
 - name: Start monitoring stack
-  community.docker.docker_compose_v2:
+  docker_compose:
     project_src: "{{ monitoring_dir }}"
     state: present
-  become: yes
+  become: true
   async: 300
   poll: 0
   register: docker_compose_job

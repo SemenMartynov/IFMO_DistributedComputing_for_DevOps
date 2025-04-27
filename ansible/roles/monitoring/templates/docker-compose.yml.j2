@@ -15,7 +15,7 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     ports:
-      - "{{ prometheus_port }}:9090"
+      - "{{ monitoring_prometheus_port }}:9090"
     networks:
       - monitoring_network
 
@@ -32,7 +32,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - "{{ grafana_port }}:3000"
+      - "{{ monitoring_grafana_port }}:3000"
     networks:
       - monitoring_network
     depends_on:
@@ -49,7 +49,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     ports:
-      - "{{ cadvisor_port }}:8080"
+      - "{{ monitoring_cadvisor_port }}:8080"
     networks:
       - monitoring_network
 
@@ -74,7 +74,7 @@ services:
     container_name: mysql-exporter
     restart: unless-stopped
     environment:
-      - DATA_SOURCE_NAME=root:{{ mysql_root_password }}@({{ mysql_master_host }}:{{ mysql_master_port }})/
+      - DATA_SOURCE_NAME=root:{{ wordpress_mysql_root_password }}@({{ monitoring_mysql_master_host }}:{{ monitoring_mysql_master_port }})/
     networks:
       - monitoring_network
       - wp_network
