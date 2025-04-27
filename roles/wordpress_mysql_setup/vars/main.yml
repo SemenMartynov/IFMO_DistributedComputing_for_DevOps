@@ -1,0 +1,11 @@
+---
+wordpress_mysql_setup_mysql_image: mysql:8.3
+wordpress_mysql_setup_wordpress_image: wordpress:latest
+
+wordpress_mysql_setup_mysql_root_user: root
+wordpress_mysql_setup_mysql_root_password: rootpass
+wordpress_mysql_setup_mysql_database: wordpress
+wordpress_mysql_setup_mysql_user: wpuser
+wordpress_mysql_setup_mysql_password: wppass
+wordpress_mysql_setup_mysql_replica_user: replica
+wordpress_mysql_setup_mysql_replica_password: slavepass

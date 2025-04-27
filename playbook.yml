@@ -1,0 +1,13 @@
+---
+- name: Развернуть WordPress с MySQL
+  hosts: web
+  become: true
+  vars:
+    server_user: user
+    mysql_port: 3306
+    grafana_port: 3000
+    prometheus_port: 9090
+  roles:
+    - docker_installation
+    - wordpress_mysql_setup
+    - monitoring
