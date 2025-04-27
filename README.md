@@ -2,7 +2,11 @@
 
 ## Описание
 
-Этот проект предоставляет Ansible Playbook для автоматического развертывания WordPress с использованием MySQL в Docker-контейнерах. В процессе установки на сервер будет настроена репликация между двумя экземплярами MySQL (Master и Slave). Проект доступен по следующему адресу: http://51.250.88.42
+Этот проект предоставляет Ansible Playbook для автоматического развертывания WordPress с использованием MySQL в Docker-контейнерах. В процессе установки на сервер будет настроена репликация между двумя экземплярами MySQL (Master и Slave). Также включена система мониторинга с использованием Prometheus, Grafana и MySQL Exporter.
+
+Проект доступен по следующему адресу: http://51.250.88.42
+
+---
 
 ## Требования
 
@@ -11,50 +15,113 @@
 - **Docker Compose** (>= 2.34.0)
 - **Git** (для клонирования репозитория)
 
+---
+
 ## Установка и запуск
 
-1. **Клонируйте репозиторий:**
+### 1. Установка зависимостей
 
-```sh
+Перед началом работы установите необходимые коллекции Ansible:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+### 2. Клонирование репозитория
+
+Клонируйте репозиторий и перейдите в директорию проекта:
+
+```bash
 git clone https://github.com/b-o-e-v/distributed-computing-2025
 cd distributed-computing-2025
 ```
 
-2. Настройте свой inventory.ini файл, указав правильные данные для подключения к серверу:
+### 3. Настройка inventory.ini
+
+Настройте файл `inventory.ini`, указав данные для подключения к серверу:
 
 ```ini
 [web]
 <IP_сервера> ansible_port=22 ansible_user=user ansible_ssh_private_key_file=~/.ssh/distributed_computing/private_key
 ```
 
-3. **Настройте Ansible и разверните WordPress:**
+### 4. Запуск плейбука
 
-```sh
+Запустите плейбук для развертывания WordPress и настройки мониторинга:
+
+```bash
 ansible-playbook playbook.yml
 ```
 
-Этот шаг установит Docker, создаст необходимые контейнеры и настроит репликацию между двумя экземплярами MySQL
+После выполнения плейбука WordPress будет доступен по адресу: `http://<IP_сервера>`.
 
-4. **Откройте браузер и перейдите по адресу:**
+---
 
-`http://<IP_сервера>`
+## Мониторинг
 
-Вы должны увидеть экран установки WordPress
+### Описание
+
+Мониторинг реализован с использованием следующих компонентов:
+- **Prometheus**: Система сбора и хранения метрик.
+- **Grafana**: Визуализация метрик и создание дашбордов.
+- **MySQL Exporter**: Экспортер метрик MySQL для Prometheus.
+
+### Настройка
+
+1. **Prometheus**:
+   - Конфигурация Prometheus хранится в файле `roles/monitoring/files/prometheus.yml`.
+   - Prometheus собирает метрики с MySQL Exporter для Master и Slave.
+
+2. **Grafana**:
+   - Grafana автоматически настраивается с помощью Ansible.
+   - Источник данных Prometheus добавляется в Grafana.
+   - Загружается и настраивается дашборд "MySQL Overview".
+
+3. **MySQL Exporter**:
+   - Экспортеры запускаются для MySQL Master и Slave.
+   - Конфигурационные файлы для экспортеров создаются динамически с использованием шаблона `roles/monitoring/templates/config.my-cnf.j2`.
+
+### Как проверить
+
+1. **Prometheus**:
+   - Откройте в браузере: `http://51.250.88.42:9090/targets`.
+   - Убедитесь, что метрики собираются.
+
+2. **Grafana**:
+   - Откройте в браузере: `http://51.250.88.42:3000`.
+   - Войдите с использованием учетных данных:
+     - Логин: `admin`
+     - Пароль: `adminpass`
+   - Перейдите на дашборд "MySQL Overview".
+
+---
 
 ## Структура проекта
 
 ```none
 /
 ├── roles/
-|    └── docker_installation/
-|       └── tasks/
-|           └── main.yml   # Задачи для установки и настройки Docker
-├── ansible.cfg            # Конфигурация Ansible
-├── .gitignore             # Игнорируемые файлы
-├── .env                   # Переменные окружения для MySQL и WordPress
-├── inventory.ini          # Конфигурация хостов для Ansible
-├── master.cnf             # Конфигурация MySQL Master
-├── slave.cnf              # Конфигурация MySQL Slave
-└── playbook.yml           # Главный Ansible Playbook для развертывания
-└── README.md              # Описание проекта
+|    ├── docker_installation/
+|    |   └── tasks/
+|    |       └── main.yml             # Установка Docker
+|    ├── wordpress_mysql_setup/
+|    |   ├── tasks/
+|    |   |   └── main.yml             # Настройка MySQL Master-Slave и WordPress
+|    |   ├── vars/
+|    |   |   └── main.yml             # Переменные для MySQL и WordPress
+|    |   └── templates/
+|    |       └── mysql-cnf.j2         # Шаблон конфигурации MySQL
+|    └── monitoring/
+|        ├── tasks/
+|        |   └── main.yml             # Настройка Prometheus, Grafana и MySQL Exporter
+|        ├── vars/
+|        |   └── main.yml             # Переменные для мониторинга
+|        ├── files/
+|        |   └── prometheus.yml       # Конфигурация Prometheus
+|        └── templates/
+|            └── config.my-cnf.j2     # Шаблон конфигурации MySQL Exporter
+├── ansible.cfg                       # Конфигурация Ansible
+├── inventory.ini                     # Конфигурация хостов для Ansible
+├── playbook.yml                      # Главный Ansible Playbook
+└── README.md                         # Описание проекта
 ```
