@@ -56,9 +56,9 @@
   register: compose_template
 
 - name: Start monitoring stack
-  docker_compose:
-    project_src: "{{ monitoring_dir }}"
-    state: present
+  ansible.builtin.command:
+    cmd: "docker compose up -d"
+    chdir: "{{ monitoring_dir }}"
   become: true
   async: 300
   poll: 0
