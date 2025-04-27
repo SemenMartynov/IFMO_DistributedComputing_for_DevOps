@@ -56,7 +56,7 @@
   register: compose_template
 
 - name: Start monitoring stack
-  docker_compose:
+  community.docker.docker_compose:
     project_src: "{{ monitoring_dir }}"
     state: present
   become: true
