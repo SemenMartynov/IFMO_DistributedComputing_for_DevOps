@@ -1,0 +1,23 @@
+- name: "Docker installation"
+  hosts: directus
+  become: true
+  roles:
+    - docker_install
+
+- name: "PostgreSQL installation"
+  hosts: node1-postgresql
+  become: true
+  roles:
+    - postgresql_install
+
+- name: "Directus database setup"
+  hosts: node1-postgresql
+  become: true
+  roles:
+    - directus_database_setup
+
+- name: "Directus docker container setup"
+  hosts: directus
+  become: true
+  roles:
+    - directus_install

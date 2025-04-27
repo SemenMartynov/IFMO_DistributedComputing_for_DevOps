@@ -1,0 +1,45 @@
+- name: Ensure PostgreSQL 17 is installed (если ещё не установлено)
+  ansible.builtin.apt:
+    name: postgresql-17
+    state: present
+
+- name: Create Directus user with admin rights
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.sudo
+  community.postgresql.postgresql_user:
+    name: directus
+    password: directus
+    role_attr_flags: "SUPERUSER"
+    state: present
+    host: 127.0.0.1
+    port: 5432
+    login_user: postgres
+    login_password: ""
+
+- name: Create Directus database
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.sudo
+  community.postgresql.postgresql_db:
+    name: directus
+    owner: directus
+    state: present
+    host: 127.0.0.1
+    port: 5432
+    login_user: postgres
+    login_password: ""
+
+- name: Allow access from 192.168.56.10/32 for all directus
+  become: true
+  become_user: root
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/17/main/pg_hba.conf
+    line: 'host directus directus 192.168.56.10/32 md5'
+    backup: true
+
+- name: Reload PostgreSQL service
+  become: true
+  ansible.builtin.service:
+    name: postgresql
+    state: reloaded
