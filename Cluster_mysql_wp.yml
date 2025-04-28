@@ -50,13 +50,13 @@
         state: present
 
 ## Создание docker  сети для связи контейнера Мастера mysql и реплики
-    - name: Создаю Docker-сеть для кластера (мастер-слейв)#Создаю сеть для связи мастера и слейва
+    - name: Создаю Docker-сеть для кластера (мастер-слейв)
       community.docker.docker_network:
         name: "{{ cluster_network }}"
         state: present
 
 ## Создание Docker-томов (volumes), без них образы поднимаются слишком долго, заменил на луп
-    - name: Create Docker volumes for persistent data
+    - name: Создание volumes
       community.docker.docker_volume:
         name: "{{ item }}"
       loop:
