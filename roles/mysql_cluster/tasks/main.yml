@@ -2,59 +2,59 @@
 # Задачи для настройки кластера MySQL
 
 - name: Создание директории для проекта WordPress MySQL Cluster
-  file:
+  ansible.builtin.file:
     path: "{{ mysql_cluster_dir }}"
     state: directory
     mode: '0755'
 
 - name: Создание директорий для данных каждой ноды кластера
-  file:
+  ansible.builtin.file:
     path: "{{ mysql_cluster_dir }}/mysql_data_{{ item }}"
     state: directory
     mode: '0755'
   loop: "{{ range(1, mysql_cluster_nodes + 1) | list }}"
 
 - name: Копирование .env файла для кластера
-  template:
+  ansible.builtin.template:
     src: mysql_cluster/.env.j2
     dest: "{{ mysql_cluster_dir }}/.env"
     mode: '0644'
 
 - name: Копирование docker-compose.yml
-  template:
+  ansible.builtin.template:
     src: mysql_cluster/docker-compose.yml.j2
     dest: "{{ mysql_cluster_dir }}/docker-compose.yml"
     mode: '0644'
 
 - name: Копирование init-primary.sql
-  template:
+  ansible.builtin.template:
     src: mysql_cluster/init-primary.sql.j2
     dest: "{{ mysql_cluster_dir }}/init-primary.sql"
     mode: '0644'
 
 - name: Установка Python-модуля pymysql для community.mysql.mysql_replication
-  apt:
+  ansible.builtin.apt:
     name: python3-pymysql
     state: present
   become: true
 
 - name: Остановка старых контейнеров
-  community.docker.docker_compose_v2:
+  docker_compose_v2:
     project_src: "{{ mysql_cluster_wordpress_dir }}/"
     state: absent
 
 - name: Остановка контейнеров кластера через Docker Compose
-  community.docker.docker_compose_v2:
+  docker_compose_v2:
     project_src: "{{ mysql_cluster_dir }}/"
     state: absent
 
 - name: Запуск контейнеров кластера через Docker Compose
-  community.docker.docker_compose_v2:
+  docker_compose_v2:
     project_src: "{{ mysql_cluster_dir }}/"
     state: present
 
 - name: Проверка доступности MySQL
-  command: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
+  ansible.builtin.command: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
   register: result
   retries: 10
   delay: 60
@@ -78,7 +78,6 @@
     login_user: root
     login_password: "{{ mysql_root_password }}"
   loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
-  ignore_errors: true
 
 - name: Настройка репликации на вторичных узлах
   community.mysql.mysql_replication:
@@ -115,5 +114,5 @@
   loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
 
 - name: Вывести статус репликации
-  debug:
+  ansible.builtin.debug:
     msg: "{{ replica_status }}"

@@ -2,54 +2,54 @@
 # Задачи для настройки мониторинга кластера MySQL
 
 - name: Создание директории для Мониторинга
-  file:
+  ansible.builtin.file:
     path: "{{ monitoring_dir }}"
     state: directory
     mode: '0755'
 
 - name: Создание директорий для grafana
-  file:
+  ansible.builtin.file:
     path: "{{ monitoring_dir }}/grafana"
     state: directory
     mode: '0755'
 
 - name: Копирование .env файла
-  template:
+  ansible.builtin.template:
     src: .env.j2
     dest: "{{ monitoring_dir }}/.env"
     mode: '0644'
 
 - name: Копирование docker-compose.yml
-  template:
+  ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ monitoring_dir }}/docker-compose.yml"
     mode: '0644'
 
 - name: Копирование prometheus.yml
-  template:
+  ansible.builtin.template:
     src: prometheus.yml.j2
     dest: "{{ monitoring_dir }}/prometheus.yml"
     mode: '0644'
 
 - name: Копирование datasource.yaml для Grafana
-  template:
+  ansible.builtin.template:
     src: datasource.yaml.j2
     dest: "{{ monitoring_dir }}/datasource.yaml"
     mode: '0644'
 
 - name: Копирование dashboard.yaml для Grafana
-  template:
+  ansible.builtin.template:
     src: dashboard.yaml.j2
     dest: "{{ monitoring_dir }}/dashboard.yaml"
     mode: '0644'
 
 - name: Копирование dashboard.json для Grafana
-  template:
+  ansible.builtin.template:
     src: dashboard.json
     dest: "{{ monitoring_dir }}/dashboard.json"
     mode: '0644'
 
 - name: Запуск контейнеров
-  community.docker.docker_compose_v2:
+  docker_compose_v2:
     project_src: "{{ monitoring_dir }}/"
     state: present

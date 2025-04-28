@@ -44,6 +44,92 @@ Distributed Computing course for DevOps 2025
 
 После выполнения плейбука, WordPress будет доступен по адресу http://server_ip/
 
-## Результат выполнения
-![Результат работы Ansible](images/Screenshot%202025-03-22%20at%2015.12.48.png)
-![Работающий WordPress](images/Screenshot%202025-03-22%20at%2014.59.30.png)
+# Настройка кластера MySQL для WordPress
+
+## Особенности
+
+- Использует модуль `community.mysql.mysql_replication` для автоматической настройки репликации
+
+## Использование
+
+1. Добавьте хост в inventory.ini:
+   ```
+   [wordpress_server]
+   your_server_ip
+   ```
+
+2. Настройте переменные группы в group_vars/wordpress_server:
+   ```yaml
+   mysql_root_password: "secure_root_password"
+   mysql_database: "wordpress"
+   mysql_user: "wordpress"
+   mysql_password: "secure_password"
+   repl_user: "repl_user"
+   repl_password: "secure_repl_password"
+   wp_table_prefix: "wp_"
+   ```
+
+3. Запустите playbook:
+   ```bash
+   ansible-playbook mysql-cluster-playbook.yml -i inventory.ini
+   ```
+
+## Настройка кластера
+
+Вы можете изменить параметры кластера, переопределив переменные роли в вашем playbook или в group_vars:
+
+```yaml
+mysql_cluster_nodes: 5  # Увеличить количество узлов кластера до 5
+```
+
+## Проверка работы кластера
+
+1. Подключение к основному узлу:
+   ```
+   ssh ansible@your_server_ip
+   docker exec -it mysql_node_1 mysql -uroot -p
+   ```
+
+2. Проверка статуса мастера:
+   ```sql
+   SHOW MASTER STATUS;
+   ```
+3. Проверка статуса репликации:
+   ```sql
+   SHOW REPLICA STATUS\G;
+   ```
+
+# Мониторинг кластера MySQL
+
+## Обзор
+
+Эта система мониторинга предоставляет возможность отслеживать производительность и состояние кластера MySQL с использованием набора инструментов: cAdvisor, Prometheus и Grafana.
+
+## Компоненты
+
+- **cAdvisor**: Анализирует использование ресурсов и производительность контейнеров Docker.
+- **Prometheus**: Система сбора и хранения метрик с временными рядами.
+- **Grafana**: Платформа для визуализации метрик и создания информационных панелей.
+
+Подробнее о компонентах:
+- [cAdvisor](https://github.com/google/cadvisor)
+- [Prometheus](https://prometheus.io/)
+- [Grafana](https://grafana.com/)
+
+## Установка и настройка
+
+Мониторинг настраивается с помощью Ansible Playbook:
+
+```bash
+ansible-playbook monitor-cluster-playbook.yml
+```
+
+## Доступ к интерфейсам мониторинга
+
+После установки вы можете получить доступ к интерфейсам:
+
+- cAdvisor: `http://wordpress_server_ip:8080`
+- Prometheus: `http://wordpress_server_ip:9090`
+- Grafana: `http://wordpress_server_ip:9100`
+
+Логин и пароль для Grafana указаны в файле `.env`.

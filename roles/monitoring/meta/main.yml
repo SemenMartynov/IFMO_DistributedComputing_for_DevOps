@@ -1,11 +1,10 @@
 ---
 collections:
   - community.docker
-  - community.mysql
 
 galaxy_info:
   author: Maxim Urzhumtsev
-  description: Роль для настройки кластера MySQL для WordPress
+  description: Роль для настройки мониторинга
   license: MIT
   min_ansible_version: "2.11"
   platforms:

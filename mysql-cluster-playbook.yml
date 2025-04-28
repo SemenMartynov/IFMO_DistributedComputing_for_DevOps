@@ -5,13 +5,11 @@
   become: true
   become_method: ansible.builtin.sudo
   become_user: root
-  collections:
-    - community.docker
   roles:
     - role: mysql_cluster
 
   post_tasks:
     - name: Вывод информации о результате настройки
-      debug:
+      ansible.builtin.debug:
         msg: |
           Кластер MySQL успешно настроен
