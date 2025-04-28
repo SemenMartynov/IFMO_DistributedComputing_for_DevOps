@@ -8,8 +8,8 @@ VMS = [
         memory: 1024,
         cpus: 1,
         forwarded_ports: [
-            {guest: 8055, host: 8055},  # Порт Directus
-            {guest: 22, host: 2201}      # SSH порт
+            {guest: 8055, host: 8055},
+            {guest: 22, host: 2201}
         ]
     },
     {
@@ -21,7 +21,7 @@ VMS = [
         memory: 1024,
         cpus: 1,
         forwarded_ports: [
-            {guest: 22, host: 2202}      # Только SSH порт
+            {guest: 22, host: 2202}
         ]
     },
     {
@@ -33,7 +33,7 @@ VMS = [
         memory: 1024,
         cpus: 1,
         forwarded_ports: [
-            {guest: 22, host: 2202}      # Только SSH порт
+            {guest: 22, host: 2202}
         ]
     }
 ]
@@ -48,7 +48,7 @@ Vagrant.configure("2") do |config|
 
             # Public network для доступа с хоста
             v.vm.network "public_network", 
-                bridge: "enp4s0",         # Уточните ваш сетевой интерфейс
+                bridge: "enp4s0",
                 ip: vm[:public_ip]
 
             # Проброс портов
@@ -56,7 +56,7 @@ Vagrant.configure("2") do |config|
                 v.vm.network "forwarded_port",
                     guest: fp[:guest],
                     host: fp[:host],
-                    auto_correct: true    # Автоматическая коррекция при конфликтах
+                    auto_correct: true
             end
 
             # Конфигурация VirtualBox
