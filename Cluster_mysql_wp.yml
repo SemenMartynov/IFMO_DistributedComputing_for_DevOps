@@ -141,18 +141,38 @@
         timeout: 120
         state: started
 
-    - name: Настраиваю репликацию на Slave
-      community.docker.docker_container_exec:
-        container: wp_db_slave
-        command: >
-          mysql -uroot -p{{ mysql_root_password }} -e "
-          CHANGE MASTER TO
-            MASTER_HOST='wp_db_master',
-            MASTER_PORT=3306,
-            MASTER_USER='{{ replica_user }}',
-            MASTER_PASSWORD='{{ replica_password }}',
-            MASTER_AUTO_POSITION=1;
-          START SLAVE;"
+    # - name: Настраиваю репликацию на Slave
+    #   community.docker.docker_container_exec:
+    #     container: wp_db_slave
+    #     command: >
+    #       mysql -uroot -p{{ mysql_root_password }} -e "
+    #       CHANGE MASTER TO
+    #         MASTER_HOST='wp_db_master',
+    #         MASTER_PORT=3306,
+    #         MASTER_USER='{{ replica_user }}',
+    #         MASTER_PASSWORD='{{ replica_password }}',
+    #         MASTER_AUTO_POSITION=1;
+    #       START SLAVE;"
+    - name: настраиваю репликацию на Slave
+      community.mysql.mysql_replication:
+        mode: "changeprimary"
+        master_host: "wp_db_master"     
+        master_port: 3306               
+        master_user: "{{ replica_user }}"
+        master_password: "{{ replica_password }}"
+        master_auto_position: yes
+        login_host: "localhost"         # Подключение к Slave через проброшенный порт
+        login_port: 3308
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Запускаю репликацию
+      community.mysql.mysql_replication:
+        mode: "startreplica"
+        login_host: "localhost"
+        login_port: 3308
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Проверка статуса репликации
       community.docker.docker_container_exec:
