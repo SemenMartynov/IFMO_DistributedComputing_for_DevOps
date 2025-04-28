@@ -1,0 +1,119 @@
+---
+# Задачи для настройки кластера MySQL
+
+- name: Создание директории для проекта WordPress MySQL Cluster
+  ansible.builtin.file:
+    path: "{{ mysql_cluster_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Создание директорий для данных каждой ноды кластера
+  ansible.builtin.file:
+    path: "{{ mysql_cluster_dir }}/mysql_data_{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ range(1, mysql_cluster_nodes + 1) | list }}"
+
+- name: Копирование .env файла для кластера
+  ansible.builtin.template:
+    src: mysql_cluster/.env.j2
+    dest: "{{ mysql_cluster_dir }}/.env"
+    mode: '0644'
+
+- name: Копирование docker-compose.yml
+  ansible.builtin.template:
+    src: mysql_cluster/docker-compose.yml.j2
+    dest: "{{ mysql_cluster_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Копирование init-primary.sql
+  ansible.builtin.template:
+    src: mysql_cluster/init-primary.sql.j2
+    dest: "{{ mysql_cluster_dir }}/init-primary.sql"
+    mode: '0644'
+
+- name: Установка Python-модуля pymysql для community.mysql.mysql_replication
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+  become: true
+
+- name: Остановка старых контейнеров
+  docker_compose_v2:
+    project_src: "{{ mysql_cluster_wordpress_dir }}/"
+    state: absent
+
+- name: Остановка контейнеров кластера через Docker Compose
+  docker_compose_v2:
+    project_src: "{{ mysql_cluster_dir }}/"
+    state: absent
+
+- name: Запуск контейнеров кластера через Docker Compose
+  docker_compose_v2:
+    project_src: "{{ mysql_cluster_dir }}/"
+    state: present
+
+- name: Проверка доступности MySQL
+  ansible.builtin.wait_for:
+    port: 3306
+    host: localhost
+    timeout: 600
+    delay: 60
+    state: started
+
+- name: Get primary binlog file name and binlog position
+  community.mysql.mysql_replication:
+    mode: getprimary
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: primary_status
+  changed_when: false
+
+- name: Остановка репликации на вторичных узлах перед настройкой
+  community.mysql.mysql_replication:
+    mode: stopreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Настройка репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: changeprimary
+    primary_host: mysql_node_1
+    primary_port: 3306
+    primary_user: "{{ repl_user }}"
+    primary_password: "{{ repl_password }}"
+    primary_log_file: "{{ primary_status.File }}"
+    primary_log_pos: "{{ primary_status.Position }}"
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Запуск репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: startreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Проверка статуса репликации на вторичных узлах
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: localhost
+    login_port: "{{ 3307 + item - 2 }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: replica_status
+  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+
+- name: Вывести статус репликации
+  ansible.builtin.debug:
+    msg: "{{ replica_status }}"

@@ -1,0 +1,66 @@
+---
+
+- name: Проверка наличия Docker
+  ansible.builtin.command: docker --version
+  register: docker_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Проверка наличия Docker Compose
+  ansible.builtin.command: docker compose --version
+  register: docker_compose_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Установка необходимых пакетов
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+    state: present
+    update_cache: true
+  when: docker_installed.rc != 0
+
+- name: Создание директории для GPG ключей Docker
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  when: docker_installed.rc != 0
+
+- name: Добавить GPG-ключ официального репозитория Docker
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  become: true
+
+- name: Добавить официальный репозиторий Docker
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+  become: true
+
+- name: Установка Docker
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when: docker_installed.rc != 0
+
+- name: Добавление пользователя в группу docker
+  ansible.builtin.user:
+    name: ansible
+    groups: docker
+    append: true
+  when: docker_installed.rc != 0

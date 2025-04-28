@@ -1,0 +1,10 @@
+---
+
+- name: Установка и настройка Docker и WordPress
+  hosts: wordpress_server
+  become: true
+  become_method: ansible.builtin.sudo
+  become_user: root
+  roles:
+   - role: infra
+   - role: wordpress

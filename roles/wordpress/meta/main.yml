@@ -1,0 +1,27 @@
+---
+collections:
+  - community.docker
+
+galaxy_info:
+  author: Maxim Urzhumtsev
+  description: Роль для настройки кластера MySQL для WordPress
+  license: MIT
+  min_ansible_version: "2.11"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - mysql
+    - cluster
+    - wordpress
+    - database
+    - docker
+
+dependencies: []

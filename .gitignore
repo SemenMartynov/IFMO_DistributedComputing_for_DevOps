@@ -1,0 +1,11 @@
+# Sensitive files
+vault_password.txt
+id_rsa*
+*.pem
+*.key
+
+# Other files
+.DS_Store
+.devcontainer
+id_rsa_yandex
+id_rsa_yandex.pub

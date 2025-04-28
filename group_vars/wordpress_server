@@ -1,0 +1,11 @@
+---
+# Database Configuration
+mysql_root_password: "secureRootPassword123"
+mysql_database: "wordpress"
+mysql_user: "wpuser"
+mysql_password: "secureUserPassword456"
+repl_user: "repl_user"
+repl_password: "secureUserPassword789"
+
+# WordPress Configuration
+wp_table_prefix: "wp_" 

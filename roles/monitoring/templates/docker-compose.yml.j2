@@ -1,0 +1,46 @@
+services:
+  cadvisor:
+      image: gcr.io/cadvisor/cadvisor:v0.47.1
+      hostname: cadvisor
+      volumes:
+        - "/:/rootfs:ro"
+        - "/var/run:/var/run:ro"
+        - "/sys:/sys:ro"
+        - "/var/lib/docker/:/var/lib/docker:ro"
+      ports:
+        - "8080:8080"
+      healthcheck:
+        test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+  
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      cadvisor:
+        condition: service_healthy
+  
+  grafana:
+    image: grafana/grafana
+    env_file:
+      - .env
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./dashboard.json:/etc/grafana/grafana/provisioning/dashboards/dashboard.json
+      - ./dashboard.yaml:/etc/grafana/provisioning/dashboards/dashboard.yaml
+      - ./datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+    ports:
+      - "9100:3000"
+    depends_on:
+      cadvisor:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+
+volumes:
+  grafana-storage:

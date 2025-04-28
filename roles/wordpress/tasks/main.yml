@@ -1,0 +1,36 @@
+---
+
+- name: Создание директории для проекта WordPress
+  ansible.builtin.file:
+    path: /opt/wordpress
+    state: directory
+    mode: '0755'
+
+- name: Копирование .env файла
+  ansible.builtin.template:
+    src: roles/wordpress/templates/.env.j2
+    dest: /opt/wordpress/.env
+    mode: '0600'
+
+- name: Копирование docker-compose.yml
+  ansible.builtin.template:
+    src: roles/wordpress/templates/docker-compose.yml.j2
+    dest: /opt/wordpress/docker-compose.yml
+    mode: '0644'
+
+- name: Создание директории для данных MySQL
+  ansible.builtin.file:
+    path: /opt/wordpress/mysql_data
+    state: directory
+    mode: '0755'
+
+- name: Создание директории для данных WordPress
+  ansible.builtin.file:
+    path: /opt/wordpress/wordpress_data
+    state: directory
+    mode: '0755'
+
+- name: Запуск контейнеров через Docker Compose v2
+  docker_compose_v2:
+    project_src: /opt/wordpress/
+    state: present

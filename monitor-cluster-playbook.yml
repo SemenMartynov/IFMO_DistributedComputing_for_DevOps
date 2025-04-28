@@ -1,0 +1,15 @@
+---
+# Playbook для мониторинга кластера MySQL
+- name: Настройка мониторинга кластера MySQ
+  hosts: wordpress_server
+  become: true
+  become_method: ansible.builtin.sudo
+  become_user: root
+  roles:
+    - role: monitoring
+
+  post_tasks:
+    - name: Вывод информации о результате настройки
+      ansible.builtin.debug:
+        msg: |
+          Мониоринг кластера MySQL успешно настроен

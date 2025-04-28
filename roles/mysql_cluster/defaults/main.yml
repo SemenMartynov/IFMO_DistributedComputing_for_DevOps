@@ -1,0 +1,9 @@
+---
+# Переменные по умолчанию для роли MySQL кластера
+
+# Директории
+mysql_cluster_dir: "/opt/wordpress-mysql-cluster"
+mysql_cluster_wordpress_dir: "/opt/wordpress"
+
+# Конфигурация кластера
+mysql_cluster_nodes: 3
