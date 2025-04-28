@@ -3,7 +3,7 @@ galaxy_info:
   author: Maxim Urzhumtsev
   description: Роль для настройки кластера MySQL для WordPress
   license: MIT
-  min_ansible_version: 2.11
+  min_ansible_version: "2.11"
   platforms:
     - name: Ubuntu
       versions:
@@ -21,4 +21,4 @@ galaxy_info:
     - database
     - docker
 
-dependencies: [] 
+dependencies: []

@@ -40,7 +40,7 @@
 
 - name: Остановка старых контейнеров
   community.docker.docker_compose_v2:
-    project_src: "{{ wordpress_dir }}/"
+    project_src: "{{ mysql_cluster_wordpress_dir }}/"
     state: absent
 
 - name: Остановка контейнеров кластера через Docker Compose
@@ -54,7 +54,7 @@
     state: present
 
 - name: Проверка доступности MySQL
-  shell: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
+  command: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
   register: result
   retries: 10
   delay: 60
