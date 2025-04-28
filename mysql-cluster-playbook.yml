@@ -3,7 +3,7 @@
 - name: Настройка кластера MySQL для WordPress
   hosts: wordpress_server
   become: true
-  become_method: sudo
+  become_method: ansible.builtin.sudo
   become_user: root
   collections:
     - community.docker

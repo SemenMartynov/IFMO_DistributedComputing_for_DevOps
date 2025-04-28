@@ -3,8 +3,10 @@
 - name: Настройка мониторинга кластера MySQ
   hosts: wordpress_server
   become: true
-  become_method: sudo
+  become_method: ansible.builtin.sudo
   become_user: root
+  collections:
+    - community.docker
   roles:
     - role: monitoring
 

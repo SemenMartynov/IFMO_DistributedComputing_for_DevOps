@@ -101,6 +101,6 @@
         mode: '0755'
 
     - name: Запуск контейнеров через Docker Compose v2
-      docker_compose_v2:
+      community.docker.docker_compose_v2:
         project_src: /opt/wordpress/
         state: present
