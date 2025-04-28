@@ -26,7 +26,7 @@
         append_pg_hba_allow_network: "{{ append_pg_hba_node2_replication.allow_network }}"
         append_pg_hba_entry: "{{ append_pg_hba_node2_replication.entry }}"
 
-- name: "PostgreSQL setup replica"
+- name: PostgreSQL setup replica
   hosts: node2-postgresql
   become: true
   roles:

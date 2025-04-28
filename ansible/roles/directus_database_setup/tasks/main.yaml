@@ -1,4 +1,4 @@
-- name: Ensure PostgreSQL 17 is installed (если ещё не установлено)
+- name: Ensure PostgreSQL 17 is installed
   ansible.builtin.apt:
     name: postgresql-17
     state: present

@@ -1,4 +1,4 @@
-- name: Allow access to Directus ({{ append_pg_hba_allow_network }})
+- name: Append pg_hba.conf entry ({{ append_pg_hba_allow_network }})
   become: true
   become_user: root
   ansible.builtin.lineinfile:

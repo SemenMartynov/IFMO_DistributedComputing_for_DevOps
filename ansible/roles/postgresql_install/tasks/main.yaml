@@ -70,7 +70,7 @@
 - name: Configure PostgreSQL to listen on all addresses
   community.postgresql.postgresql_alter_system:
     param: listen_addresses
-    value: "*"  # Для прослушивания всех интерфейсов. Можно указать конкретные IP через запятую: "'192.168.56.20, 127.0.0.1'"
+    value: "*"
   become: true
   become_user: postgres
 
@@ -80,7 +80,7 @@
     name: postgresql
     state: restarted
 
-- name: Создать роль replication для репликации
+- name: Create replication role
   become: true
   become_user: postgres
   community.postgresql.postgresql_user:
