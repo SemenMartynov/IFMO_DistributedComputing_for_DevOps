@@ -54,11 +54,12 @@
     state: present
 
 - name: Проверка доступности MySQL
-  ansible.builtin.command: docker exec mysql_node_1 mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
-  register: result
-  retries: 10
-  delay: 60
-  until: result.rc == 0
+  ansible.builtin.wait_for:
+    port: 3306
+    host: localhost
+    timeout: 600
+    delay: 60
+    state: started
 
 - name: Get primary binlog file name and binlog position
   community.mysql.mysql_replication:
