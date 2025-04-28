@@ -1,6 +1,6 @@
 ---
 # Playbook для мониторинга кластера MySQL
-- name: Настройка мониторинга кластера MySQL 
+- name: Настройка мониторинга кластера MySQ
   hosts: wordpress_server
   become: true
   become_method: sudo
