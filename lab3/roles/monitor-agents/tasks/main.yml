@@ -1,72 +1,44 @@
 #SPDX-License-Identifier: MIT-0
 ---
-- name: Install packages
-  ansible.builtin.apt:
-    pkg:
-      - python3-pip
-
-- name: Install PyMySQL
-  ansible.builtin.pip:
-    name: 
-      - PyYAML
-      - docker-cli
-      - docker-compose
-
 - name: Create a lab directory if it does not exist
   ansible.builtin.file:
     path: ~/lab3
     state: directory
     mode: '0755'
 
-- name: copy docker compose template
-  ansible.builtin.template:
-    src: docker-compose.yaml.j2
-    dest: ~/lab3/docker-compose-agents.yaml
-
-- name: copy my.cnf template for master
-  ansible.builtin.template:
-    src: master_my.cnf.j2
-    dest: ~/lab3/master_my.cnf
-
-- name: copy my.cnf template for slave
-  ansible.builtin.template:
-    src: slave_my.cnf.j2
-    dest: ~/lab3/slave_my.cnf
-
-- name: install exporter
-  community.docker.docker_compose_v2:
-    project_src: ~/lab3/
-    files: ["docker-compose-agents.yaml"]
+- name: Create database user for master_exporter
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_root_user  }}"
+    login_password: "{{ mariadb_root_password }}"
+    login_host: "master"
+    name: "exporter"
+    priv: '*.*:ALL'
+    host: "%"
+    password: "{{ monitoring_password }}"
     state: present
 
-- name: Get infos on container
-  community.docker.docker_container_info:
+- name: Run mariadb exporter_master
+  community.docker.docker_container:
     name: master-exporter
-  register: master_exporter_info
+    image: bitnami/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    command: --mysqld.address=master:3306 --mysqld.username=exporter
+    env:
+      MYSQLD_EXPORTER_PASSWORD: "{{ monitoring_password }}"
+    ports:
+      - "9104:9104"
+    networks:
+      - name: mysql-cluster
 
-- name: Get infos on container
-  community.docker.docker_container_info:
+- name: Run mariadb exporter_slave
+  community.docker.docker_container:
     name: slave-exporter
-  register: slave_exporter_info
-
-- name: Create database user master_exporter
-  community.mysql.mysql_user:
-    login_user: "{{ mariadb_root_user  }}"
-    login_password: "{{ mariadb_root_password }}"
-    login_host: "master"
-    name: "exporter"
-    priv: '*.*:ALL'
-    host: "{{ master_exporter_info['container']['NetworkSettings']['Networks']['mysql-cluster']['IPAddress'] }}"
-    password: "{{ monitoring_password }}"
-    state: present
-
-- name: Create database user
-  community.mysql.mysql_user:
-    login_user: "{{ mariadb_root_user  }}"
-    login_password: "{{ mariadb_root_password }}"
-    login_host: "master"
-    name: "exporter"
-    priv: '*.*:ALL'
-    host: "{{ slave_exporter_info['container']['NetworkSettings']['Networks']['mysql-cluster']['IPAddress'] }}"
-    password: "{{ monitoring_password }}"
-    state: present
+    image: bitnami/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    command: --mysqld.address=slave:3306 --mysqld.username=exporter
+    env:
+      MYSQLD_EXPORTER_PASSWORD: "{{ monitoring_password }}"
+    networks:
+      - name: mysql-cluster

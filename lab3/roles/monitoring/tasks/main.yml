@@ -61,9 +61,13 @@
     project_src: ~/lab3/
     state: present
 
-- name: Sleep for 1 min
+- name: Waits for port 3000
   ansible.builtin.wait_for:
-    timeout: 60
+    host: 0.0.0.0
+    port: 3000
+    delay: 10
+    state: started
+
 
 - name: Create a source
   ansible.builtin.uri:
