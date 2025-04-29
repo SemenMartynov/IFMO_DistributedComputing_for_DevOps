@@ -1,1 +1,5 @@
-collections: []
+collections:
+  - name: community.docker
+    source: https://galaxy.ansible.com
+  - name: community.mysql
+    source: https://galaxy.ansible.com
