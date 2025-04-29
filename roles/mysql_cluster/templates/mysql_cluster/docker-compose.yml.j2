@@ -1,44 +1,5 @@
 services:
-  wordpress:
-    image: wordpress:latest
-    container_name: wordpress_app
-    restart: always
-    depends_on:
-      - mysql_node_1
-    ports:
-      - "80:80"
-    env_file: .env
-    volumes:
-      - ./wordpress_data:/var/www/html
-    networks:
-      - wordpress_network
-
-  mysql_node_1:
-    image: mysql:8.0
-    container_name: mysql_node_1
-    restart: always
-    env_file: .env
-    environment:
-      - MYSQL_REPLICATION_MODE=master
-    ports:
-      - "3306:3306"
-    command: ["mysqld",
-      "--server-id=1",
-      "--log_bin=mysql-bin",
-      "--binlog_do_db={{ mysql_database }}",
-      "--max_allowed_packet=128M"]
-    volumes:
-      - ./mysql_data_1:/var/lib/mysql
-      - ./init-primary.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - wordpress_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-{% for i in range(2, mysql_cluster_nodes + 1) %}
+{% for i in range(2, 4) %}
   mysql_node_{{ i }}:
     image: mysql:8.0
     container_name: mysql_node_{{ i }}
@@ -59,8 +20,6 @@ services:
       - ./mysql_data_{{ i }}:/var/lib/mysql
     networks:
       - wordpress_network
-    depends_on:
-      - mysql_node_1
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
       interval: 10s
@@ -70,4 +29,4 @@ services:
 
 networks:
   wordpress_network:
-    driver: bridge 
+    external: true

@@ -10,12 +10,18 @@
   ansible.builtin.template:
     src: roles/wordpress/templates/.env.j2
     dest: /opt/wordpress/.env
-    mode: '0600'
+    mode: '0644'
 
 - name: Копирование docker-compose.yml
   ansible.builtin.template:
     src: roles/wordpress/templates/docker-compose.yml.j2
     dest: /opt/wordpress/docker-compose.yml
+    mode: '0644'
+
+- name: Копирование init-primary.sql
+  ansible.builtin.template:
+    src: roles/wordpress/templates/init-primary.sql.j2
+    dest: /opt/wordpress/init-primary.sql
     mode: '0644'
 
 - name: Создание директории для данных MySQL

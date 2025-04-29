@@ -1,7 +1,7 @@
 ---
-# Задачи для настройки кластера MySQL
+# Задачи для настройки реплик MySQL
 
-- name: Создание директории для проекта WordPress MySQL Cluster
+- name: Создание директории для реплик MySQL
   ansible.builtin.file:
     path: "{{ mysql_cluster_dir }}"
     state: directory
@@ -12,7 +12,7 @@
     path: "{{ mysql_cluster_dir }}/mysql_data_{{ item }}"
     state: directory
     mode: '0755'
-  loop: "{{ range(1, mysql_cluster_nodes + 1) | list }}"
+  loop: "{{ range(1, 4) | list }}"
 
 - name: Копирование .env файла для кластера
   ansible.builtin.template:
@@ -26,29 +26,13 @@
     dest: "{{ mysql_cluster_dir }}/docker-compose.yml"
     mode: '0644'
 
-- name: Копирование init-primary.sql
-  ansible.builtin.template:
-    src: mysql_cluster/init-primary.sql.j2
-    dest: "{{ mysql_cluster_dir }}/init-primary.sql"
-    mode: '0644'
-
 - name: Установка Python-модуля pymysql для community.mysql.mysql_replication
   ansible.builtin.apt:
     name: python3-pymysql
     state: present
   become: true
 
-- name: Остановка старых контейнеров
-  docker_compose_v2:
-    project_src: "{{ mysql_cluster_wordpress_dir }}/"
-    state: absent
-
-- name: Остановка контейнеров кластера через Docker Compose
-  docker_compose_v2:
-    project_src: "{{ mysql_cluster_dir }}/"
-    state: absent
-
-- name: Запуск контейнеров кластера через Docker Compose
+- name: Запуск контейнеров реплик через Docker Compose
   docker_compose_v2:
     project_src: "{{ mysql_cluster_dir }}/"
     state: present
@@ -58,7 +42,7 @@
     port: 3306
     host: localhost
     timeout: 600
-    delay: 60
+    delay: 120
     state: started
 
 - name: Get primary binlog file name and binlog position
@@ -78,7 +62,7 @@
     login_port: "{{ 3307 + item - 2 }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+  loop: "{{ range(2, 4) | list }}"
 
 - name: Настройка репликации на вторичных узлах
   community.mysql.mysql_replication:
@@ -93,7 +77,7 @@
     login_port: "{{ 3307 + item - 2 }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+  loop: "{{ range(2, 4) | list }}"
 
 - name: Запуск репликации на вторичных узлах
   community.mysql.mysql_replication:
@@ -102,7 +86,7 @@
     login_port: "{{ 3307 + item - 2 }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+  loop: "{{ range(2, 4) | list }}"
 
 - name: Проверка статуса репликации на вторичных узлах
   community.mysql.mysql_replication:
@@ -112,7 +96,7 @@
     login_user: root
     login_password: "{{ mysql_root_password }}"
   register: replica_status
-  loop: "{{ range(2, mysql_cluster_nodes + 1) | list }}"
+  loop: "{{ range(2, 4) | list }}"
 
 - name: Вывести статус репликации
   ansible.builtin.debug:
