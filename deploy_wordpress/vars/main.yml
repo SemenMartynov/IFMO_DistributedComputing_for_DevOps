@@ -1,0 +1,5 @@
+---
+mysql_user: admin
+mysql_password: admin22
+mysql_database: wordpress
+mysql_root_password: qwerty22

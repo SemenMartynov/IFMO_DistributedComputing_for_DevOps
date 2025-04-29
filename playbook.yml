@@ -1,0 +1,8 @@
+---
+- name: Tasks for Distributed Computing course
+  hosts: SERVERS
+  become: true
+
+  roles:
+    - deploy_wordpress
+    - create_db_cluster

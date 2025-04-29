@@ -1,0 +1,81 @@
+- name: Установка нужных пакетов
+  apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+
+- name: Добавление GPG ключа
+  apt_key:
+    url: "https://download.docker.com/linux/ubuntu/gpg"
+    state: present
+
+- name: Добавление docker-репозитория
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+    state: present
+
+- name: Обновление кэша пакетов и установка Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+
+- name: Добавление пользователя в группу Docker
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_users }}"
+  when: docker_users | length > 0
+
+- name: Автозапуск сервиса
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Создать docker-compose файл из шаблона
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ home_path }}/docker-compose.yml"
+    mode: 0644
+    force: yes
+  notify: Restart Docker containers
+
+- name: Создать .env файл из шаблона
+  template:
+    src: .env.j2
+    dest: "{{ home_path }}/.env"
+    mode: 0644
+    force: yes
+
+- name: Создать каталог nginx-conf
+  file:
+    path: "{{ home_path }}/nginx-conf"
+    state: directory
+    mode: '0755'
+
+- name: Копировать nginx.conf файл
+  copy:
+    src: nginx.conf
+    dest: "{{ home_path }}/nginx-conf/nginx.conf"
+    force: yes
+
+- name: Запустить Docker контейнеры
+  community.docker.docker_compose_v2:
+    project_src: "{{ home_path }}"
+    state: present
+  register: start_containers
+
+- name: Ожидание поднятия контейнера c master
+  community.docker.docker_container_info:
+    name: db_master
+  register: container_info
+  until: container_info.container.State.Health.Status == "healthy"
+  retries: 30
+  delay: 10
+  when: start_containers.changed
+  changed_when: false

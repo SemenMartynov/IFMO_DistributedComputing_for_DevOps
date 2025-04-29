@@ -1,0 +1,2 @@
+ansible_user: vboxuser
+ansible_ssh_private_key_file: /home/asus/.ssh/id_rsa
