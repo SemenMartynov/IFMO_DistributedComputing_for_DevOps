@@ -1,0 +1,61 @@
+volumes:
+  wordpress:
+  dbdata_master:
+networks:
+  app-network:
+    driver: bridge
+services:
+  db_master:
+    image: mysql:8.0.42
+    container_name: db_master
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+      - MYSQL_DATABASE={{ mysql_database }}
+      - MYSQL_ROOT_HOST=%
+    volumes:
+      - dbdata_master:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --server-id=1
+      --log-bin=/var/lib/mysql/mysql-bin.log
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 3
+      start_period: 50s
+      timeout: 10s
+    networks:
+      - app-network
+  wordpress:
+    depends_on:
+      - db_master
+    image: wordpress:5.1.1-fpm-alpine
+    container_name: wordpress
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - WORDPRESS_DB_HOST=db_master:3306
+      - WORDPRESS_DB_USER={{ mysql_user }}
+      - WORDPRESS_DB_PASSWORD={{ mysql_password }}
+      - WORDPRESS_DB_NAME={{ mysql_database }}
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - app-network
+  webserver:
+      depends_on:
+        - wordpress
+      image: nginx:1.15.12-alpine
+      container_name: webserver
+      restart: unless-stopped
+      ports:
+        - "80:80"
+      volumes:
+        - wordpress:/var/www/html
+        - ./nginx-conf:/etc/nginx/conf.d
+      networks:
+        - app-network

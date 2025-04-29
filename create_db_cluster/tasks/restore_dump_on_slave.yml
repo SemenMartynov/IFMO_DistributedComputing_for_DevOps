@@ -1,0 +1,15 @@
+- name: Остановить репликацию на slave, если включена
+  community.mysql.mysql_query:
+    login_password: "{{ mysql_root_password }}"
+    login_port: "{{ mysql_slave_port }}"
+    query: "STOP SLAVE;"
+
+- name: Восстановить дамп на slave
+  community.mysql.mysql_db:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_port: "{{ mysql_slave_port }}"
+    name: all
+    state: import
+    target: "{{ dump_path }}"

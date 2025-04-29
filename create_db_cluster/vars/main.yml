@@ -1,0 +1,8 @@
+---
+mysql_master_port: 3306
+mysql_slave_port: 3307
+mysql_password: admin22
+mysql_root_password: qwerty22
+mysql_replication_user: repl
+mysql_replication_password: repl22
+network_name: "{{ ansible_user }}_app-network"

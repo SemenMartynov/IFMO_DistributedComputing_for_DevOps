@@ -1,0 +1,6 @@
+---
+grafana_url: http://localhost:3000
+prometheus_url: http://prometheus:9090
+grafana_user: admin
+grafana_password: admin22
+mysql_root_password: qwerty22

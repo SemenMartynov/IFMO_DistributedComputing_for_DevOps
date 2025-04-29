@@ -1,0 +1,31 @@
+- name: Заблокировать master на запись до завершения снятия дампа
+  community.docker.docker_container:
+    name: mysql_temporary_lock_container
+    image: mysql:8.0.42
+    command: >
+      sh -c "mysql -uroot -p{{ mysql_root_password }} -h {{ master_container_name }} -e 'FLUSH TABLES WITH READ LOCK;'; tail -f /dev/null"
+    entrypoint: ""
+    network_mode: container:{{ master_container_name }}
+    state: started
+    detach: true
+    restart_policy: "no"
+    auto_remove: true
+    volumes:
+      - "{{ ansible_user }}_dbdata_temporary:/var/lib/mysql"
+  register: temp_container
+
+- name: Снять дамп с master
+  community.mysql.mysql_db:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    state: dump
+    name: all
+    target: "{{ dump_path }}"
+  changed_when: true
+
+- name: Остановить временный контейнер для снятия блокировки master
+  community.docker.docker_container:
+    name: mysql_temporary_lock_container
+    state: stopped
+  when: temp_container.changed

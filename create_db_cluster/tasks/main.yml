@@ -1,0 +1,86 @@
+- name: Установить библиотеки
+  apt:
+    name: [
+      "python3",
+      "python3-pip",
+      "python3-pymysql",
+      "python3-requests",
+      "mysql-client-core-8.0"
+    ]
+    state: latest
+
+- name: Переподключиться после установки библиотек для сброса кэша путей к исполняемым файлам
+  ansible.builtin.meta: reset_connection
+
+- name: Создание пользователя репликации на master
+  mysql_user:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    host: "%"
+    name: "{{ mysql_replication_user }}"
+    password: "{{ mysql_replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    connect_timeout: 60
+    state: present
+
+- name: Создать volume для MySQL Slave
+  community.docker.docker_volume:
+    name: "{{ ansible_user }}_dbdata_slave"
+    driver: local
+    state: present
+
+- name: Запустить MySQL Slave
+  community.docker.docker_container:
+    name: "{{ slave_container_name }}"
+    image: mysql:8.0.42
+    env:
+      MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+    networks:
+      - name: "{{ network_name }}"
+    volumes:
+      - "{{ ansible_user }}_dbdata_slave:/var/lib/mysql"
+    ports:
+      - "3307:3306"
+    restart_policy: unless-stopped
+    command: --server-id=2
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 3
+      start_period: 50s
+      timeout: 10s
+  register: slave_container
+
+- name: Ожидание поднятия slave
+  community.docker.docker_container_info:
+    name: "{{ slave_container_name }}"
+  register: slave_info
+  until: slave_info.container.State.Health.Status == "healthy"
+  retries: 30
+  delay: 10
+  when: slave_container.changed
+  changed_when: false
+
+- name: Выполнить задачи по настройке репликации
+  when: slave_container.changed
+  block:
+    - name: Снять дамп с master
+      import_tasks: tasks/dump_master.yml
+
+    - name: Восстановить дамп на slave
+      import_tasks: tasks/restore_dump_on_slave.yml
+
+    - name: Настроить репликацию
+      import_tasks: tasks/setup_replication.yml
+
+- name: Проверить replica статус
+  community.docker.docker_container_exec:
+    container: "{{ slave_container_name }}"
+    command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+  register: slave_status
+  changed_when: false
+
+- name: Напечатать replica status
+  debug:
+    var: slave_status
