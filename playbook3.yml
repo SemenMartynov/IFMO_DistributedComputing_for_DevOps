@@ -1,8 +1,13 @@
 ---
 - name: Home work 3
-  hosts: carrier
+  hosts: wordpress_server
+  become: true
+  become_method: ansible.builtin.sudo
+  become_user: root
+  roles:
+    - role: monitoring
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "monitoring_url: localhost:9100" # monitoring url including port
