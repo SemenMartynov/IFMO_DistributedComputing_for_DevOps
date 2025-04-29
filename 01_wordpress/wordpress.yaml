@@ -63,21 +63,6 @@
         src: docker-compose.yaml
         dest: "{{ app_path }}/docker-compose.yaml"
 
-    - name: Create mysql folder
-      file:
-        path: "{{ app_path }}/mysql"
-        state: directory
-
-    - name: Copy master MySQL config
-      copy:
-        src: mysql/master.cnf
-        dest: "{{ app_path }}/mysql/master.cnf"
-
-    - name: Copy slave MySQL config
-      copy:
-        src: mysql/slave.cnf
-        dest: "{{ app_path }}/mysql/slave.cnf"
-
     - name: Start docker compose
       community.docker.docker_compose_v2:
         project_src: "{{ app_path }}"
@@ -90,59 +75,6 @@
         delay: 10
         timeout: 300
         state: started
-
-    - name: Dump MySQL data from master
-      shell: |
-        docker exec master \
-        mysqldump -uroot -wordpress --all-databases --single-transaction --flush-logs --master-data=2 > {{ dump_file }}
-      args:
-        executable: /bin/bash
-
-    - name: Copy dump into master container
-      shell: |
-        docker cp {{ dump_file }} master:/mysql_dump.sql
-
-    - name: Load dump back into master to generate full binlog
-      shell: |
-        docker exec -i master \
-        mysql -uroot -wordpress < /mysql_dump.sql
-
-    - name: Initialize replication user on master
-      shell: |
-        docker exec master \
-        mysql -u root -wordpress -e "CREATE USER IF NOT EXISTS 'replica'@'%' IDENTIFIED BY 'password'; GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%'; FLUSH PRIVILEGES;"
-      changed_when: true
-
-    - name: Get master status
-      shell: |
-        docker exec master \
-        mysql -u root -wordpress -e "SHOW MASTER STATUS\G" | grep -E 'File|Position'
-      register: master_status
-
-    - name: Set replication on slave
-      shell: |
-        docker exec slave mysql -u root -wordpress -e "
-        STOP SLAVE;
-        CHANGE MASTER TO
-          MASTER_HOST='master',
-          MASTER_USER='replica',
-          MASTER_PASSWORD='password',
-          MASTER_LOG_FILE='{{ master_log_file }}',
-          MASTER_LOG_POS={{ master_log_pos }};
-        START SLAVE;"
-      vars:
-        master_log_file: "{{ master_status.stdout_lines[0].split(':')[1] | trim }}"
-        master_log_pos: "{{ master_status.stdout_lines[1].split(':')[1] | trim }}"
-      changed_when: true
-
-    - name: Check replication status on slave
-      shell: |
-        docker exec slave mysql -uroot -wordpress -e "SHOW SLAVE STATUS\G" | grep 'Running'
-      register: slave_status
-
-    - name: Show slave status
-      debug:
-        var: slave_status.stdout_lines
 
     - name: Wait for WordPress to be available
       wait_for:
