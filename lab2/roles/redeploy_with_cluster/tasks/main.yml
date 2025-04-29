@@ -4,7 +4,6 @@
   ansible.builtin.apt:
     pkg:
       - python3-docker
-      - python3-pyyaml
   ignore_errors: true
 
 - name: Create volumes
