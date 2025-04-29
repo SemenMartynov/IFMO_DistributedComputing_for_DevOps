@@ -1,0 +1,6 @@
+[mysqld]
+server-id=1
+log_bin=mysql-bin
+gtid-mode=ON
+enforce-gtid-consistency=ON
+binlog_do_db={{ db_name }}

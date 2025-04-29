@@ -1,0 +1,5 @@
+[my_group]
+wordpress_vm ansible_connection=local ansible_host=192.168.0.28 # ansible_host=localhost
+# вообще плохой вариант прописывать так ansible_host, но это просто в учебных целях, надо поменять на нужное
+# просто весь плейбук запускается из ВМ, а проверяется на хосте
+# в files/prometheus_grafana.yml нужно тоже поменять адрес на нужный

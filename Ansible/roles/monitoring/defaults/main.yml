@@ -1,0 +1,20 @@
+---
+# Версии образов
+prometheus_image: prom/prometheus:v3.3.0
+grafana_image: grafana/grafana:11.6.1
+mysqld_exporter_image: prom/mysqld-exporter:v0.17.2
+
+# Порты
+db_port: 3306
+prometheus_port: 9090
+grafana_port: 3000
+exporter_port: 9104
+
+# Данные о БД
+db_name: wordpress
+db_user: wpuser
+db_password: wppassword
+db_root_password: password
+
+# Путь до файлов
+monitoring_dir: "/opt/monitoring"

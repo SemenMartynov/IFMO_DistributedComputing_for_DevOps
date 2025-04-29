@@ -1,0 +1,13 @@
+---
+- name: Docker enabled and started
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+    scope: system
+  become: yes
+  register: docker_service_status
+  retries: 3
+  delay: 10
+  until: docker_service_status is succeeded
