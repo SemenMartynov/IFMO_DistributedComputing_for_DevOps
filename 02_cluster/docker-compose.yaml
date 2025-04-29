@@ -3,7 +3,7 @@ networks:
     driver: bridge
 
 services:
-  database:
+  master:
     image: mysql:8.0.27
     container_name: master
     volumes:
@@ -24,7 +24,7 @@ services:
     image: mysql:8.0.27
     container_name: slave
     depends_on:
-      - database
+      - master
     restart: always
     environment:
       - MYSQL_ROOT_PASSWORD=wordpress
@@ -33,6 +33,8 @@ services:
     volumes:
       - db_slave_data:/var/lib/mysql
       - ./mysql/slave.cnf:/etc/mysql/conf.d/slave.cnf
+    ports:
+      - "3307:3306"
     networks:
       - docker-network
 
@@ -44,12 +46,12 @@ services:
       - 8080:80
     restart: always
     environment:
-      - WORDPRESS_DB_HOST=database:3306
+      - WORDPRESS_DB_HOST=master:3306
       - WORDPRESS_DB_USER=wordpress
       - WORDPRESS_DB_PASSWORD=wordpress
       - WORDPRESS_DB_NAME=wordpress
     depends_on:
-      - database
+      - master
     networks:
       - docker-network
 
