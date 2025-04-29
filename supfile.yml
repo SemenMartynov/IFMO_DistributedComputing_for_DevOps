@@ -8,7 +8,6 @@ env:
   CODE_DIR: /opt/app/code
   STORAGE_DIR: /opt/app/storage
 
-
 networks:
   # this setup is used for run app in the local machine
   local:
@@ -28,7 +27,7 @@ networks:
 commands:
   start:
     desc: Start wordpress instance in background
-    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH up
+    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH up -d
 
   stop:
     desc: Stop wordpress instance
@@ -69,25 +68,11 @@ commands:
 
   monitoring-start:
     desc: start app monitoring
-    run: >
-      sudo docker run \
-        --volume=/:/rootfs:ro \
-        --volume=/var/run/docker.sock:/var/run/docker.sock:rw \
-        --volume=/sys:/sys:ro \
-        --volume=/var/lib/docker/:/var/lib/docker:ro \
-        --volume=/dev/disk/:/dev/disk:ro \
-        --publish=8070:8080 \
-        --detach=true \
-        --name=cadvisor \
-        --privileged \
-        --device=/dev/kmsg \
-        gcr.io/cadvisor/cadvisor:v0.52.1
+    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH -f docker-compose.monitoring.yml up -d
 
   monitoring-stop:
     desc: stop app monitoring
-    run: >
-      sudo docker stop cadvisor || true;
-      sudo docker rm cadvisor || true;
+    run: cd $CODE_DIR && docker compose --env-file $ENVFILE_PATH -f docker-compose.monitoring.yml down
 
 targets:
   deploy:

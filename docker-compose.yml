@@ -3,7 +3,7 @@ services:
     image: wordpress:6.7.2
     restart: always
     ports:
-      - "8080:80"
+      - "7070:80"
     environment:
       WORDPRESS_DB_HOST: $APP_DB_HOST
       WORDPRESS_DB_USER: $APP_DB_USER
