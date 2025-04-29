@@ -1,0 +1,24 @@
+- name: Create Directus container
+  community.docker.docker_container:
+    name: directus
+    image: directus/directus:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "8055:8055"
+    volumes:
+      - /opt/directus/uploads:/directus/uploads
+      - /opt/directus/extensions:/directus/extensions
+    env:
+      SECRET: "replace-with-secure-random-value"
+      DB_CLIENT: "pg"
+      DB_HOST: "192.168.56.20"
+      DB_PORT: "5432"
+      DB_DATABASE: "directus"
+      DB_USER: "directus"
+      DB_PASSWORD: "directus"
+      CACHE_ENABLED: "false"
+      ADMIN_EMAIL: "admin@example.com"
+      ADMIN_PASSWORD: "d1r3ctu5"
+    exposed_ports:
+      - "8055"

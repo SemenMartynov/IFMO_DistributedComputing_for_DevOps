@@ -1,0 +1,13 @@
+- name: Append pg_hba.conf entry ({{ append_pg_hba_allow_network }})
+  become: true
+  become_user: root
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/17/main/pg_hba.conf
+    line: "{{ append_pg_hba_entry }}"
+    backup: true
+
+- name: Reload PostgreSQL service
+  become: true
+  ansible.builtin.service:
+    name: postgresql
+    state: reloaded
