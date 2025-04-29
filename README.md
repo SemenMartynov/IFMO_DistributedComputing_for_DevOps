@@ -1,2 +1,25 @@
 # IFMO_DistributedComputing_for_DevOps
 Distributed Computing course for DevOps 2025
+
+## Usage
+
+
+## prerequisites
+
+1. install `sup` - simple deployment tool [https://github.com/pressly/sup](https://github.com/pressly/sup).
+2. create and fill `.env` file. Use `.env.example` structure as example. Save `.env` file in `ENV_FILE_PATH` directory.
+
+## localhost usage
+
+1. run `sup local ubuntu-prepare` from the repo root for required packages install
+2. run `sup local provision` from the repo root for the initial setup
+3. run `sup local monitoring-start` from the repo root to start monitoring service
+4. run `sup local monitoring-stop` from the repo root to start monitoring service
+
+## remote usage
+
+1. run `sup remote ubuntu-prepare` from the repo root for required packages install
+2. run `sup remote provision` from the repo root for the initial setup
+3. run `sup remote monitoring-start` from the repo root to start monitoring service
+4. run `sup remote monitoring-stop` from the repo root to stop monitoring service
+
