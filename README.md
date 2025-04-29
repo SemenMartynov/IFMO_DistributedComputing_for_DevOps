@@ -38,9 +38,9 @@ Distributed Computing course for DevOps 2025
 2. Настройте `inventory.ini` с IP адресом вашего сервера
 3. Настройте remote_user, vault_password_file, private_key_file, vault_password_file в `ansible.cfg`
 4. Отредактируйте переменные в `group_vars/wordpress_server` (пароли, имена пользователей)
-5. Создайте файл `vault_password.txt` со строкой пароля Ansible Vault
-5. Зашифруйте переменные: `./encrypt_vars.sh`
-6. Запустите плейбук: `ansible-playbook playbook.yml`
+5. (опционально)Создайте файл `vault_password.txt` со строкой пароля Ansible Vault
+5. (опционально)Зашифруйте переменные: `./encrypt_vars.sh`
+6. Запустите плейбук: `ansible-playbook playbook1.yml`
 
 После выполнения плейбука, WordPress будет доступен по адресу http://server_ip/
 
@@ -71,7 +71,7 @@ Distributed Computing course for DevOps 2025
 
 3. Запустите playbook:
    ```bash
-   ansible-playbook mysql-cluster-playbook.yml -i inventory.ini
+   ansible-playbook playbook2.yml
    ```
 
 ## Настройка кластера
@@ -121,7 +121,7 @@ mysql_cluster_nodes: 5  # Увеличить количество узлов к�
 Мониторинг настраивается с помощью Ansible Playbook:
 
 ```bash
-ansible-playbook monitor-cluster-playbook.yml
+ansible-playbook playbook3.yml
 ```
 
 ## Доступ к интерфейсам мониторинга
