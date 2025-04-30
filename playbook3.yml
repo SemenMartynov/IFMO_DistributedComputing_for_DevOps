@@ -39,7 +39,7 @@
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
     - name: Generate Prometheus config
       template:
-        src: templates/prometheus.yaml.j2.j2
+        src: templates/prometheus.yaml.j2
         dest: prometheus.yaml
     - name: Create Prometheus container
       community.docker.docker_container:
