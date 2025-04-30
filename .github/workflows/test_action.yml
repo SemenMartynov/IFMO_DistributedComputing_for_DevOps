@@ -20,7 +20,7 @@ jobs:
     - uses: mikefarah/yq@master
       id: set_ipaddress
       with:
-        cmd: yq -i 'all.hosts.carrier.ansible_host = "127.0.0.1"' inventory.yml
+        cmd: yq -i '.ansible_host = "127.0.0.1"' inventory.yml
 
     - name: "Check inventory.yml"
       run: |
