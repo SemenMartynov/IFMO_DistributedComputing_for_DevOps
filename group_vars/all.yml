@@ -15,7 +15,7 @@ db_dump_path: /tmp/dump.sql
 grafana_pass: 12345
 grafana_port: 3000
 
-is_wordpress: True
+is_wordpress: true
 
 wordpress_db_name: wordpress
 wordpress_port: 8080
