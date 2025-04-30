@@ -39,10 +39,10 @@
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
     - name: Create Prometheus config dir
       ansible.builtin.file:
-      path: /prometheus
-      state: directory
-      recurse: true
-      mode: 0755
+        path: /prometheus
+        state: directory
+        recurse: true
+        mode: 0755
     - name: Generate Prometheus config
       ansible.builtin.template:
         src: templates/prometheus.yaml.j2
