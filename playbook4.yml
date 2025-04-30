@@ -16,3 +16,11 @@
           - "db_pass: {{ db_pass }}" # root password for DBs
           - "loadbalancer: {{ loadbalancer }}" # container name
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: Backup current WP databases just for sake of safety
+      mysql_db:
+        state: dump
+        name: all
+        target: '{{ wp_mysql_dump }}'
+        login_host: 10.16.1.3
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
