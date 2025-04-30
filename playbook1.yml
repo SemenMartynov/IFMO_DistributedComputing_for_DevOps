@@ -2,8 +2,7 @@
 - name: Home work 1
   hosts: carrier
 - name: Include wordpress install playbook
-  ansible.builtin.import_playbook:
-    file: wp-mysql-playbook.yml
+  ansible.builtin.import_playbook: wp-mysql-playbook.yml
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
