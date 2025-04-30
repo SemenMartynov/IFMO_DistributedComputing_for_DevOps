@@ -1,0 +1,40 @@
+name: Install Docker
+
+on: push
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH connection
+        run: |
+          mkdir -p ~/.ssh
+          # Сохраняем ключ из секретов в правильный файл
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          # Устанавливаем строгие права
+          chmod 600 ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
+          
+          # Добавляем хост в known_hosts
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          
+          # Проверяем подключение
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no denis@${{ secrets.SERVER_IP }} "echo 'SSH Connection Successful!'"
+
+      - name: Install Jinja2
+        run: pip install jinja2-cli
+
+      - name: Generate inventory from template
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+        run: |
+          mkdir -p ansible/inventory/generated
+          jinja2 ansible/inventory/template.yml.j2 -D server_ip="$SERVER_IP" > ansible/inventory/generated/production.yml
+
+      - name: Run Ansible
+        run: |
+          ansible-playbook \
+            -i ansible/inventory/generated/production.yml \
+            ansible/site.yml \
