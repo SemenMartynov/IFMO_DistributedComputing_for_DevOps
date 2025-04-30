@@ -26,6 +26,7 @@
       community.docker.docker_container:
         name: 'mysqld-exporter'
         image: 'prom/mysqld-exporter'
+        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104' web.telemetry-path='/probe'
         state: started
         restart: true
         restart_policy: on-failure
@@ -34,13 +35,10 @@
             ipv4_address: 10.16.1.5
         exposed_ports:
           - 9104
-        volumes:
-          - mysqld-exporter.cnf:/.my.cnf
+#        volumes:
+#          - mysqld-exporter.cnf:/.my.cnf
         env:
-          WORDPRESS_DB_HOST: '{{ db_container_name }}'
-          WORDPRESS_DB_USER: '{{ wp_dbuser }}'
-          WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
-          WORDPRESS_DB_NAME: '{{ wp_dbname }}'
+          MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}
 
     - name: Create Prometheus container
       community.docker.docker_container:
@@ -62,12 +60,11 @@
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
           WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
           WORDPRESS_DB_NAME: '{{ wp_dbname }}'
-
     
     - name: Create Graphana container
       community.docker.docker_container:
         name: 'grafana'
-        image: 'grafana/grafana'
+        image: 'grafana/grafana-enterprise'
         state: started
         restart: true
         restart_policy: on-failure
