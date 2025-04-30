@@ -1,0 +1,60 @@
+---
+- name: Deploy WordPress with Docker
+  hosts: localhost
+  become: yes
+  vars:
+    ansible_ssh_private_key_file: ./private_key
+  tasks:
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Pull MySQL Docker image
+      community.docker.docker_image:
+        name: mysql:5.7
+        source: pull
+
+    - name: Create MySQL container
+      docker_container:
+        name: mysql_db
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: "rootpass"
+          MYSQL_DATABASE: "wordpress"
+          MYSQL_USER: "wordpress"
+          MYSQL_PASSWORD: "wordpresspass"
+        ports:
+          - "3306:3306"
+        volumes:
+          - mysql_data:/var/lib/mysql
+        state: started
+
+    - name: Pull WordPress Docker image
+      community.docker.docker_image:
+        name: wordpress:latest
+        source: pull
+
+    - name: Create WordPress container
+      docker_container:
+        name: wordpress_app
+        image: wordpress:latest
+        env:
+          WORDPRESS_DB_HOST: "mysql_db:3306"
+          WORDPRESS_DB_USER: "wordpress"
+          WORDPRESS_DB_PASSWORD: "wordpresspass"
+          WORDPRESS_DB_NAME: "wordpress"
+        ports:
+          - "8080:80"
+        links:
+          - mysql_db
+        state: started
+
+    - name: Ensure containers are running
+      docker_container_info:
+        name: "{{ item }}"
+      loop:
+        - mysql_db
+        - wordpress_app
+      register: container_info
