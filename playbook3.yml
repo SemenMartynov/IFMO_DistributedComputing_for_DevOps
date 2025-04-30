@@ -12,8 +12,8 @@
 
     - name: Create Prometheus MySQL export container
       community.docker.docker_container:
-        name: 'prometheus'
-        image: 'quay.io/prometheus/node-exporter'
+        name: 'mysqld-exporter'
+        image: 'prom/mysqld-exporter'
         state: started
         restart: true
         restart_policy: on-failure
@@ -21,10 +21,9 @@
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.5
         exposed_ports:
-          - 9090
+          - 9104
         volumes:
-          - prometheus.yml:/etc/prometheus/prometheus.yml
-          - 'prometheus-data:/prometheus'
+          - mysqld-exporter.cnf:/.my.cnf
         env:
           WORDPRESS_DB_HOST: '{{ db_container_name }}'
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
@@ -44,7 +43,7 @@
         exposed_ports:
           - 9090
         volumes:
-          - prometheus.yml:/etc/prometheus/prometheus.yml
+          - prometheus.yaml:/etc/prometheus/prometheus.yml
           - 'prometheus-data:/prometheus'
         env:
           WORDPRESS_DB_HOST: '{{ db_container_name }}'
@@ -61,6 +60,8 @@
         restart: true
         restart_policy: on-failure
         networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: 10.16.1.7
           - name: '{{ wp_ext_network }}'
         ports:
           - 3000:3000
