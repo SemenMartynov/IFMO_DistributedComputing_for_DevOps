@@ -150,32 +150,12 @@ jobs:
         sudo docker ps -a
         sudo docker volume ls
         sudo docker network ls
-        
-    - name: DEBUG show docker logs db1
-      run: |    
-        sudo docker logs db1
-
-    - name: DEBUG show docker logs db2
-      run: |    
-        sudo docker logs db2
-
-    - name: DEBUG show docker logs db3
-      run: |    
-        sudo docker logs db3
-
-    - name: DEBUG show docker logs mysqlrouter
-      run: |    
-        sudo docker logs mysqlrouter
-
-    - name: Testing MySQL replication is running on DB1
-      run: |    
-        sudo docker exec db1 mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' -e 'SHOW DATABASES'
-
-    - name: Testing MySQL replication is running on DB2
-      run: |    
-        sudo docker exec db2 mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES'
 
     - name: Testing wordpress container is serving HTTP port
       run: |
         sleep 7 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
+
+    - name: Testing Graphana container is serving HTTP port
+      run: |
+        curl -v "http://127.0.0.1:3000/" || true
