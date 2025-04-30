@@ -20,7 +20,12 @@ jobs:
     - uses: mikefarah/yq@master
       id: set_ipaddress
       with:
-        cmd: yq -i '.ansible_host = "127.0.0.1"' inventory.yml
+        cmd: yq -i '.carrier.ansible_host = "127.0.0.1"' inventory.yml
+
+    - name: "Check inventory.yml"
+      run: |
+        cat inventory.yml
+        echo '127.0.0.1 carrier ' >> /etc/hosts
 
     - name: "Install Ansible"
       run: pip install ansible
@@ -29,7 +34,7 @@ jobs:
       run: ansible-playbook --version
 
     - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, playbook1.yml
+      run: ansible-playbook --connection=local --inventory carrier, playbook1.yml
 
     - name: Testing wordpress container is serving HTTP port
       run: |
