@@ -5,13 +5,6 @@
     pkg:
       - python3-pip
 
-- name: Install PyMySQL
-  ansible.builtin.pip:
-    name: 
-      - PyYAML
-      - docker-cli
-      - docker-compose
-
 - name: Create a lab directory if it does not exist
   ansible.builtin.file:
     path: ~/lab3
