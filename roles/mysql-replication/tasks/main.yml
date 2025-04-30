@@ -1,0 +1,145 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+- name: Dump all databases
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c 'mariadb-dump --add-drop-database -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE > /var/lib/mysql/dump.sql'
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0755'
+  loop:
+    - "{{ project_dir }}/mariadb-master/config"
+    - "{{ project_dir }}/mariadb-replica/config"
+    - "{{ project_dir }}/mariadb-replica/init"
+
+- name: Update docker-compose
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+
+- name: Configure MariaDB master
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-master/config/my.cnf"
+      mode: '0644'
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
+      content: |
+        [mariadb]
+        log-bin
+        server_id=3000
+        log-basename=my-mariadb
+        binlog-format=MIXED             
+
+- name: Configure MariaDB replica
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-replica/config/my.cnf"
+      mode: '0644'
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
+      content: |
+        [mariadb]
+        server_id=3001
+        log-basename=my-mariadb
+        binlog-format=MIXED
+
+- name: Initialize MariaDB replica
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-replica/init/init.sql"
+      mode: '0644'
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
+      content: |
+        CHANGE MASTER TO
+          MASTER_HOST='db',
+          MASTER_USER='{{ replication_user }}',
+          MASTER_PASSWORD='{{ replication_password }}',
+          MASTER_PORT=3306,
+          MASTER_CONNECT_RETRY=10;
+
+- name: Apply updated compose file
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+  register: output
+
+- name: Show compose results
+  ansible.builtin.debug:
+    var: output
+
+- name: Verify that services are running
+  ansible.builtin.assert:
+    that:
+      - wp_container.State == 'running'
+      - db_container.State == 'running'
+      - db_replica_container.State == 'running'
+  vars:
+    wp_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
+    db_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db") | first }}
+    db_replica_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-replica") | first }}
+
+- name: Wait until master database is up
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='select 1;' --skip-column-names -s;"
+  register: result
+  retries: 5
+  delay: 30
+  until:   
+    - result.rc == 0 
+    - result.stdout == "1"
+
+- name: Set up replication user
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c "mariadb -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; \
+        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%'; \
+        FLUSH PRIVILEGES;\""
+
+- name: Restore master databases
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db
+    command: >
+      sh -c 'mariadb -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
+
+- name: Wait until replication starts
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db-replica
+    command: >
+      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;' | grep -E 'Slave_IO_Running:|Slave_SQL_Running:' | tr -d '[:space:]'"
+  register: result
+  retries: 5
+  delay: 30
+  until:
+    - result.rc == 0 
+    - result.stdout == "Slave_IO_Running:YesSlave_SQL_Running:Yes"
+
+- name: Get replication status
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ project_dir }}"
+    service: db-replica
+    command: >
+      sh -c "mariadb -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;'"
+  register: result
+
+- name: Show replication status
+  ansible.builtin.debug:
+    var: result.stdout_lines

@@ -1,0 +1,9 @@
+---
+- name: Run wordpress and db containers in docker
+  hosts: remote
+  become: true
+  roles:
+    - docker
+    - wordpress
+  vars:
+    docker_users: [ "{{ ansible_ssh_user }}" ]
