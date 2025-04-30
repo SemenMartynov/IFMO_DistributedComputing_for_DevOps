@@ -24,7 +24,7 @@
       community.docker.docker_container:
         name: 'mysqld-exporter'
         image: 'prom/mysqld-exporter'
-        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104' --web.telemetry-path='/probe'
+        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104' #--web.telemetry-path='/probe'
         state: started
         restart: true
         restart_policy: on-failure
