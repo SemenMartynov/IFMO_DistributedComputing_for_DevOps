@@ -37,10 +37,16 @@
 #          - mysqld-exporter.cnf:/.my.cnf
         env:
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
+    - name: Create Prometheus config dir
+      ansible.builtin.file:
+      path: /prometheus
+      state: directory
+      recurse: true
+      mode: 0755
     - name: Generate Prometheus config
-      template:
+      ansible.builtin.template:
         src: templates/prometheus.yaml.j2
-        dest: prometheus.yml
+        dest: /prometheus/prometheus.yml
     - name: Create Prometheus container
       community.docker.docker_container:
         name: 'prometheus'
@@ -54,7 +60,7 @@
         exposed_ports:
           - 9090
         volumes:
-          - prometheus.yml:/etc/prometheus/prometheus.yml:ro
+          - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
           - prometheus-data:/prometheus
         env:
           WORDPRESS_DB_HOST: '{{ db_container_name }}'
