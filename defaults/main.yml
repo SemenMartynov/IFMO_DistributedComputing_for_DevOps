@@ -9,7 +9,25 @@ wp_dbname: wp_dbname
 wp_dbuser: wp_dbuser
 wp_int_network: wp_int_network
 wp_ext_network: wp_ext_network
-pwd_alias: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
-mysql_root_pw: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') or 'MySQL_s3cret_Pas3w0rD' }}"
+mysql_root_pw: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') or 'MySQL_r00t_s3cret_Pas3w0rD' }}"
+mysql_passwd: "{{ lookup('env', 'MYSQL_WP_PASSWORD') or 'MySQL_WP_s3cret_Pas3w0rD' }}"
 wp_clustername: "{{ lookup('env', 'MYSQL_CLUSTER_NAME') or 'WP_CLUSTER' }}"
 wp_mysql_dump: "{{ lookup('env', 'MYSQL_DUMP_NAME') or '/var/tmp/{{ wp_dbname }}.sql' }}"
+
+is_wordpress: true
+wordpress_port: 80
+wordpress_db_name: "{{ wp_dbname }}"
+db_host: "{{ db_container_name }}"
+db_pass: "{{ mysql_root_pw }}"
+
+db_maser: '{{ db_container_name }}'
+db_replica: '{{ db_container_name }}_replica'
+
+monitoring_url: ""
+
+db1_host: db1
+db2_host: db2
+db3_host: db3
+db4_host: db4
+db5_host: db5
+loadbalancer: lb
