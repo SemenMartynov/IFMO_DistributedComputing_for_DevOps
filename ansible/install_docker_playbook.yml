@@ -1,0 +1,72 @@
+---
+- name: Update package repository lists
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars:
+    packages_to_install:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+
+  tasks:
+    - name: Update apt repository lists (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: yes
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Install required packages (ca-certificates and curl)
+      apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Create directory for apt keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker's official GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+        validate_certs: yes
+
+    - name: Verify supported architectures
+      ansible.builtin.shell:
+        cmd: "curl -s https://download.docker.com/linux/ubuntu/dists/{{ ansible_distribution_release }}/Release | grep 'Architectures:'"
+      register: docker_archs
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Set correct architecture (handle x86_64/amd64)
+      ansible.builtin.set_fact:
+        docker_arch: >-
+          {% if ('amd64' in docker_archs.stdout) and (ansible_architecture == 'x86_64') %}amd64
+          {% elif ansible_architecture in docker_archs.stdout %} {{ ansible_architecture }}
+          {% else %}amd64{% endif %}
+    - name: Create Docker repository file
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.list
+        content: |
+          deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        owner: root
+        group: root
+        mode: '0644'
+      when: ansible_distribution == 'Ubuntu'
+    - name: Update apt repository lists (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: yes
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Install packages
+      apt:
+        name: "{{ packages_to_install }}"
+        state: present
