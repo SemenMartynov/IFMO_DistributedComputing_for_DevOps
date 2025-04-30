@@ -20,8 +20,8 @@ wordpress_db_name: "{{ wp_dbname }}"
 db_host: "{{ db_container_name }}"
 db_pass: "{{ mysql_root_pw }}"
 
-db_master: '{{ db_container_name }}'
-db_replica: '{{ db_container_name }}_replica'
+db_master: "{{ db_container_name }}"
+db_replica: "{{ db_container_name }}_replica"
 
 monitoring_url: ""
 
