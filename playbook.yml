@@ -1,0 +1,7 @@
+- name: Deploy WordPress with Docker
+  hosts: webservers
+  become: yes
+  roles:
+    - docker
+    - db_cluster
+    - wordpress
