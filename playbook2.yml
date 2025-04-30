@@ -1,6 +1,7 @@
 ---
 - name: Home work 2
   hosts: carrier
+  become: true
   vars_files:
     - defaults/main.yml
   tasks:
