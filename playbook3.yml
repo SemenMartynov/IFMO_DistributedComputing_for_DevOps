@@ -2,7 +2,8 @@
 - name: Home work 3
   hosts: carrier
   tasks:
-    - ansible.builtin.file:
+    - name: Create directories
+      ansible.builtin.file:
         mode: "0755"
         path: webapp/{{ item }}
         state: directory
@@ -12,12 +13,14 @@
         - grafana/datasources
         - prometheus
 
-    - ansible.builtin.copy:
+    - name: Copy dashboard.json
+      ansible.builtin.copy:
         dest: webapp/grafana/dashboards/dashboard.json
         mode: "0644"
         src: assets/dashboard.json
 
-    - ansible.builtin.copy:
+    - name: Copy dashboard.yml
+      ansible.builtin.copy:
         dest: webapp/grafana/dashboards/dashboard.yaml
         mode: "0644"
         content: |
@@ -32,7 +35,8 @@
               options:
                 path: /etc/grafana/provisioning/dashboards
 
-    - ansible.builtin.copy:
+    - name: Copy datasource.yml
+      ansible.builtin.copy:
         dest: webapp/grafana/datasources/datasource.yml
         mode: "0644"
         content: |
@@ -44,7 +48,8 @@
               url: http://prometheus:9090
               isDefault: true
 
-    - ansible.builtin.copy:
+    - name: Copy prometheus.yml
+      ansible.builtin.copy:
         dest: webapp/prometheus/prometheus.yml
         mode: "0644"
         content: |
@@ -64,7 +69,8 @@
                 - targets:
                   - db2-exporter:9104
 
-    - ansible.builtin.copy:
+    - name: Copy monitoring.yml
+      ansible.builtin.copy:
         dest: webapp/monitoring.yml
         mode: "0644"
         content: |
@@ -110,17 +116,20 @@
             grafana:
             prometheus:
 
-    - community.docker.docker_compose_v2:
+    - name: Create and start services
+      community.docker.docker_compose_v2:
         files:
           - docker-compose.yml
           - monitoring.yml
         project_src: webapp
         wait: true
 
-    - ansible.builtin.set_fact:
+    - name: Set monitoring_url
+      ansible.builtin.set_fact:
         monitoring_url: http://{{ ansible_ssh_host }}:{{ grafana_port }}
 
-    - ansible.builtin.uri:
+    - name: Check monitoring_url
+      ansible.builtin.uri:
         url: "{{ monitoring_url }}/api/health"
         status_code: 200
       delay: 10
