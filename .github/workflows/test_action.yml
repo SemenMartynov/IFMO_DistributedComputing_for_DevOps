@@ -151,6 +151,16 @@ jobs:
         sudo docker volume ls
         sudo docker network ls
 
+    - name: DEBUG show docker logs on mysqld-exporter
+      run: |    
+        sudo docker logs mysqld-exporter
+    - name: DEBUG show docker logs on prometheus
+      run: |    
+        sudo docker logs prometheus
+    - name: DEBUG show docker logs on grafana
+      run: |    
+        sudo docker logs grafana
+
     - name: Testing wordpress container is serving HTTP port
       run: |
         sleep 7 # need some time for docker containers to start properly
