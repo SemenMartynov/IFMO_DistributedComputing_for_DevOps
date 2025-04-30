@@ -40,7 +40,7 @@
     - name: Generate Prometheus config
       template:
         src: templates/prometheus.yaml.j2
-        dest: prometheus.yaml
+        dest: prometheus.yml
     - name: Create Prometheus container
       community.docker.docker_container:
         name: 'prometheus'
@@ -54,8 +54,8 @@
         exposed_ports:
           - 9090
         volumes:
-          - prometheus.yaml:/etc/prometheus/prometheus.yml
-          - 'prometheus-data:/prometheus'
+          - prometheus.yml:/etc/prometheus/prometheus.yml:ro
+          - prometheus-data:/prometheus
         env:
           WORDPRESS_DB_HOST: '{{ db_container_name }}'
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
@@ -76,7 +76,7 @@
         ports:
           - 3000:3000
         volumes:
-          - 'grafana-storage:/var/lib/grafana'
+          - grafana-storage:/var/lib/grafana
         env:
           GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
