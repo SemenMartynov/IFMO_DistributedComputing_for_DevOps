@@ -28,7 +28,7 @@
         update_cache: true
     - name: Create MySQL container for SLAVE
       community.docker.docker_container:
-        name: '{{ dbslave_container_name }}'
+        name: '{{ db_replica }}'
         image: '{{ db_container_image }}'
         command: >-
           --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON
@@ -39,7 +39,7 @@
         networks:
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.4
-            aliases: '{{ dbslave_container_name }}'
+            aliases: '{{ db_replica }}'
         exposed_ports:
           - 3306
           - 33060
