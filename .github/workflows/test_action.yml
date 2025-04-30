@@ -25,7 +25,7 @@ jobs:
     - name: "Check inventory.yml"
       run: |
         cat inventory.yml
-        echo '127.0.0.1 carrier ' >> /etc/hosts
+        sudo echo '127.0.0.1 carrier ' >> /etc/hosts
 
     - name: "Install Ansible"
       run: pip install ansible
