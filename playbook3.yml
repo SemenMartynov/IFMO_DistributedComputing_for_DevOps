@@ -36,7 +36,7 @@
 #        volumes:
 #          - mysqld-exporter.cnf:/.my.cnf
         env:
-          MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}
+          MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
     - name: Generate Prometheus config
       template:
         src: templates/prometheus.yaml.j2.j2
