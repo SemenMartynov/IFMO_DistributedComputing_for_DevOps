@@ -109,7 +109,7 @@
             ipv4_address: 10.16.1.2
           - name: '{{ wp_ext_network }}'
         ports:
-          - '80:80'
+          - '{{ wordpress_port }}:80'
         volumes:
           - 'wordpress:/var/www/html'
         env:
