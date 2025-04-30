@@ -78,8 +78,8 @@ jobs:
 
     - name: Testing MySQL replication is running
       run: |    
-        sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW DATABASES;' -e 'SHOW REPLICA STATUS\G;'
-        sudo docker exec db mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
+        sudo docker exec dbslave mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES;' -e 'SHOW REPLICA STATUS\G;'
+        sudo docker exec db mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
  #       sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
      
     - name: Testing wordpress container is serving HTTP port
@@ -110,15 +110,15 @@ jobs:
       run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
 
     - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, playbook1.yml
 
     - name: Testing wordpress container is serving HTTP port
       run: |
         sleep 7 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
-    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
-      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, convert-mysql-to-cluster-playbook.yml
+    - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
+      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, playbook2.yml
 
     - name: Testing docker containers are running
       run: |
@@ -144,11 +144,11 @@ jobs:
 
     - name: Testing MySQL replication is running on DB1
       run: |    
-        sudo docker exec db1 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' -e 'SHOW DATABASES'
+        sudo docker exec db1 mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SELECT * FROM performance_schema.replication_group_members\G;' -e 'SHOW DATABASES'
 
     - name: Testing MySQL replication is running on DB2
       run: |    
-        sudo docker exec db2 mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SHOW DATABASES'
+        sudo docker exec db2 mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES'
 
     - name: Testing wordpress container is serving HTTP port
       run: |
