@@ -76,7 +76,7 @@ jobs:
         sleep 7 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
-    - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
+    - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
       run: ansible-playbook -vv --connection=local --inventory carrier, playbook2.yml
 
     - name: Testing docker containers are running
@@ -85,17 +85,17 @@ jobs:
         sudo docker volume ls
         sudo docker network ls
         
-    - name: DEBUG show docker logs db
+    - name: DEBUG show docker logs on MASTER
       run: |    
         sudo docker logs db
         
-    - name: DEBUG show docker logs db1
+    - name: DEBUG show docker logs on SLAVE
       run: |    
-        sudo docker logs dbslave
+        sudo docker logs db_replica
 
     - name: Testing MySQL replication is running
       run: |    
-        sudo docker exec dbslave mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES;' -e 'SHOW REPLICA STATUS\G;'
+        sudo docker exec db_replica mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES;' -e 'SHOW REPLICA STATUS\G;'
         sudo docker exec db mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
  #       sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
      
