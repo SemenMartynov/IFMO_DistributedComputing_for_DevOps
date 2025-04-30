@@ -18,9 +18,7 @@
         host: '%'
         plugin_auth_string: '{{ mysql_passwd }}'
         plugin: caching_sha2_password
-        priv:
-          '*.*:PROCESS, REPLICATION CLIENT'
-          'performance_schema.*:SELECT'
+        priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
         state: present
     - name: Create Prometheus MySQL export container
       community.docker.docker_container:
