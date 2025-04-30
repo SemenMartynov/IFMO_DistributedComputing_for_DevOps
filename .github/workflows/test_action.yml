@@ -8,7 +8,7 @@ on:
 
 jobs:
           
-  test_standalone:
+  test_deploy_wordpress_with_standalone_mysql:
     name: Install Wordpress and MySQL containers 
     runs-on: ubuntu-24.04
 
@@ -22,7 +22,7 @@ jobs:
       run: ansible-playbook --version
 
     - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, playbook1.yml
 
     - name: Testing wordpress container is serving HTTP port
       run: |
@@ -52,7 +52,7 @@ jobs:
       run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
 
     - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
-      run: ansible-playbook --connection=local --inventory 127.0.0.1, wp-mysql-playbook.yml
+      run: ansible-playbook --connection=local --inventory 127.0.0.1, playbook1.yml
 
     - name: Testing wordpress container is serving HTTP port
       run: |
@@ -60,7 +60,7 @@ jobs:
         curl -v "http://127.0.0.1/" || true
 
     - name: Run Ansible Playbook locally to convert standalone MySQL to cluster
-      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, 'convert-mysql-to-master->slave-playbook.yml'
+      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, playbook2.yml
 
     - name: Testing docker containers are running
       run: |
@@ -87,7 +87,7 @@ jobs:
         sleep 7 # need some time for docker containers to start properly
         curl -v "http://127.0.0.1/" || true
 
-  test_convert_sandalone_to_cluster:
+  test_adding_monitoring_to_replication:
 
     runs-on: ubuntu-24.04
     steps:
@@ -119,6 +119,9 @@ jobs:
 
     - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
       run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, playbook2.yml
+
+    - name: Run Ansible Playbook locally to Add monitoring
+      run: ansible-playbook -vv --connection=local --inventory 127.0.0.1, playbook3.yml
 
     - name: Testing docker containers are running
       run: |
