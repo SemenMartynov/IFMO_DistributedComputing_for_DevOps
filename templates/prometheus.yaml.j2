@@ -35,7 +35,7 @@ scrape_configs:
     metrics_path: /probe
       params:
         # Not required. Will match value to child in config file. Default value is `client`.
-        auth_module: [client.servers]
+        auth_module: [client]
       static_configs:
         - targets:
           # All mysql hostnames or unix sockets to monitor.
@@ -48,4 +48,4 @@ scrape_configs:
           target_label: instance
         - target_label: __address__
           # The mysqld_exporter host:port
-          replacement: *:9104
+          replacement: mysqld-exporter:9104
