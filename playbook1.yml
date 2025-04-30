@@ -3,7 +3,7 @@
   hosts: carrier
   tasks:
     - name: Include wordpress install playbook
-      ansible.builtin.include_tasks:
+      ansible.builtin.import_tasks:
         file: wp-mysql-playbook.yml
     - name: Display Configuration Variables
       ansible.builtin.debug:
