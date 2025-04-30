@@ -62,11 +62,6 @@
         volumes:
           - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
           - prometheus-data:/prometheus
-        env:
-          WORDPRESS_DB_HOST: '{{ db_container_name }}'
-          WORDPRESS_DB_USER: '{{ wp_dbuser }}'
-          WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
-          WORDPRESS_DB_NAME: '{{ wp_dbname }}'
     
     - name: Create Graphana container
       community.docker.docker_container:
@@ -85,4 +80,4 @@
           - grafana-storage:/var/lib/grafana
         env:
           GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
-          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
+          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel,21821-mysql-exporter'
