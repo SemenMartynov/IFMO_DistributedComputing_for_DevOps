@@ -82,8 +82,8 @@
         mode: persist_only
       loop:
         - { name: server_id, value: 1 }
-        - { name: enforce_gtid_consistency, value: ON }
-        - { name: gtid_mode, value: ON }
+        - { name: enforce_gtid_consistency, value: 'ON' }
+        - { name: gtid_mode, value: 'ON' }
     - name: Prepare MASTER for Cloning - install plugin
       ignore_errors: true
       community.mysql.mysql_query:
