@@ -25,16 +25,6 @@
         enabled: yes
         state: started
 
-    - name: Allow necessary ports in UFW
-      ufw:
-        rule: allow
-        port: "{{ item }}"
-        proto: tcp
-      loop:
-        - "80"
-        - "443"
-        - "22"
-
     - name: Create Docker Compose directory
       file:
         path: "{{ docker_compose_path }}"
@@ -139,7 +129,3 @@
     - name: Check slave status
       shell: docker exec mysql_replica mysql -u root -p {{ root_password }} -e "SHOW SLAVE STATUS\G"
       register: slave_status_output
-
-    - name: Ensure UFW is enabled
-      ufw:
-        state: enabled
