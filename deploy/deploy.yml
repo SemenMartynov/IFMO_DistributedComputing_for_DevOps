@@ -1,0 +1,24 @@
+---
+- name: "Deploy docker and start containers"
+  hosts: deploy_hosts
+  become: true
+  roles:
+    - docker_setup
+  
+  tasks:
+    - name: Prepare project dir
+      ansible.builtin.file:
+        path: /opt/wordpress
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose and env
+      ansible.builtin.copy:
+        src: files/
+        dest: /opt/wordpress/
+        mode: '0755'
+    
+    - name: Start docker containers
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress/
+        files: /opt/wordpress/docker-compose.yml
