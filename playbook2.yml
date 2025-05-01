@@ -90,11 +90,11 @@
         login_port: 3306
         login_password: '{{ mysql_root_pw }}'
         query:
-          - SELECT 'Y' FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'clone'
+          - SELECT IF(PLUGIN_NAME IS NULL, 'N', 'Y') FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'clone'
       register: is_clone_plugin_installed
     - name: Prepare MASTER for Cloning - install plugin
 #      ignore_errors: true
-      when: is_clone_plugin_installed.stdout != 'Y'
+      when: is_clone_plugin_installed.stdout == 'N'
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.3
