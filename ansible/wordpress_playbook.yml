@@ -17,12 +17,12 @@
           - docker-compose
           - ufw
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Enable and start Docker service
       systemd:
         name: docker
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Create Docker Compose directory
