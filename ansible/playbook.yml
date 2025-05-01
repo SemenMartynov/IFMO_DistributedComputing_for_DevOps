@@ -13,8 +13,8 @@
     - mysql
     - wordpress
 
-- name: Запуск mysql master-slave
-  hosts: mysql
-  become: true
-  roles:
-    - replicatied_mysql
+# - name: Запуск mysql master-slave
+#   hosts: mysql
+#   become: true
+#   roles:
+#     - replicatied_mysql

@@ -1,54 +1,50 @@
 ---
-- name: Запуск контейнера mysql
-  community.docker.docker_container:
+# - name: Запуск контейнера mysql
+#   community.docker.docker_container:
+#     name: "{{ mysql_container_name }}"
+#     image: "{{ mysql_image }}"
+#     env:
+#       MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
+#       MYSQL_DATABASE: "{{ vault_mysql_database }}"
+#       MYSQL_USER: "{{ vault_mysql_user }}"
+#       MYSQL_PASSWORD: "{{ vault_mysql_password }}"
+#     networks:
+#       - name: "{{ docker_network }}"
+#     state: started
+#     volumes:
+#       - /opt/mysql/data:/var/lib/mysql
+#       - /tmp/mysql_dumps:/tmp/mysql_dumps
+
+- name: Проверка запущенного контейнера
+  community.docker.docker_container_info:
     name: "{{ mysql_container_name }}"
-    image: "{{ mysql_image }}"
+  register: mysql_container_info
 
-    env:
-      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
-      MYSQL_DATABASE: "{{ vault_mysql_database }}"
-      MYSQL_USER: "{{ vault_mysql_user }}"
-      MYSQL_PASSWORD: "{{ vault_mysql_password }}"
-    networks:
-      - name: "{{ docker_network }}"
-    state: started
-    volumes:
-      - /opt/mysql/data:/var/lib/mysql
+- name: Проверка существования дампа базы данных
+  ansible.builtin.stat:
+    path: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+  register: dump_file
 
-- name: Проверка запущенного котнейнера
-  ansible.builtin.command: docker ps -q --filter "name={{ mysql_container_name }}"
-  register: mysql_container_status
-  changed_when: false
-
-- name: Создание директории для дампа
-  ansible.builtin.file:
-    path: /tmp/mysql_dumps
-    state: directory
-    mode: '0755'
-  when: mysql_container_status.stdout != ""
-
-
-- name: Создание дампа базы данных
-  ansible.builtin.shell: |
-    docker exec {{ mysql_container_name }} mysqldump -u root -p{{ vault_mysql_root_password }} {{ vault_mysql_database }} > /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
-  args:
-    executable: /bin/bash
-  when: mysql_container_status.stdout != ""
-  register: dump_result
-  until: dump_result.rc == 0
+- name: Создание дампа базы данных, если он не существует
+  community.docker.docker_container_exec:
+    container: "{{ mysql_container_name }}"
+    command: >
+      sh -c "mysqldump -u root -p'{{ vault_mysql_root_password }}' {{ vault_mysql_database }}
+      > /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+  when: not dump_file.stat.exists and mysql_container_info.exists
+  register: dump_created
   retries: 10
   delay: 5
-  changed_when: dump_result.rc == 0
 
-- name: Копирование дампа базы данных на локальную машину
-  ansible.builtin.fetch:
-    src: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
-    dest: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+- name: Скачивание дампа на локальную машину
+  fetch:
+    src: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    dest: "/tmp/mysql_dumps/"
     flat: true
-  when: dump_result.changed
+  when: not dump_file.stat.exists
 
--name: Остановка контейнера
+- name: Остановка контейнера, если он запущен
   community.docker.docker_container:
     name: "{{ mysql_container_name }}"
     state: stopped
-  when: dump_result.changed
+  when: mysql_container_info.exists
