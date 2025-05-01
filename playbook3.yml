@@ -60,7 +60,6 @@
         volumes:
           - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
           - prometheus-data:/prometheus
-    
     - name: Create Graphana container
       community.docker.docker_container:
         name: 'grafana'
@@ -77,10 +76,16 @@
         volumes:
           - grafana-storage:/var/lib/grafana
         env:
-          GF_SERVER_ROOT_URL: ''
+          GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
           GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
+    - name: Wait for Graphana to start
+      ansible.builtin.wait_for:
+        host: 'grafana'
+        port: '{{ grafana_server_port }}'
+        delay: 10
+      delegate_to: localhost
     - name: Create prometheus datasource
       community.grafana.grafana_datasource:
         grafana_url: '{{ monitoring_url }}'
