@@ -1,0 +1,2 @@
+[wordpress]
+wordpress_server ansible_host=192.168.0.111 ansible_user=ekaterinakaiser ansible_ssh_pass=Rfnthbyf98 ansible_become_pass=Rfnthbyf98 
