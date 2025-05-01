@@ -77,7 +77,7 @@
         volumes:
           - grafana-storage:/var/lib/grafana
         env:
-          GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
+          GF_SERVER_ROOT_URL: ''
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
           GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
@@ -88,7 +88,7 @@
         grafana_password: '{{ grafana_admin_password }}'
         name: "prometheus"
         ds_type: "prometheus"
-        ds_url: 'http://10.16.1.6:9090'
+        ds_url: 'http://prometheus:9090'
         is_default: true
     - name: Import Grafana dashboard for MySQL
       community.grafana.grafana_dashboard:
