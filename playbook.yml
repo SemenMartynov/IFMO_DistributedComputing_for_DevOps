@@ -1,0 +1,62 @@
+- hosts: praktikum
+  become: yes
+  vars:
+    project_directory: /opt/wordpress
+  tasks:
+    - name: Установка пакетов
+      apt:
+        name: 
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Добавление GPG ключей Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Добавление репозитория Docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+        state: present
+
+    - name: Установка Docker
+      apt:
+        name: 
+          - docker-ce
+          - docker-compose
+        state: latest
+
+    - name: Убедиться, что Docker запущен
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Создание папки под WordPress
+      file:
+        path: "{{ project_directory }}"
+        state: directory
+
+    - name: Копирование файлов
+      copy:
+        src: files/
+        dest: "{{ project_directory }}/"
+        directory_mode:
+
+    - name: Запуск WordPress через docker-compose
+      command: docker-compose up  -d
+      args:
+        chdir: "{{ project_directory }}"
+
+    - name: Проверка статуса контейнеров
+      command: docker-compose ps
+      args:
+        chdir: "{{ project_directory }}"
+      register: compose_status
+
+    - name: Вывод статуса контейнеров
+      debug:
+        var: compose_status.stdout_lines
