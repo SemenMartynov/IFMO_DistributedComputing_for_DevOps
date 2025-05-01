@@ -76,19 +76,19 @@
         volumes:
           - grafana-storage:/var/lib/grafana
         env:
-          GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
+          GF_SERVER_ROOT_URL: ''
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
           GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
     - name: Wait for Graphana to start
       ansible.builtin.wait_for:
-        host: 'grafana'
+        host: 10.16.1.7
         port: '{{ grafana_server_port }}'
         delay: 10
       delegate_to: localhost
     - name: Create prometheus datasource
       community.grafana.grafana_datasource:
-        grafana_url: '{{ monitoring_url }}'
+        grafana_url: 'http://10.16.1.7:3000'
         grafana_user: '{{ grafana_admin_username }}'
         grafana_password: '{{ grafana_admin_password }}'
         name: "prometheus"
@@ -97,7 +97,7 @@
         is_default: true
     - name: Import Grafana dashboard for MySQL
       community.grafana.grafana_dashboard:
-        grafana_url: '{{ monitoring_url }}'
+        grafana_url: 'http://10.16.1.7:3000'
         grafana_user: '{{ grafana_admin_username }}'
         grafana_password: '{{ grafana_admin_password }}'
         dashboard_url: 'https://grafana.com/api/dashboards/21821/revisions/1/download'
