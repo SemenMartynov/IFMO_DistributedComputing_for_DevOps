@@ -17,14 +17,14 @@
     - name: Install aptitude
       ansible.builtin.apt:
         name: aptitude
-        state: latest
+        state: latest # noqa package-latest
         update_cache: true
     - name: Install packages required by Ansible modules
       ansible.builtin.apt:
         pkg:
           - python3-pymysql
           - mysql-client
-        state: latest
+        state: latest # noqa package-latest
         update_cache: true
     - name: Create MySQL container for SLAVE
       community.docker.docker_container:
