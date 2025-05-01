@@ -63,6 +63,12 @@
         src: replica.conf
         dest: "{{ docker_compose_path }}/replica.conf"
 
+    - name: Dump existing WordPress database
+      shell: |
+        docker exec wordpress_db sh -c "exec mysqldump -u root -p {{ root_password }} wordpress" > "{{ docker_compose_path }}/wordpress.sql"
+      args:
+        executable: /bin/bash
+
     - name: Stop and remove existing containers (if any)
       shell: "docker-compose down"
       args:
@@ -80,6 +86,16 @@
       retries: 10
       delay: 5
       until: result.rc == 0
+
+    - name: Copy dump file into mysql_master container
+      shell: |
+        docker cp "{{ docker_compose_path }}/wordpress.sql" mysql_master:/wordpress.sql
+
+    - name: Import dump into mysql_master
+      shell: |
+        docker exec mysql_master sh -c "mysql -u root -p {{ root_password }} wordpress < /wordpress.sql"
+      args:
+        executable: /bin/bash
 
     - name: Create replication user on master
       shell: |
