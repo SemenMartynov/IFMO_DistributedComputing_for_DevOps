@@ -17,7 +17,7 @@
           - "loadbalancer: {{ loadbalancer }}" # container name
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
     - name: Backup current WP databases just for sake of safety
-      mysql_db:
+      community.mysql.mysql_db:
         state: dump
         name: all
         target: '{{ wp_mysql_dump }}'
