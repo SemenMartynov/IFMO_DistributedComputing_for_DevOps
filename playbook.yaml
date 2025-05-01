@@ -1,0 +1,201 @@
+---
+- name: WordPress и MySQL Master-Slave кластер (MySQL 8.0)
+  hosts: all
+  gather_facts: yes
+  become: yes
+  vars:
+    mysql_root_password: "root1234"
+    mysql_repl_user: "repl_user"
+    mysql_repl_password: "repl_password"
+    mysql_database: "wordpress_database"
+    mysql_user: "wordpress_user"
+    mysql_password: "wordpress_password"
+    mysql_config_dir: "/opt/mysql_cluster"
+    ansible_python_mysql_driver: pymysql
+
+  tasks:
+    # Установка базовых компонентов
+    - name: Установка необходимых пакетов
+      apt:
+        name:
+          - docker.io
+          - python3-pip
+          - python3-docker
+          - python3-pymysql
+        state: present
+        update_cache: yes
+
+    - name: Запуск Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Добавление пользователя в группу docker
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    # Подготовка конфигурации
+    - name: Создание директории для конфигов
+      file:
+        path: "{{ mysql_config_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: Создание конфига для Master
+      template:
+        src: my-master.cnf.j2
+        dest: "{{ mysql_config_dir }}/my-master.cnf"
+        mode: 0644
+
+    - name: Создание конфига для Slave
+      template:
+        src: my-slave.cnf.j2
+        dest: "{{ mysql_config_dir }}/my-slave.cnf"
+        mode: 0644
+
+    - name: Создание сети для контейнеров
+      community.docker.docker_network:
+        name: wp_network
+        driver: bridge
+
+    # MySQL Master
+    - name: Запуск MySQL Master
+      community.docker.docker_container:
+        name: mysql_master
+        image: mysql:8.0
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+          MYSQL_REPLICATION_USER: "{{ mysql_repl_user }}"
+          MYSQL_REPLICATION_PASSWORD: "{{ mysql_repl_password }}"
+        volumes:
+          - mysql_master_data:/var/lib/mysql
+          - "{{ mysql_config_dir }}/my-master.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3306:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
+
+    - name: Ожидание готовности Master
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3306
+        timeout: 120
+        delay: 10
+
+    # MySQL Slave
+    - name: Запуск MySQL Slave
+      community.docker.docker_container:
+        name: mysql_slave
+        image: mysql:8.0
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        volumes:
+          - mysql_slave_data:/var/lib/mysql
+          - "{{ mysql_config_dir }}/my-slave.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3307:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
+
+    - name: Ожидание готовности Slave
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3307
+        timeout: 120
+        delay: 10
+
+    # Настройка репликации
+    - name: Создаем пользователя репликации на Master
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3306
+        name: "{{ mysql_repl_user }}"
+        password: "{{ mysql_repl_password }}"
+        host: "%"
+        priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+        state: present
+
+    - name: Настройка репликации на Slave
+      community.mysql.mysql_replication:
+        mode: changereplication
+        primary_host: "{{ ansible_host }}"
+        primary_user: "{{ mysql_repl_user }}"
+        primary_password: "{{ mysql_repl_password }}"
+        primary_auto_position: 1
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
+      register: replication_setup
+      until: replication_setup is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Запуск репликации
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
+
+    - name: Проверка статуса репликации
+      community.mysql.mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
+      register: replication_status
+      until:
+        - replication_status.Replica_IO_Running == "Yes"
+        - replication_status.Replica_SQL_Running == "Yes"
+        - "'Waiting for source to send event' in replication_status.Replica_IO_State"
+      retries: 15
+      delay: 5
+
+    # WordPress
+    - name: Запуск WordPress
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:latest
+        networks:
+          - name: wp_network
+        restart_policy: always
+        published_ports:
+          - "80:80"
+        env:
+          WORDPRESS_DB_HOST: "mysql_master:3306"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+
+    - name: Проверка работы WordPress
+      uri:
+        url: "http://{{ ansible_host }}:80"
+        status_code: 200
+        timeout: 10
+      register: wordpress_status
+      until: wordpress_status.status == 200
+      retries: 15
+      delay: 5
