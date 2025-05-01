@@ -11,84 +11,85 @@
     repl_password: "replpass"
   tasks:
     - name: Install required packages
-      apt:
+      ansible.builtin.apt:
         name:
           - docker.io
           - docker-compose
-          - ufw
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Enable and start Docker service
-      systemd:
+      ansible.builtin.systemd:
         name: docker
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Create Docker Compose directory
-      file:
+      ansible.builtin.file:
         path: "{{ docker_compose_path }}"
         state: directory
         mode: '0755'
 
     - name: Copy Docker Compose file
-      copy:
+      ansible.builtin.copy:
         src: docker-compose.yml
         dest: "{{ docker_compose_path }}/docker-compose.yml"
         mode: '0644'
 
     - name: Copy Nginx Config File
-      copy:
+      ansible.builtin.copy:
         src: nginx.conf
         dest: "{{ docker_compose_path }}/nginx.conf"
         mode: '0644'
 
     - name: Copy master.conf
-      copy:
+      ansible.builtin.copy:
         src: master.conf
         dest: "{{ docker_compose_path }}/master.conf"
+        mode: '0644'
 
     - name: Copy replica.conf
-      copy:
+      ansible.builtin.copy:
         src: replica.conf
         dest: "{{ docker_compose_path }}/replica.conf"
+        mode: '0644'
 
     - name: Dump existing WordPress database
-      shell: |
+      ansible.builtin.shell: |
         docker exec wordpress_db sh -c "exec mysqldump -u root -p {{ root_password }} wordpress" > "{{ docker_compose_path }}/wordpress.sql"
       args:
         executable: /bin/bash
 
     - name: Stop and remove existing containers (if any)
-      shell: "docker-compose down"
+      ansible.builtin.shell: "docker-compose down"
       args:
         chdir: "{{ docker_compose_path }}"
       ignore_errors: true
 
     - name: Start Docker Compose
-      shell: "docker-compose up -d"
+      ansible.builtin.shell: "docker-compose up -d"
       args:
         chdir: "{{ docker_compose_path }}"
 
     - name: Wait for master to be ready
-      shell: docker exec mysql_master mysqladmin ping -u root -p {{ root_password }}
+      ansible.builtin.shell: docker exec mysql_master mysqladmin ping -u root -p {{ root_password }}
       register: result
       retries: 10
       delay: 5
       until: result.rc == 0
 
     - name: Copy dump file into mysql_master container
-      shell: |
+      ansible.builtin.shell: |
         docker cp "{{ docker_compose_path }}/wordpress.sql" mysql_master:/wordpress.sql
 
     - name: Import dump into mysql_master
-      shell: |
+      ansible.builtin.shell: |
         docker exec mysql_master sh -c "mysql -u root -p {{ root_password }} wordpress < /wordpress.sql"
       args:
         executable: /bin/bash
 
     - name: Create replication user on master
-      shell: |
+      ansible.builtin.shell: |
         docker exec mysql_master mysql -u root -p {{ root_password }} -e "\
         CREATE USER IF NOT EXISTS '{{ repl_user }}'@'%' IDENTIFIED BY '{{ repl_password }}'; \
         GRANT REPLICATION SLAVE ON *.* TO '{{ repl_user }}'@'%'; \
@@ -96,24 +97,24 @@
       changed_when: true
 
     - name: Get master status
-      shell: |
+      ansible.builtin.shell: |
         docker exec mysql_master mysql -u root -p {{ root_password }} -e "SHOW MASTER STATUS\G"
       register: master_status_output
 
     - name: Parse master status
-      set_fact:
+      ansible.builtin.set_fact:
         master_log_file: "{{ master_status_output.stdout | regex_search('File: (.*)', '\\1') }}"
         master_log_pos: "{{ master_status_output.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
 
     - name: Wait for replica to be ready
-      shell: docker exec mysql_replica mysqladmin ping -u root -p {{ root_password }}
+      ansible.builtin.shell: docker exec mysql_replica mysqladmin ping -u root -p {{ root_password }}
       register: result
       retries: 10
       delay: 5
       until: result.rc == 0
 
     - name: Configure replication on replica
-      shell: |
+      ansible.builtin.shell: |
         docker exec mysql_replica mysql -u root -p {{ root_password }} -e "\
         STOP SLAVE; \
         CHANGE MASTER TO \
@@ -127,5 +128,5 @@
       changed_when: true
 
     - name: Check slave status
-      shell: docker exec mysql_replica mysql -u root -p {{ root_password }} -e "SHOW SLAVE STATUS\G"
+      ansible.builtin.shell: docker exec mysql_replica mysql -u root -p {{ root_password }} -e "SHOW SLAVE STATUS\G"
       register: slave_status_output
