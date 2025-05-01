@@ -1,9 +1,0 @@
-# .ansible-lint
-skip_list:
-  - fqcn-builtins        # пока ты не перепишешь модули на ansible.builtin.*
-  - no-changed-when      # временно, если команды не делают idempotent
-  - command-instead-of-shell  # если используешь shell без нужды
-  - yaml[truthy]         # для случаев типа enabled: yes
-  - risky-file-permissions  # если не проставлены права на файлы явно
-warn_list: []
-verbosity: 1
