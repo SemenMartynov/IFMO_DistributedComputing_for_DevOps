@@ -75,12 +75,12 @@
             ipv4_address: 10.16.1.7
           - name: '{{ wp_ext_network }}'
         ports:
-          - 3000:3000
+          - {{ grafana_server_port }}:3000
         volumes:
           - grafana-storage:/var/lib/grafana
         env:
           GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel,https://grafana.com/api/dashboards/21821/revisions/1/download'
-          GF_SECURITY_ADMIN_USER: 'admin'
-          GF_SECURITY_ADMIN_PASSWORD: 'haha'
+          GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
+          GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
                     
