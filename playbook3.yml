@@ -24,7 +24,7 @@
       community.docker.docker_container:
         name: 'mysqld-exporter'
         image: 'prom/mysqld-exporter'
-        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104' #--web.telemetry-path='/probe'
+        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104'
         state: started
         restart: true
         restart_policy: on-failure
@@ -33,8 +33,6 @@
             ipv4_address: 10.16.1.5
         exposed_ports:
           - 9104
-#        volumes:
-#          - mysqld-exporter.cnf:/.my.cnf
         env:
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
     - name: Create Prometheus config dir
@@ -80,6 +78,23 @@
           - grafana-storage:/var/lib/grafana
         env:
           GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
-          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel,https://grafana.com/api/dashboards/21821/revisions/1/download'
+          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
           GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
+    - name: Create prometheus datasource
+      community.grafana.grafana_datasource:
+        grafana_url: '{{ monitoring_url }}'
+        grafana_user: '{{ grafana_admin_username }}'
+        grafana_password: '{{ grafana_admin_password }}'
+        name: "prometheus"
+        ds_type: "prometheus"
+        ds_url: 'http://10.16.1.6:9090'
+        is_default: true
+    - name: Import Grafana dashboard for MySQL
+      community.grafana.grafana_dashboard:
+        grafana_url: '{{ monitoring_url }}'
+        grafana_user: '{{ grafana_admin_username }}'
+        grafana_password: '{{ grafana_admin_password }}'
+        dashboard_url: 'https://grafana.com/api/dashboards/21821/revisions/1/download'
+        folder: 'public'
+        overwrite: true
