@@ -85,7 +85,6 @@
         - { name: enforce_gtid_consistency, value: 'ON' }
         - { name: gtid_mode, value: 'ON' }
     - name: Prepare MASTER for Cloning - install plugin
-      ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.3
@@ -93,6 +92,10 @@
         login_password: '{{ mysql_root_pw }}'
         query:
           - INSTALL PLUGIN clone SONAME 'mysql_clone.so'
+      register: result
+      failed_when:
+        - result.rc != 0
+        - "Function 'clone' already exists" not in result.stderr
     - name: Restart MySQL MASTER container
       community.docker.docker_container:
         name: '{{ db_container_name }}'
