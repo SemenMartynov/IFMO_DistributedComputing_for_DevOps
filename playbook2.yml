@@ -32,7 +32,7 @@
         image: '{{ db_container_image }}'
         command: >-
           --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON
-          --plugin-load-add='clone=mysql_clone.so' --clone=FORCE_PLUS_PERMANENT
+          --plugin-load-add='clone=mysql_clone.so' --clone=FORCE
         state: started
         restart: true
         restart_policy: on-failure
@@ -84,7 +84,7 @@
         - { name: server_id, value: 1 }
         - { name: enforce_gtid_consistency, value: 'ON' }
         - { name: gtid_mode, value: 'ON' }
-        - { name: clone, value: 'FORCE_PLUS_PERMANENT' }
+        - { name: clone, value: 'FORCE' }
     - name: Check if clone plugin is installed on MASTER
       community.mysql.mysql_query:
         login_host: 10.16.1.3
