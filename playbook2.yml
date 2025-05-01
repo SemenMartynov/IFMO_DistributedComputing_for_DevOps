@@ -15,12 +15,12 @@
           - "db_replica: {{ db_replica }}" # container name
           - "db_pass: {{ db_pass }}" # root password for master and replica
     - name: Install aptitude
-      apt:
+      ansible.builtin.apt:
         name: aptitude
         state: latest
         update_cache: true
     - name: Install packages required by Ansible modules
-      apt:
+      ansible.builtin.apt:
         pkg:
           - python3-pymysql
           - mysql-client
