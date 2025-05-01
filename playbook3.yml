@@ -101,5 +101,4 @@
         grafana_user: '{{ grafana_admin_username }}'
         grafana_password: '{{ grafana_admin_password }}'
         dashboard_url: 'https://grafana.com/api/dashboards/21821/revisions/1/download'
-        folder: 'public'
         overwrite: true
