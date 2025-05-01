@@ -1,0 +1,16 @@
+wordpress:
+  db_host: master
+cluster_vars:
+  replication_user: wordpress
+  replication_password: wordpress
+  backup_password: example_pass
+  root_password: example_pass
+  cluster_name: galera_cluster
+wordpress_db:
+  name: wordpress
+  user: wordpress
+  password: wordpress
+backup_dest: "/tmp/mysql_backups"
+old_db:
+  user: wordpress
+  passwd: wordpress

@@ -1,0 +1,45 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: ~/lab1
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yaml
+  ansible.builtin.copy:
+    src: docker-compose.yaml
+    dest: ~/lab1/docker-compose.yaml
+
+- name: Copy nginx config
+  ansible.builtin.copy:
+    src: nginx.conf
+    dest: ~/lab1/nginx.conf
+
+- name: Copy crt
+  ansible.builtin.copy:
+    src: localhost.crt
+    dest: ~/lab1/localhost.crt
+
+- name: Copy key
+  ansible.builtin.copy:
+    src: localhost.key
+    dest: ~/lab1/localhost.key
+
+- name: Copy apache config
+  ansible.builtin.copy:
+    src: apache.conf
+    dest: ~/lab1/apache.conf
+
+- name: Copy wp.conf
+  ansible.builtin.copy:
+    src: wp.conf
+    dest: ~/lab1/wp.conf
+
+- name: Copy Dockerfile
+  ansible.builtin.copy:
+    src: Dockerfile
+    dest: ~/lab1/Dockerfile
+
+- name: Docker compose up
+  ansible.builtin.shell: cd ~/lab1 && docker compose up -d

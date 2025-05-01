@@ -1,0 +1,12 @@
+- name: Make backup
+  hosts: default
+  gather_facts: true
+  become: true
+  roles:
+    - roles/backup
+- name: Deploy with DB cluster
+  hosts: default
+  gather_facts: true
+  become: true
+  roles:
+    - roles/redeploy_with_cluster
