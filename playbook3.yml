@@ -80,4 +80,7 @@
           - grafana-storage:/var/lib/grafana
         env:
           GF_SERVER_ROOT_URL: '{{ monitoring_url }}'
-          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel,21821-mysql-exporter'
+          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel,https://grafana.com/api/dashboards/21821/revisions/1/download'
+          GF_SECURITY_ADMIN_USER: 'admin'
+          GF_SECURITY_ADMIN_PASSWORD: 'haha'
+                    
