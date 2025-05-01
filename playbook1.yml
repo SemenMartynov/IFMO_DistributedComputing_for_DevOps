@@ -16,7 +16,7 @@
     - name: Install aptitude
       ansible.builtin.apt:
         name: aptitude
-        state: latest
+        state: latest # noqa package-latest
         update_cache: true
     - name: Install required system packages
       ansible.builtin.apt:
@@ -28,7 +28,7 @@
           - python3-pip
           - virtualenv
           - python3-setuptools
-        state: latest
+        state: latest # noqa package-latest
         update_cache: true
     - name: Add Docker GPG apt Key
       ansible.builtin.apt_key:
@@ -48,7 +48,7 @@
           - containerd.io
           - docker-buildx-plugin
           - docker-compose-plugin
-        state: latest
+        state: latest # noqa package-latest
         update_cache: true
     - name: Автозапуск сервиса docker
       ansible.builtin.service:
