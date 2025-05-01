@@ -41,12 +41,11 @@ scrape_configs:
         # All mysql hostnames or unix sockets to monitor.
         - {{ db_master }}:3306
         - {{ db_replica }}:3306
-        - unix:///run/mysqld/mysqld.sock
-      relabel_configs:
-        - source_labels: [__address__]
-          target_label: __param_target
-        - source_labels: [__param_target]
-          target_label: instance
-        - target_label: __address__
-          # The mysqld_exporter host:port
-          replacement: mysqld-exporter:9104
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        # The mysqld_exporter host:port
+        replacement: :9104
