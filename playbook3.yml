@@ -40,11 +40,16 @@
         path: /prometheus
         state: directory
         recurse: true
-        mode: 0755
+        mode: '0755'
+        owner: 0
+        group: 0
     - name: Generate Prometheus config
       ansible.builtin.template:
         src: templates/prometheus.yaml.j2
         dest: /prometheus/prometheus.yml
+        mode: '0644'
+        owner: 0
+        group: 0
     - name: Create Prometheus container
       community.docker.docker_container:
         name: 'prometheus'
