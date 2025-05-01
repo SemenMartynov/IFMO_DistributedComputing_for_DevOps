@@ -1,0 +1,86 @@
+- name: WordPress и MySQL
+  hosts: all
+  gather_facts: no
+  become: yes
+  vars:
+    mysql_root_password: "root1234"
+    mysql_database: "wordpress_database"
+    mysql_user: "wordpress_user"
+    mysql_password: "wordpress_password"
+  tasks:
+    - name: Установка необходимых пакетов
+      apt:
+        name:
+          - docker.io
+          - python3-pip
+          - python3-docker
+        state: present
+        update_cache: yes
+
+    - name: Запущен ли Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Создание volume для MySQL
+      docker_volume:
+        name: mysql_data
+        state: present
+
+    - name: Получение MySQL
+      docker_image:
+        name: mysql:5.7
+        source: pull
+
+    - name: Получение WordPress
+      docker_image:
+        name: wordpress:latest
+        source: pull
+
+    - name: Запуск MySQL в контейнере
+      docker_container:
+        name: mysql
+        image: mysql:5.7
+        restart_policy: always
+        state: started
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+        volumes:
+          - mysql_data:/var/lib/mysql
+        ports:
+          - "3306:3306"
+
+    - name: Ожидание доступности MySQL
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3306
+        timeout: 60
+
+    - name: Запуск WordPress в контейнере
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - "80:80"
+        env:
+          WORDPRESS_DB_HOST: "{{ ansible_host }}:3306"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+        links:
+          - mysql
+
+    - name: Проверка работы WordPress
+      uri:
+        url: "http://{{ ansible_host }}:80"
+        status_code: 200
+      register: wordpress_status
+      until: wordpress_status.status == 200
+      retries: 10
+      delay: 5
