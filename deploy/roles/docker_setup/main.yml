@@ -1,13 +1,13 @@
 - name: Install required packages
   ansible.builtin.apt:
-    name: 
+    name:
       - apt-transport-https
       - ca-certificates
       - lsb-release
       - gnupg
       - curl
     state: present
-    udate_cache: true
+    update_cache: true
 
 - name: Add GPG key
   ansible.builtin.apt_key:
@@ -15,17 +15,18 @@
     state: present
 
 - name: Get DEB architecture
-  shell: dpkg --print-architecture
+  ansible.builtin.shell: dpkg --print-architecture
   register: deb_architecture
+  changed_when: false
 
 - name: Check distribution
-  set_fact:
+  ansible.builtin.set_fact:
     distribution: Debian
     distribution_release: bullseye
   when: ansible_distribution == "Kali" and ansible_distribution_release == "kali-rolling"
 
 - name: Set default distribution values
-  set_fact:
+  ansible.builtin.set_fact:
     distribution: "{{ ansible_distribution }}"
     distribution_release: "{{ ansible_distribution_release }}"
   when: distribution is not defined and distribution_release is not defined
@@ -44,17 +45,17 @@
       - containerd.io
       - docker-compose
       - docker-compose-plugin
-    state: latest
+    state: present
     update_cache: true
   notify:
     - Start docker
 
 - name: Create docker group
-  group:
+  ansible.builtin.group:
     name: "docker"
     state: present
 
 - name: Add user to docker group
-  user:
+  ansible.builtin.user:
     name: "docker"
     group: "docker"
