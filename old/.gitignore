@@ -1,0 +1,27 @@
+# Vagrant
+.vagrant/
+*.log
+.vagrant
+
+
+# Ansible
+*.retry
+ansible.cfg
+ansible.log
+inventory.ini
+*.vault_pass
+
+# Переменные окружения и секреты
+.env
+*.env
+secrets/
+credentials/
+vault_password_file
+
+# Временные файлы
+*.tmp
+*.temp
+.DS_Store
+Thumbs.
+.vscode/
+.vscode

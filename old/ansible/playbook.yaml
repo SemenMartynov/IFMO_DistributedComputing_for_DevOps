@@ -1,0 +1,9 @@
+---
+- name: Первое задание
+  hosts: lemp
+  become: true
+  roles:
+    - docker
+    - nginx
+    - mysql
+    - wordpress

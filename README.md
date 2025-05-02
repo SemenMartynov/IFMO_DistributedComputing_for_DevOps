@@ -5,6 +5,10 @@ Distributed Computing course for DevOps 2025
 
 Второе домашнее задание по курсу "Распределенные Вычисления" ИТМО для магистратуры "DevOps Инженер облачных сервисов".
 
+### Исправление после первого ревью
+- заменены прямые команды command и bash модулями community.mysql*
+- прописана логика запуска плейбука сразу после плебйука первой лабораторной
+
 ## Задача
 Для инстанса WordPress заменить БД на кластер и обеспечить синхронизацию данных.
 
@@ -22,5 +26,7 @@ Distributed Computing course for DevOps 2025
 ## Запуск 
 ```bash
 vagrant up
-cd ansible/
+cd old/ansible/
+ansible-playbook -i inventory.ini playbook.yml
+cd ..
 ansible-playbook -i inventory.ini playbook.yml --vault-password-file test_vault_pass.txt

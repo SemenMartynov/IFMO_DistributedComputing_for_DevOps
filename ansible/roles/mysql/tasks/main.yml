@@ -37,10 +37,18 @@
   delay: 5
 
 - name: Скачивание дампа на локальную машину
-  fetch:
+  ansible.builtin.fetch:
     src: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
     dest: "/tmp/mysql_dumps/"
     flat: true
+  when: not dump_file.stat.exists
+
+- name: Установка прав на локальный дамп
+  ansible.builtin.file:
+    path: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    mode: "0644"
+  delegate_to: localhost
+  become: false
   when: not dump_file.stat.exists
 
 - name: Остановка контейнера, если он запущен

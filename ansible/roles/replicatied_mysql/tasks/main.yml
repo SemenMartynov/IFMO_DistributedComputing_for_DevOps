@@ -1,4 +1,12 @@
 ---
+- name: Установка зависимостей MySQL и килентов
+  ansible.builtin.package:
+    name:
+      - python3-pymysql
+      - python3-mysqldb
+      - default-mysql-client
+    state: present
+
 - name: Include master tasks
   ansible.builtin.include_tasks: master.yml
   when: inventory_hostname == 'mysql-master'

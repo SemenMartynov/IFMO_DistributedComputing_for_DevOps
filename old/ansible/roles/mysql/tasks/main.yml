@@ -1,0 +1,16 @@
+---
+- name: Запуск контейнера mysql
+  community.docker.docker_container:
+    name: "{{ mysql_container_name }}"
+    image: "{{ mysql_image }}"
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    networks:
+      - name: "{{ docker_network }}"
+    state: started
+    volumes:
+      - /opt/mysql/data:/var/lib/mysql
+      - /tmp/mysql_dumps:/tmp/mysql_dumps

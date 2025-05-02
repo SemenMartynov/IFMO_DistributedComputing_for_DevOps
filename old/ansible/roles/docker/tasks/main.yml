@@ -1,0 +1,106 @@
+---
+- name: Ensure the 'universe' repository is enabled
+  ansible.builtin.apt_repository:
+    repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
+    state: present
+
+- name: Обновление списка пакетов
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0  # принудительное обновление кеша
+  register: apt_update_result
+  retries: 5
+  delay: 2
+  until: apt_update_result is success
+
+- name: Check if python3-pip is available
+  ansible.builtin.command: apt-cache policy python3-pip
+  register: pip_policy
+  changed_when: false
+  ignore_errors: true
+
+- name: Установка необходимых пакетов
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+      - python3-pip
+    state: present
+
+- name: Check if a package from 'universe' is available
+  ansible.builtin.command: apt-cache policy python3-pip
+  register: package_info
+  changed_when: false
+
+- name: Display package info
+  ansible.builtin.debug:
+    var: package_info.stdout_lines
+
+- name: Debug ansible_distribution_release
+  ansible.builtin.debug:
+    msg: "{{ ansible_distribution_release }}"
+
+- name: Создание директории для GPG-ключей
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /usr/share/keyrings/docker.asc
+    mode: '0644'
+
+- name: Add Docker repository for focal Jammy
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Install Docker Engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+    state: present
+
+- name: Установка Python модуля для Docker
+  ansible.builtin.pip:
+    name: docker
+    state: present
+
+- name: Создание группы docker (если её нет)
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Добавление пользователя в группу docker
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+  notify: Перезапуск SSH-соединения
+
+- name: Установка прав доступа для сокета Docker
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    owner: root
+    group: docker
+    mode: '0660'
+  notify: Restart docker
+
+- name: Запуск и включение сервиса Docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Создаем сеть докера
+  community.docker.docker_network:
+    name: "{{ docker_network }}"
+    state: present
