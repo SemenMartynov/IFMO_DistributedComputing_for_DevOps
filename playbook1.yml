@@ -108,8 +108,7 @@
             aliases: '{{ wp_container_name }}int'
             ipv4_address: 10.16.1.2
           - name: '{{ wp_ext_network }}'
-        published_ports:
-          - '{{ wordpress_port }}'
+        ports: [ "{{ wordpress_port }}" ]
         volumes:
           - 'wordpress:/var/www/html'
         env:
