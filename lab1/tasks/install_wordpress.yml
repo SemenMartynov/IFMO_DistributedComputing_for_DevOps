@@ -1,21 +1,20 @@
 - name: Create necessary directories
-  file:
+  ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    mode: "{{ item.mode }}"
-  with_items:
-    - { path: "{{ vol_nginx_www }}", mode: '0755' }
-    - { path: "{{ vol_nginx_conf }}", mode: '0755' }
-    - { path: "{{ vol_db_data }}", mode: '0755' }
-    - { path: "{{ vol_db_conf }}", mode: '0755' }
-    - { path: "{{ vol_db_data_slave }}", mode: '0755' }
-    - { path: "{{ vol_db_conf_slave }}", mode: '0755' }
-
+    mode: "0o755"
+  loop:
+    - { path: "{{ vol_nginx_www }}" }
+    - { path: "{{ vol_nginx_conf }}" }
+    - { path: "{{ vol_db_data }}" }
+    - { path: "{{ vol_db_conf }}" }
+    - { path: "{{ vol_db_data_slave }}" }
+    - { path: "{{ vol_db_conf_slave }}" }
 
 - name: Copy Nginx conf files
-  copy:
+  ansible.builtin.copy:
     src: files/nginx.conf
-    dest: "{{vol_nginx_conf}}"
+    dest: "{{ vol_nginx_conf }}"
 
 - name: Create Docker network app_network
   community.docker.docker_network:
@@ -24,16 +23,16 @@
     state: present
 
 - name: Copy Docker Compose files
-  copy:
+  ansible.builtin.copy:
     src: files/docker-compose.yml
     dest: /data/docker-compose.yml
-  notify: "restart docker-compose"
+  notify: restart docker-compose
 
 - name: Copy Docker Compose slave sql files
-  copy:
+  ansible.builtin.copy:
     src: files/docker-compose-slave-sql.yml
     dest: /data/docker-compose-slave-sql.yml
-  notify: "restart docker-compose-slave-sql"
+  notify: restart docker-compose-slave-sql
 
 - name: Flush handlers after copying docker-compose
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers
