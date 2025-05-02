@@ -10,6 +10,8 @@
       MYSQL_PASSWORD: "{{ mysql_password }}"
     networks:
       - name: "{{ docker_network }}"
+    ports:
+      - "3306:3306"
     state: started
     volumes:
       - /opt/mysql/data:/var/lib/mysql
