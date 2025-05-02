@@ -3,7 +3,7 @@
 # vars file for lab1
 locale1: ru_RU.UTF-8
 locale2: en_US.UTF-8
-time_zone: MSK
+time_zone: Europe/Moscow
 
 wordpress_database: wordpress
 db_root_password: !vault |

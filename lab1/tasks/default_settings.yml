@@ -1,11 +1,12 @@
-- name: Update repositories cache and install "ca-certificates" package
+- name: Update repositories cache and install utils
   apt:
     pkg:
       - ca-certificates
       - curl
       - python3
-      - python3-virtualenv
+      - python3-venv
       - python3-pip
+      - mariadb-client
     update_cache: yes
 
 - name: Create Python3-virtual environment folder
@@ -22,7 +23,7 @@
       - cryptography
       - requests
     virtualenv: /opt/ansible_venv
-    virtualenv_python: python3
+    virtualenv_command: python3 -m venv
     state: present
 
 - name: Set Python interpreter to virtual environment

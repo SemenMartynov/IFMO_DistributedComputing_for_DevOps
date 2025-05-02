@@ -171,6 +171,23 @@
               check_replica_status.Slave_IO_Running != "Yes" or
               check_replica_status.Slave_SQL_Running != "Yes"
 
+        - name: Create dump wordpress databases by master
+          community.mysql.mysql_db:
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            state: dump
+            name: wordpress
+            target: /data/wordpress_dump.sql
+
+        - name: Import wordpress database to slave
+          community.mysql.mysql_db:
+            login_port: 3307
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            name: wordpress
+            state: import
+            target: /data/wordpress_dump.sql
+
         - name: Start slave replication
           community.mysql.mysql_replication:
             login_user: root
@@ -250,6 +267,11 @@
             name: db_slave
             state: started
             restart: true
+      always:
+        - name: Remove dump
+          ansible.builtin.file:
+            path: /data/wordpress_dump.sql
+            state: absent
 
     # --- Info ---
     - name: Display final replication status

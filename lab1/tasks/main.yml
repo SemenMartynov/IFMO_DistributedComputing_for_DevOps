@@ -3,13 +3,10 @@
 # tasks file for lab1
 ##### Default settings
 - include_tasks: default_settings.yml
-  tags: setup
 ##### Install Docker
 - include_tasks: install_docker.yml
-  tags: docker
 ##### Install WordPress
 - include_tasks: install_wordpress.yml
-  tags: wordpress
 ##### Create MariaDB replica
 - include_tasks: create_replica.yml
 
