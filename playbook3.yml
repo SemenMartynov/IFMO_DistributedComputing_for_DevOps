@@ -87,10 +87,10 @@
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
     - name: Wait for Graphana to start
       ansible.builtin.wait_for:
-        host: 10.16.1.7
+        host: '10.16.1.7'
         port: '{{ grafana_server_port }}'
         delay: 10
-      delegate_to: localhost
+      delegate_to: '{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}'
     - name: Create prometheus datasource
       community.grafana.grafana_datasource:
         grafana_url: 'http://10.16.1.7:3000'
