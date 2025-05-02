@@ -6,6 +6,7 @@ Distributed Computing course for DevOps 2025
 
 # [Лабораторная №1](LAB01.md)
 # [Лабораторная №2](LAB02.md)
+# [Лабораторная №3](LAB03.md)
 
 Тестирование:
 ------------
