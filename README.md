@@ -104,7 +104,7 @@ ansible-playbook playbook.yml
 |    ├── docker_installation/
 |    |   └── tasks/
 |    |       └── main.yml             # Установка Docker
-|    ├── wordpress_mysql_setup/
+|    ├── wordpress_mysql/
 |    |   ├── tasks/
 |    |   |   └── main.yml             # Настройка MySQL Master-Slave и WordPress
 |    |   ├── vars/

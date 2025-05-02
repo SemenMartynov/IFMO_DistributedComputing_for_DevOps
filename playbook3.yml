@@ -1,8 +1,147 @@
 ---
-- name: Home work 3
+- name: Развёртывание мониторинга Prometheus и Grafana
   hosts: carrier
+  become: true
   tasks:
+    - name: Создать Docker-тома для Prometheus и Grafana
+      community.docker.docker_volume:
+        name: "{{ item }}"
+      loop:
+        - "{{ prom_host }}_data"
+        - "{{ gf_host }}_data"
+
+    - name: Скопировать конфигурацию Prometheus
+      ansible.builtin.copy:
+        src: prometheus.yml
+        dest: /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml
+        mode: '0644'
+
+    - name: Запустить Prometheus контейнер
+      community.docker.docker_container:
+        name: "{{ prom_host }}"
+        image: "{{ prom_image }}"
+        restart_policy: always
+        ports:
+          - "{{ prom_port }}:9090"
+        volumes:
+          - "{{ prom_host }}_data:/prometheus"
+          - /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml:/etc/prometheus/prometheus.yml
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+
+    - name: Запустить Grafana контейнер
+      community.docker.docker_container:
+        name: "{{ gf_host }}"
+        image: "{{ gf_image }}"
+        restart_policy: always
+        ports:
+          - "{{ gf_port }}:3000"
+        volumes:
+          - "{{ gf_host }}_data:/var/lib/grafana"
+        networks:
+          - name: "{{ wp_host }}_net"
+        env:
+          GF_SECURITY_ADMIN_USER: "{{ gf_user }}"
+          GF_SECURITY_ADMIN_PASSWORD: "{{ gf_password }}"
+        state: started
+
+    - name: Создать директорию для Exporter
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/{{ project_name }}/monitoring
+        state: directory
+        mode: '0755'
+
+    - name: Получить информацию о DB
+      community.docker.docker_container_info:
+        name: "{{ db_host }}"
+      register: db
+
+    - name: Получить информацию о DB Slave
+      community.docker.docker_container_info:
+        name: "{{ db_replica_host }}"
+      register: db_slave
+
+    - name: Записать IP-адреса DB и DB Slave в переменные
+      ansible.builtin.set_fact:
+        db_ip: "{{ db.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+        db_slave_ip: "{{ db_slave.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Создать конфигурационные файлы для MySQL Exporter
+      ansible.builtin.template:
+        src: config.my-cnf.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item.name }}_config.my-cnf
+        mode: '0644'
+      loop:
+        - { name: "db_exporter", host: "{{ db_ip }}" }
+        - { name: "db_slave_exporter", host: "{{ db_slave_ip }}" }
+
+    - name: Установить Exporter на DB и DB Slave с конфигурационными файлами
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ exporter_image }}"
+        restart_policy: always
+        command: '--config.my-cnf=/cfg/config.my-cnf'
+        volumes:
+          - "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item.name }}_config.my-cnf:/cfg/config.my-cnf:ro"
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+      loop:
+        - { name: "db_exporter" }
+        - { name: "db_slave_exporter" }
+
+    - name: Проверить доступность Grafana через HTTP
+      ansible.builtin.uri:
+        url: "http://localhost:{{ gf_port }}/api/health"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: grafana_health
+      until: grafana_health.status == 200
+      retries: 5
+      delay: 10
+
+    - name: Настроить Prometheus как источник данных в Grafana
+      community.grafana.grafana_datasource:
+        url: "http://localhost:{{ gf_port }}"
+        grafana_user: "{{ gf_user }}"
+        grafana_password: "{{ gf_password }}"
+        name: "Prometheus"
+        ds_type: "prometheus"
+        ds_url: "http://{{ prom_host }}:{{ prom_port }}"
+        access: "proxy"
+        is_default: true
+        time_interval: "5s"
+        uid: "{{ prom_uid }}"
+        state: present
+
+    - name: Скачать дашборд MySQL Overview
+      ansible.builtin.uri:
+        url: "{{ dashboard_url }}"
+        dest: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        method: GET
+        headers:
+          Accept: "application/json"
+        return_content: true
+
+    - name: Установить в JSON актуальную переменную DS_PROMETHEUS
+      ansible.builtin.replace:
+        path: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        regexp: '\${DS_PROMETHEUS}'
+        replace: '{{ prom_uid }}'
+
+    - name: Добавить обновленный дашборд в Grafana
+      community.grafana.grafana_dashboard:
+        url: "http://localhost:{{ gf_port }}"
+        grafana_user: "{{ gf_user }}"
+        grafana_password: "{{ gf_password }}"
+        dashboard_url: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        state: present
+        overwrite: true
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "Grafana запущена по адресу: {{ ansible_host }}:{{ gf_port }}"
+          - "Prometheus запущен по адресу: {{ ansible_host }}:{{ prom_port }}/targets"

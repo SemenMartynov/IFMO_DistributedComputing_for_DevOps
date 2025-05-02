@@ -1,6 +1,7 @@
 ---
-- name: Home work 4
+- name: Создание кластера из 5 узлов на базе Galera Cluster
   hosts: carrier
+  become: true
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:

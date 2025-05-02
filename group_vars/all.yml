@@ -1,0 +1,38 @@
+# НАЗВАНИЕ ПРОЕКТА
+project_name: WP
+
+# ОБРАЗЫ
+db_image: mysql:8.3
+wp_image: wordpress:latest
+prom_image: prom/prometheus:latest
+gf_image: grafana/grafana:latest
+exporter_image: prom/mysqld-exporter:latest
+
+# ХОСТЫ
+wp_host: wp
+db_host: db
+db_replica_host: db_slave
+gf_host: gf
+prom_host: prom
+
+# ПОРТЫ
+wp_port: 80
+db_port: 3306
+gf_port: 3000
+prom_port: 9090
+
+# ДАННЫЕ БД
+db_name: wordpress
+db_root_user: root
+db_root_pass: rootpass
+db_user: wpuser
+db_pass: wppass
+db_replica_user: replica
+db_replica_pass: replicapass
+
+# МОНИТОРИНГ
+gf_user: admin
+gf_password: adminpass
+prom_uid: prometheusdatasource
+dashboard_file: mysql_overview_dashboard.json
+dashboard_url: https://grafana.com/api/dashboards/7362/revisions/5/download
