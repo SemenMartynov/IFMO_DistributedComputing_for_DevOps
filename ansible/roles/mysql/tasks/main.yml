@@ -1,4 +1,4 @@
----
+# ---
 # - name: Запуск контейнера mysql
 #   community.docker.docker_container:
 #     name: "{{ mysql_container_name }}"
@@ -15,6 +15,14 @@
 #       - /opt/mysql/data:/var/lib/mysql
 #       - /tmp/mysql_dumps:/tmp/mysql_dumps
 
+- name: Установка зависимостей MySQL и килентов
+  ansible.builtin.package:
+    name:
+      - python3-pymysql
+      - python3-mysqldb
+      - default-mysql-client
+    state: present
+
 - name: Проверка запущенного контейнера
   community.docker.docker_container_info:
     name: "{{ mysql_container_name }}"
@@ -26,11 +34,13 @@
   register: dump_file
 
 - name: Создание дампа базы данных, если он не существует
-  community.docker.docker_container_exec:
-    container: "{{ mysql_container_name }}"
-    command: >
-      sh -c "mysqldump -u root -p'{{ vault_mysql_root_password }}' {{ vault_mysql_database }}
-      > /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+  community.mysql.mysql_db:
+    login_user: root
+    login_host: 127.0.0.1
+    login_password: "{{ vault_mysql_root_password }}"
+    name: "{{ vault_mysql_database }}"
+    target: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    state: dump
   when: not dump_file.stat.exists and mysql_container_info.exists
   register: dump_created
   retries: 10
