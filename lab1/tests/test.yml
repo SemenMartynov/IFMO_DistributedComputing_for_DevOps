@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT-0
+---
+- name: Run lab1 role on localhost
+  hosts: localhost
+  connection: local
+  roles:
+    - lab1

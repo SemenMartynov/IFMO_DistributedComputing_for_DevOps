@@ -1,0 +1,45 @@
+- name: Create necessary directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - { path: "{{ vol_nginx_www }}" }
+    - { path: "{{ vol_nginx_conf }}" }
+    - { path: "{{ vol_db_data }}" }
+    - { path: "{{ vol_db_conf }}" }
+    - { path: "{{ vol_db_data_slave }}" }
+    - { path: "{{ vol_db_conf_slave }}" }
+  become: true
+
+- name: Copy Nginx conf files
+  ansible.builtin.copy:
+    src: files/nginx.conf
+    dest: "{{ vol_nginx_conf }}"
+    mode: '0644'
+  become: true
+
+- name: Create Docker network app_network
+  community.docker.docker_network:
+    name: app_network
+    driver: bridge
+    state: present
+
+- name: Copy Docker Compose files
+  ansible.builtin.copy:
+    src: files/docker-compose.yml
+    dest: /data/docker-compose.yml
+    mode: '0644'
+  notify: restart docker-compose
+  become: true
+
+- name: Copy Docker Compose slave sql files
+  ansible.builtin.copy:
+    src: files/docker-compose-slave-sql.yml
+    dest: /data/docker-compose-slave-sql.yml
+    mode: '0644'
+  notify: restart docker-compose-slave-sql
+  become: true
+
+- name: Flush handlers after copying docker-compose
+  ansible.builtin.meta: flush_handlers

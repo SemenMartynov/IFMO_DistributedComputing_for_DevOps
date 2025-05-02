@@ -1,0 +1,44 @@
+- name: Update repositories cache and install utils
+  ansible.builtin.apt:
+    pkg:
+      - ca-certificates
+      - curl
+      - python3
+      - python3-venv
+      - python3-pip
+      - mariadb-client
+    update_cache: true
+  become: true
+
+- name: Create Python virtual environment folder
+  ansible.builtin.file:
+    path: /opt/ansible_venv
+    mode: '0755'
+    state: directory
+  become: true
+
+- name: Install Python modules in virtual environment
+  ansible.builtin.pip:
+    name:
+      - PyMySQL
+      - mysql-connector-python
+      - cryptography
+      - requests
+    virtualenv: /opt/ansible_venv
+    virtualenv_command: python3 -m venv
+    state: present
+  become: true
+
+- name: Set Python interpreter to virtual environment
+  ansible.builtin.set_fact:
+    ansible_python_interpreter: /opt/ansible_venv/bin/python
+
+- name: Setup locale
+  ansible.builtin.shell: |
+    locale-gen {{ locale1 }}
+    update-locale LANG={{ locale2 }} LC_TIME={{ locale1 }}
+  when:
+    - ansible_env.LANG != locale2
+    - ansible_env.LC_TIME != locale1
+  changed_when: true
+  become: true

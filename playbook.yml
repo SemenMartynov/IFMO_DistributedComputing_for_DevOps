@@ -1,0 +1,5 @@
+- name: Install WordPress server
+  hosts: all
+  become: true
+  roles:
+    - lab1
