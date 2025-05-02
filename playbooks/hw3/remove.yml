@@ -1,0 +1,54 @@
+- hosts: vm1
+  become: true
+
+  tasks:
+    - name: Stop and remove Grafana container
+      community.docker.docker_container:
+        name: grafana
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove cAdvisor container
+      community.docker.docker_container:
+        name: cadvisor
+        state: absent
+        force_kill: true
+
+    - name: Remove Grafana config folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ grafana_config_path }}"
+        state: absent
+
+    - name: Remove Grafana data folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ grafana_data_path }}"
+        state: absent
+
+    - name: Remove Prometheus config folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ prometheus_config_path }}"
+        state: absent
+
+    - name: Remove Prometheus data folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ prometheus_data_path }}"
+        state: absent
+
+    - name: Remove monitoring network
+      community.docker.docker_network:
+        name: "{{ docker_monitoring_net }}"
+        state: absent
+
+    - name: Status
+      debug:
+        msg: "Cleanup for HW3 completed."

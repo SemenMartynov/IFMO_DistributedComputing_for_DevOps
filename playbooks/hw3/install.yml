@@ -1,0 +1,13 @@
+- hosts: vm1
+  become: true
+
+  pre_tasks:
+    - name: Create Docker network for monitoring
+      community.docker.docker_network:
+        name: "{{ docker_monitoring_net }}"
+        state: present
+
+  roles:
+    - cadvisor
+    - prometheus
+    - grafana

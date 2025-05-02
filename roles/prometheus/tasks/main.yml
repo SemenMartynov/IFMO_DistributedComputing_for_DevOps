@@ -1,0 +1,28 @@
+- name: Create folder
+  become: true
+  ansible.builtin.file:
+    path: "{{ prometheus_data_path }}"
+    state: "{{ folder_state }}"
+    mode: "{{ folder_mode }}"
+
+- name: Copy Prometheus config
+  become: true
+  ansible.builtin.copy:
+    src: "{{ prometheus_copy_src }}"
+    dest: "{{ prometheus_copy_dest }}"
+
+- name: Run Prometheus container
+  community.docker.docker_container:
+    name: "{{ prometheus_container_name }}"
+    image: "{{ prometheus_image }}"
+    restart_policy: "{{ prometheus_restart_policy }}"
+    ports:
+      - "{{ prometheus_ports }}"
+    volumes:
+      - "{{ prometheus_volume }}"
+    networks:
+      - name: "{{ docker_monitoring_net }}"
+
+- name: Confirm Prometheus is live
+  debug:
+    msg: "Prometheus is live at http://{{ hostvars[inventory_hostname].ansible_host }}:9090"

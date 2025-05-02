@@ -13,6 +13,11 @@
         name: "{{ pg_replica_volume }}"
         state: absent
 
+    - name: Remove pg_network
+      community.docker.docker_network:
+        name: "{{ pg_network }}"
+        state: absent
+
     - name: Status
       debug:
         msg: "Cleanup for HW2 completed."

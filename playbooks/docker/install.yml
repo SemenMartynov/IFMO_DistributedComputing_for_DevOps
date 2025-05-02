@@ -48,6 +48,10 @@
         groups: docker
         append: true
 
+    - name: Remind user to re-login
+      debug:
+        msg: "You have been added to the docker group. Please log out and log in again to apply the changes."
+
     - name: Verify Docker is installed
       ansible.builtin.command: docker --version
       register: docker_version_check

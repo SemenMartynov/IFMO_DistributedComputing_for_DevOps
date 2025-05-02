@@ -2,8 +2,7 @@
   community.docker.docker_container:
     name: "{{ strapi_container_name }}"
     image: "{{ strapi_image }}"
-    platform: "{{ strapi_platform }}"
-    restart_policy: always
+    restart_policy: "{{ strapi_restart_policy }}"
     env:
       DATABASE_CLIENT: "{{ strapi_database_client }}"
       DATABASE_HOST: "{{ strapi_database_host }}"

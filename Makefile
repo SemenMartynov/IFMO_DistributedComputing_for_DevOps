@@ -29,3 +29,9 @@ hw2-test:
 
 hw2-remove:
 	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw2/remove.yml
+
+hw3-install:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw3/install.yml
+
+hw3-remove:
+	$(LOAD_ENV) && $(ANSIBLE) -i $(INVENTORY) playbooks/hw3/remove.yml

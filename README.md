@@ -4,10 +4,15 @@
 
 ---
 
+### 📊 Мониторинг (Prometheus + Grafana)
+![monitoring.png](monitoring.png)
+
+---
 ### 📌 Зависимости
 
 - Ansible 2.18+
 - Коллекция `community.docker`
+- Коллекция `community.postgresql`
 
 ---
 
@@ -31,7 +36,9 @@ IFMO_DistributedComputing_for_DevOps/
 │   │   ├── install.yml     # Развёртывание HW2 (PostgreSQL master + replica)
 │   │   ├── remove.yml      # Очистка HW2
 │   │   └── test.yml        # Проверка репликации в HW2
-│
+│   ├── hw3/
+│   │   ├── install.yml     # Развёртывание HW3 (cAdvisor + Prometheus + Grafana)
+│   │   ├── remove.yml      # Очистка HW3
 ├── roles/
 │   ├── pg_cluster_master/  # Роль для развертывания мастер-базы
 │   │   └── tasks/
@@ -46,74 +53,29 @@ IFMO_DistributedComputing_for_DevOps/
 │           └── main.yml
 │
 ├── .env                    # Переменные окружения проекта
-├── .env.example            # Пример заполнения .env
 ├── .gitignore
 ├── ansible.cfg             # Конфигурация Ansible (пути для ролей и коллекций)
 ├── inventory.yml           # Инвентарь Ansible
 ├── Makefile                # Быстрые команды запуска
+├── requirements.yml        # Версии зависимостей (ansible модулей)
 └── README.md               # Документация проекта
 ```
 
 ---
-
-### ⚙️ Пример .env
-
-```env
-# SSH
-VM1_HOST_IP=
-VM1_SSH_USER=
-VM1_SSH_PASSWORD=
-VM1_SSH_KEY_PATH=
-
-# Docker
-DOCKER_UBUNTU_CODENAME=
-DOCKER_ARCHITECTURE=
-
-# PostgreSQL
-PG_REPLICATION_USER=
-PG_REPLICATION_PASSWORD=
-PG_USERNAME=
-PG_PASSWORD=
-PG_DATABASE=
-PG_POSTGRES_PASSWORD=
-PG_NETWORK=
-PG_PORT=
-PG_REPLICA_CONTAINER_NAME=
-PG_REPLICA_IMAGE=
-PG_REPLICA_VOLUME=
-PG_REPLICA_VOLUME_PATH=
-PG_MASTER_CONTAINER_NAME=
-PG_MASTER_IMAGE=
-PG_MASTER_VOLUME=
-PG_MASTER_VOLUME_PATH=
-
-# Strapi
-STRAPI_CONTAINER_NAME=
-STRAPI_CHECK_DELAY=
-STRAPI_CHECK_RETRIES=
-STRAPI_PLATFORM=
-STRAPI_IMAGE=
-STRAPI_PORTS=
-STRAPI_DATABASE_HOST=
-STRAPI_DATABASE_CLIENT=
-```
-
-> Используется `group_vars/all.yml` для подстановки значений из `.env`.
-
----
-
 ### 🚀 Команды Makefile
 
-| Команда               | Действие                                                              |
-|-----------------------|-----------------------------------------------------------------------|
-| `make init`           | Загружает переменные окружения из `.env`                             |
-| `make docker-install` | Устанавливает Docker на сервер                                       |
-| `make docker-remove`  | Удаляет Docker, его репозитории, ключи, группы и директории          |
-| `make hw1-install`    | Разворачивает окружение HW1 (PostgreSQL + Strapi)                    |
-| `make hw1-remove`     | Полностью удаляет окружение HW1                                      |
-| `make hw2-install`    | Разворачивает окружение HW2 (PostgreSQL кластер master + replica)    |
-| `make hw2-remove`     | Полностью удаляет окружение HW2                                      |
-| `make hw2-test`       | Проверяет работоспособность репликации и защиту от записи на слейв    |
+| Команда              | Действие                                                           |
+|----------------------|--------------------------------------------------------------------|
+| `make init`          | Загружает переменные окружения из `.env`                           |
+| `make docker-install` | Устанавливает Docker на сервер                                     |
+| `make docker-remove` | Удаляет Docker, его репозитории, ключи, группы и директории        |
+| `make hw1-install`   | Разворачивает окружение HW1 (PostgreSQL + Strapi)                  |
+| `make hw1-remove`    | Полностью удаляет окружение HW1                                    |
+| `make hw2-install`   | Разворачивает окружение HW2 (PostgreSQL кластер master + replica)  |
+| `make hw2-remove`    | Полностью удаляет окружение HW2                                    |
+| `make hw2-test`      | Проверяет работоспособность репликации и защиту от записи на слейв |
+| `make hw3-install`   | Разворачивает окружение HW3 (cAdvisor + Prometheus + Grafana)      |
+| `make hw3-remove`    | Полностью удаляет окружение HW3                                    |
 ---
 
 ### ✅ Функциональность
