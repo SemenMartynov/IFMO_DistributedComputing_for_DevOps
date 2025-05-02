@@ -10,11 +10,11 @@
     - vars.yml
 
   tasks:
-    - name: Print detected OS
+    - name: print detected OS
       debug:
         msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
 
-    - name: Install dependencies on Debian family
+    - name: install dependencies (Debian family)
       apt:
         name:
           - apt-transport-https
@@ -26,7 +26,7 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Install dependencies on RHEL-like
+    - name: install dependencies (RHEL familн)
       dnf:
         name:
           - dnf-plugins-core
@@ -72,13 +72,13 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Add Docker repo on RHEL-based systems
+    - name: add docker repo on RHEL-based systems
       get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: Install Docker on RHEL-based systems
+    - name: install docker on RHEL-based systems
       dnf:
         name:
           - docker-ce
@@ -110,7 +110,7 @@
         project_src: "{{ project_dir }}"
         state: present
 
-    - name: Wait for db-master to become healthy
+    - name: wait for db-master healthy
       community.docker.docker_container_info:
         name: db-master
       register: master_info
@@ -118,13 +118,13 @@
       retries: 15
       delay: 5
 
-    - name: Check if db-slave container exists
+    - name: check if db-slave container exists
       community.docker.docker_container_info:
         name: db-slave
       register: slave_info
       failed_when: not slave_info.exists
 
-    - name: Wait for db-slave to become healthy
+    - name: wait for db-slave healthy
       community.docker.docker_container_info:
         name: db-slave
       register: slave_info
