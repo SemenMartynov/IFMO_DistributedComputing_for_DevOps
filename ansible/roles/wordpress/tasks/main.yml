@@ -1,0 +1,16 @@
+---
+- name: Запуск PHP-FPM контейнера
+  community.docker.docker_container:
+    name: "{{ wordpress_container_name }}"
+    image: "{{ wordpress_image }}"
+    state: started
+    restart_policy: always
+    networks:
+      - name: "{{ docker_network }}"
+    volumes:
+      - "{{ wordpress_volume }}:/var/www/html"
+    env:
+      WORDPRESS_DB_HOST: '{{ hostvars["mysql-master"]["ansible_host"] }}:3306'
+      WORDPRESS_DB_NAME: "{{ vault_mysql_database }}"
+      WORDPRESS_DB_USER: "{{ vault_mysql_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ vault_mysql_password }}"

@@ -1,0 +1,4 @@
+---
+# defaults file for nginx
+wordpress_image: "wordpress:php8.1-fpm"
+wordpress_container_name: "wordpress-php"

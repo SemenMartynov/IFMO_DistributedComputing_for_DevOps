@@ -1,0 +1,4 @@
+docker_network: "lemp_docker_network"
+wordpress_volume: "wordpress_data"
+master_mysql_container_name: "master_mysql-container"
+slave_mysql_container_name: "slave_mysql-container"

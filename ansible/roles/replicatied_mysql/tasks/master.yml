@@ -1,0 +1,64 @@
+---
+- name: Создание контейнера для мастера
+  community.docker.docker_container:
+    name: "{{ master_mysql_container_name }}"
+    image: "{{ mysql_image }}"
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=row
+    restart_policy: always
+
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
+      MYSQL_DATABASE: "{{ vault_mysql_database }}"
+      MYSQL_USER: "{{ vault_mysql_user }}"
+      MYSQL_PASSWORD: "{{ vault_mysql_password }}"
+    ports:
+      - "3306:3306"
+    state: started
+    volumes:
+      - /tmp/mysql_dumps:/tmp/mysql_dumps
+      - /opt/mysql/data:/var/lib/mysql
+
+- name: Создание пользователя для репликации
+  community.docker.docker_container_exec:
+    container: "{{ master_mysql_container_name }}"
+    command: |
+      mysql -u root -p{{ vault_mysql_root_password }} -e "
+      CREATE USER IF NOT EXISTS '{{ vault_mysql_replication_user }}'@'%' IDENTIFIED BY '{{ vault_mysql_replication_password }}';"
+  register: create_user
+  until: create_user.rc == 0
+  retries: 10
+  delay: 5
+  changed_when: create_user.rc == 0
+
+- name: Настройка прав репликации
+  community.docker.docker_container_exec:
+    container: "{{ master_mysql_container_name }}"
+    command: |
+      mysql -u root -p{{ vault_mysql_root_password }} -e "
+      ALTER USER '{{ vault_mysql_replication_user }}'@'%' IDENTIFIED WITH 'mysql_native_password' BY '{{ vault_mysql_replication_password }}';
+      GRANT REPLICATION SLAVE ON *.* TO '{{ vault_mysql_replication_user }}'@'%';
+      FLUSH PRIVILEGES;"
+  register: setup_replication
+  changed_when: setup_replication.rc == 0
+  when: create_user.rc == 0
+
+- name: Проверка наличия дампа
+  ansible.builtin.stat:
+    path: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+  register: dump_result
+  delegate_to: localhost
+  become: false
+
+- name: Создание директории для дампа
+  ansible.builtin.file:
+    path: /tmp/mysql_dumps
+    state: directory
+    mode: '0755'
+  when: dump_result.stat.exists
+
+- name: Копирование дампа базы данных на сервер мастера
+  ansible.builtin.copy:
+    src: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+    dest: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+    mode: '0644'
+  when: dump_result.stat.exists
