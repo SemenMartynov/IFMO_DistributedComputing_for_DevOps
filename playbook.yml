@@ -3,6 +3,9 @@
   hosts: all
   become: true
 
+  collections:
+    - community.docker
+
   vars_files:
     - vars.yml
 
