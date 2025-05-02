@@ -1,8 +1,109 @@
 ---
 - name: Home work 3
   hosts: carrier
+  become: true
+  vars_files:
+    - defaults/main.yml
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: Create Prometheus export user on MASTER and SLAVE
+      community.mysql.mysql_user:
+        login_host: '10.16.1.3'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: export
+        host: '%'
+        plugin_auth_string: '{{ mysql_passwd }}'
+        plugin: caching_sha2_password
+        priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
+        state: present
+    - name: Create Prometheus MySQL export container
+      community.docker.docker_container:
+        name: 'mysqld-exporter'
+        image: 'prom/mysqld-exporter'
+        command: --mysqld.username='export' --web.listen-address='0.0.0.0:9104'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: 10.16.1.5
+        exposed_ports:
+          - 9104
+        env:
+          MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
+    - name: Create Prometheus config dir
+      ansible.builtin.file:
+        path: /prometheus
+        state: directory
+        recurse: true
+        mode: '0755'
+        owner: 0
+        group: 0
+    - name: Generate Prometheus config
+      ansible.builtin.template:
+        src: templates/prometheus.yaml.j2
+        dest: /prometheus/prometheus.yml
+        mode: '0644'
+        owner: 0
+        group: 0
+    - name: Create Prometheus container
+      community.docker.docker_container:
+        name: 'prometheus'
+        image: 'prom/prometheus'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: 10.16.1.6
+        exposed_ports:
+          - 9090
+        volumes:
+          - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+          - prometheus-data:/prometheus
+    - name: Create Graphana container
+      community.docker.docker_container:
+        name: 'grafana'
+        image: 'grafana/grafana-enterprise'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: 10.16.1.7
+          - name: '{{ wp_ext_network }}'
+        ports:
+          - "{{ grafana_server_port }}:{{ grafana_server_port }}"
+        volumes:
+          - grafana-storage:/var/lib/grafana
+        env:
+          GF_SERVER_ROOT_URL: ''
+          GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
+          GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
+          GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
+    - name: Wait for Graphana to start
+      ansible.builtin.wait_for:
+        host: 10.16.1.7
+        port: '{{ grafana_server_port }}'
+        delay: 10
+      delegate_to: localhost
+    - name: Create prometheus datasource
+      community.grafana.grafana_datasource:
+        grafana_url: 'http://10.16.1.7:3000'
+        grafana_user: '{{ grafana_admin_username }}'
+        grafana_password: '{{ grafana_admin_password }}'
+        name: "prometheus"
+        ds_type: "prometheus"
+        ds_url: 'http://prometheus:9090'
+        is_default: true
+    - name: Import Grafana dashboard for MySQL
+      community.grafana.grafana_dashboard:
+        grafana_url: 'http://10.16.1.7:3000'
+        grafana_user: '{{ grafana_admin_username }}'
+        grafana_password: '{{ grafana_admin_password }}'
+        dashboard_url: 'https://grafana.com/api/dashboards/21821/revisions/1/download'
+        overwrite: true

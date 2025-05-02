@@ -1,0 +1,37 @@
+---
+db_container_name: db
+mysql_release_version: "8.4"
+db_container_image: "container-registry.oracle.com/mysql/community-server:{{ mysql_release_version }}"
+mysqlrouter_container_image: "container-registry.oracle.com/mysql/community-router:{{ mysql_release_version }}"
+wp_container_name: wp
+wp_container_image: wordpress
+wp_dbname: wp_dbname
+wp_dbuser: wp_dbuser
+wp_int_network: wp_int_network
+wp_ext_network: wp_ext_network
+mysql_root_pw: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') or 'MySQL_r00t_s3cret_Pas3w0rD' }}"
+mysql_passwd: "{{ lookup('env', 'MYSQL_WP_PASSWORD') or 'MySQL_WP_s3cret_Pas3w0rD' }}"
+wp_clustername: "{{ lookup('env', 'MYSQL_CLUSTER_NAME') or 'WP_CLUSTER' }}"
+wp_mysql_dump: "{{ lookup('env', 'MYSQL_DUMP_NAME') or '/var/tmp/{{ wp_dbname }}.sql' }}"
+
+is_wordpress: true
+wordpress_port: 80
+wordpress_db_name: "{{ wp_dbname }}"
+db_host: "{{ db_container_name }}"
+db_pass: "{{ mysql_root_pw }}"
+
+db_master: "{{ db_container_name }}"
+db_replica: "{{ db_container_name }}_replica"
+
+grafana_admin_username: "{{ lookup('env', 'GF_SECURITY_ADMIN_USER') or 'admin' }}"
+grafana_admin_password: "{{ lookup('env', 'GF_SECURITY_ADMIN_PASSWORD') or 'MyGF_0dmln_s3cret_Pas3w0rD' }}"
+grafana_server_root_url: "{{ lookup('env', 'GF_SERVER_ROOT_URL') or inventory_hostname }}"
+grafana_server_port: 3000
+monitoring_url: 'http://{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}:{{ grafana_server_port }}'
+
+db1_host: db1
+db2_host: db2
+db3_host: db3
+db4_host: db4
+db5_host: db5
+loadbalancer: lb
