@@ -76,8 +76,8 @@
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.7
           - name: '{{ wp_ext_network }}'
-        ports:
-          - "{{ grafana_server_port }}:{{ grafana_server_port }}"
+        published_ports:
+          - '{{ grafana_server_port }}'
         volumes:
           - grafana-storage:/var/lib/grafana
         env:
