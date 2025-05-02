@@ -3,19 +3,16 @@
   hosts: all
   become: true
 
-  collections:
-    - community.docker
-
   vars_files:
     - vars.yml
 
   tasks:
     - name: Print detected OS
-      debug:
+      ansible.builtin.debug:
         msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
 
     - name: Install dependencies (Debian family)
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -23,85 +20,85 @@
           - software-properties-common
           - python3-pip
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Install dependencies (RHEL familн)
-      dnf:
+      ansible.builtin.dnf:
         name:
           - dnf-plugins-core
           - curl
           - python3-pip
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Install pymysql for ansible mariadb modules
-      pip:
+      ansible.builtin.pip:
         name: PyMySQL
       delegate_to: localhost
       become: false
 
     - name: Add docker gpg on debian-based systems
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Set docker repo based on distribution
-      set_fact:
+      ansible.builtin.set_fact:
         docker_repo: >-
           {{ 'deb https://download.docker.com/linux/ubuntu focal stable'
             if ansible_facts['distribution'] == 'Ubuntu'
             else 'deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable' }}
 
     - name: Add docker apt repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "{{ docker_repo }}"
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Install docker on debian-based systems
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
           - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Add docker repo on RHEL-based systems
-      get_url:
+      ansible.builtin.get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Install docker on RHEL-based systems
-      dnf:
+      ansible.builtin.dnf:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
           - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Checking status for docker service
-      service:
+      ansible.builtin.service:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Project dir creation
-      file:
+      ansible.builtin.file:
         path: "{{ project_dir }}"
         state: directory
 
     - name: Docker compose from template
-      template:
+      ansible.builtin.template:
         src: docker-compose.yml.j2
         dest: "{{ docker_compose_dest }}"
 
@@ -153,7 +150,7 @@
             galera_check_master.query_result[1][0].Value == "ON"
 
     - name: Debug for db-master staus
-      debug:
+      ansible.builtin.debug:
         var: galera_check_master
       when: galera_check_master is defined
 
@@ -178,6 +175,6 @@
             galera_check_slave.query_result[1][0].Value == "ON"
 
     - name: Debug for db-slave staus
-      debug:
+      ansible.builtin.debug:
         var: galera_check_slave
       when: galera_check_slave is defined
