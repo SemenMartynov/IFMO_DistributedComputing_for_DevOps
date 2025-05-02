@@ -9,8 +9,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    env_file:
-      - .env
     environment:
       - MARIADB_GALERA_CLUSTER_BOOTSTRAP=yes
       - MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP=yes
@@ -31,8 +29,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    env_file:
-      - .env
     environment:
       - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://db-master
     volumes:
@@ -49,8 +45,6 @@ services:
       - db-slave
     ports:
       - "80:80"
-    env_file:
-      - .env
     networks:
       - wpnet
 

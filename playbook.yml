@@ -3,12 +3,15 @@
   hosts: all
   become: true
 
+  vars_files:
+    - vars.yml
+
   tasks:
     - name: Print detected OS
       debug:
         msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
 
-    - name: Install dependencies on Ubuntu
+    - name: Install dependencies on Debian family
       apt:
         name:
           - apt-transport-https
@@ -18,7 +21,7 @@
           - python3-pip
         state: present
         update_cache: yes
-      when: ansible_facts['os_family'] == "Ubuntu"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Install dependencies on RHEL-like
       dnf:
@@ -36,17 +39,26 @@
       delegate_to: localhost
       become: false
 
-    - name: add docker gpg key
+    - name: add docker gpg on debian-based systems
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
+      when: ansible_facts['os_family'] == "Debian"
 
-    - name: add docker repo ubuntu
+    - name: set docker repo based on distribution
+      set_fact:
+        docker_repo: >-
+          {{ 'deb https://download.docker.com/linux/ubuntu focal stable'
+            if ansible_facts['distribution'] == 'Ubuntu'
+            else 'deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable' }}
+
+    - name: add docker apt repository
       apt_repository:
-        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        repo: "{{ docker_repo }}"
         state: present
+      when: ansible_facts['os_family'] == "Debian"
 
-    - name: docker and docker compose installation
+    - name: install docker on debian-based systems
       apt:
         name:
           - docker-ce
@@ -55,6 +67,24 @@
           - docker-compose-plugin
         state: present
         update_cache: yes
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Add Docker repo on RHEL-based systems
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Install Docker on RHEL-based systems
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: checking status for docker service
       service:
@@ -64,27 +94,17 @@
 
     - name: project dir creation
       file:
-        path: /opt/wordpress
+        path: "{{ project_dir }}"
         state: directory
 
-    - name: copy docker-compose.yml
-      copy:
-        src: docker-compose.yml
-        dest: /opt/wordpress/docker-compose.yml
-
-    - name: copy .env file
-      copy:
-        src: .env
-        dest: /opt/wordpress/.env
-
-    - name: Stop and remove containers
-      community.docker.docker_compose_v2:
-        project_src: /opt/wordpress
-        state: absent
+    - name: docker compose from template
+      template:
+        src: docker-compose.yml.j2
+        dest: "{{ docker_compose_dest }}"
 
     - name: run docker compose (v2)
       community.docker.docker_compose_v2:
-        project_src: /opt/wordpress
+        project_src: "{{ project_dir }}"
         state: present
 
     - name: Wait for db-master to become healthy
@@ -95,6 +115,12 @@
       retries: 15
       delay: 5
 
+    - name: Check if db-slave container exists
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      failed_when: not slave_info.exists
+
     - name: Wait for db-slave to become healthy
       community.docker.docker_container_info:
         name: db-slave
@@ -103,22 +129,52 @@
       retries: 15
       delay: 5
 
-    - name: Verify Galera cluster size
-      shell: >
-        docker exec db-master /opt/bitnami/mariadb/bin/mariadb -uroot -psupersecure \
-        -e "SHOW STATUS LIKE 'wsrep_cluster_size';"
-      register: galera_status
-      retries: 10
-      delay: 6
-      until: galera_status.rc == 0
-      ignore_errors: false
-
-    - name: Verify wsrep_ready on db-master
-      shell: >
-        docker exec db-master /opt/bitnami/mariadb/bin/mariadb -uroot -psupersecure \
-        -e "SHOW STATUS LIKE 'wsrep_ready';"
-      register: wsrep_ready
+    - name: check galera status on db-master
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: supersecure
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_master
+      become: false
       retries: 10
       delay: 5
-      until: wsrep_ready.stdout is search('ON')
-      ignore_errors: false
+      until: galera_check_master is defined and
+            galera_check_master.query_result is defined and
+            galera_check_master.query_result[0][0].Value is defined and
+            galera_check_master.query_result[1][0].Value is defined and
+            (galera_check_master.query_result[0][0].Value | int) >= 2 and
+            galera_check_master.query_result[1][0].Value == "ON"
+
+    - name: Debug Galera master response
+      debug:
+        var: galera_check_master
+      when: galera_check_master is defined
+
+    - name: Query Galera status on db-slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_slave
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_slave is defined and
+            galera_check_slave.query_result is defined and
+            galera_check_slave.query_result[0][0].Value is defined and
+            galera_check_slave.query_result[1][0].Value is defined and
+            (galera_check_slave.query_result[0][0].Value | int) >= 2 and
+            galera_check_slave.query_result[1][0].Value == "ON"
+
+    - name: Debug Galera slave response
+      debug:
+        var: galera_check_slave
+      when: galera_check_slave is defined
