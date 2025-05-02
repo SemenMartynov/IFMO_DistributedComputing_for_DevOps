@@ -1,8 +1,8 @@
-#SPDX-License-Identifier: MIT-0
+# SPDX-License-Identifier: MIT-0
 ---
-# handlers file for lab1
+# Handlers file for lab1
 
-#Restart main docker-compose
+# Restart main docker-compose
 - name: Remove containers main
   community.docker.docker_compose_v2:
     project_src: "/data"
@@ -21,7 +21,7 @@
     - VOL_NGINX_CONF: "{{ vol_nginx_conf }}"
     - VOL_DB_DATA: "{{ vol_db_data }}"
     - VOL_DB_CONF: "{{ vol_db_conf }}"
-  listen: "restart docker-compose"
+  listen: restart docker-compose
   register: docker_compose_removed
 
 - name: Run docker compose main
@@ -42,10 +42,10 @@
     - VOL_NGINX_CONF: "{{ vol_nginx_conf }}"
     - VOL_DB_DATA: "{{ vol_db_data }}"
     - VOL_DB_CONF: "{{ vol_db_conf }}"
-  listen: "restart docker-compose"
+  listen: restart docker-compose
   register: docker_compose_started
 
-#Restart slave SQL docker-compose
+# Restart slave SQL docker-compose
 - name: Remove containers slave sql
   community.docker.docker_compose_v2:
     project_src: "/data"
@@ -60,7 +60,7 @@
     - MARIADB_PASSWORD: "{{ db_wordpress_password }}"
     - VOL_DB_DATA_SLAVE: "{{ vol_db_data_slave }}"
     - VOL_DB_CONF_SLAVE: "{{ vol_db_conf_slave }}"
-  listen: "restart docker-compose-slave-sql"
+  listen: restart docker-compose-slave-sql
 
 - name: Run docker compose slave sql
   community.docker.docker_compose_v2:
@@ -76,6 +76,4 @@
     - MARIADB_PASSWORD: "{{ db_wordpress_password }}"
     - VOL_DB_DATA_SLAVE: "{{ vol_db_data_slave }}"
     - VOL_DB_CONF_SLAVE: "{{ vol_db_conf_slave }}"
-  listen: "restart docker-compose-slave-sql"
-
-
+  listen: restart docker-compose-slave-sql

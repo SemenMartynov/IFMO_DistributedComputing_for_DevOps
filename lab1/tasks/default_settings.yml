@@ -33,10 +33,12 @@
   ansible.builtin.set_fact:
     ansible_python_interpreter: /opt/ansible_venv/bin/python
 
-- name: Setup timezone
-  ansible.builtin.shell: "timedatectl set-timezone {{ time_zone }}"
-  when: ansible_date_time.tz != time_zone
+- name: Setup locale
+  ansible.builtin.shell: |
+    locale-gen {{ locale1 }}
+    update-locale LANG={{ locale2 }} LC_TIME={{ locale1 }}
+  when:
+    - ansible_env.LANG != locale2
+    - ansible_env.LC_TIME != locale1
   changed_when: true
   become: true
-
-- name: Setup locale
