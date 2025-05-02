@@ -1,8 +1,28 @@
----
-- name: Deploy monitoring stack with Prometheus and Grafana
+- name: Развернуть стек мониторинга с Prometheus и Grafana
   hosts: remote
   become: true
   vars_files:
     - roles/wordpress/vars/main.yml
+  pre_tasks:
+    - name: Установить необходимые коллекции Ansible
+      ansible.builtin.command:
+        cmd: "ansible-galaxy collection install {{ item }}"
+      with_items:
+        - community.docker
+        - community.mysql
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Проверить, развернут ли WordPress
+      stat:
+        path: "{{ wordpress_dir | default('/home/ubuntu/wordpress') }}/docker-compose.yml"
+      register: wordpress_compose_file
+
+    - name: Прервать выполнение, если WordPress не развернут
+      fail:
+        msg: "WordPress должен быть развернут перед мониторингом. Сначала запустите плейбук WordPress."
+      when: not wordpress_compose_file.stat.exists
   roles:
     - monitoring

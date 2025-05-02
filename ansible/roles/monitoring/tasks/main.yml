@@ -1,12 +1,11 @@
----
-- name: Create monitoring directory
+- name: Создать каталог для мониторинга
   file:
     path: "{{ monitoring_dir }}"
     state: directory
     mode: '0755'
   become: true
 
-- name: Create Grafana provisioning directories
+- name: Создать каталоги для конфигурации Grafana
   file:
     path: "{{ monitoring_dir }}/grafana/{{ item }}"
     state: directory
@@ -17,28 +16,28 @@
     - "dashboards"
   become: true
 
-- name: Copy Prometheus configuration
+- name: Скопировать конфигурацию Prometheus
   template:
     src: prometheus.yml.j2
     dest: "{{ monitoring_dir }}/prometheus.yml"
     mode: '0644'
   become: true
 
-- name: Copy Grafana datasource provisioning
+- name: Скопировать настройку источника данных Grafana для Prometheus
   template:
     src: grafana/provisioning/datasources/prometheus.yml.j2
     dest: "{{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
     mode: '0644'
   become: true
 
-- name: Copy Grafana dashboard provisioning
+- name: Скопировать настройку дашбордов Grafana
   template:
     src: grafana/provisioning/dashboards/dashboards.yml.j2
     dest: "{{ monitoring_dir }}/grafana/provisioning/dashboards/dashboards.yml"
     mode: '0644'
   become: true
 
-- name: Copy Grafana dashboards
+- name: Скопировать дашборды Grafana
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
@@ -47,7 +46,7 @@
     - { src: "templates/grafana/dashboards/system_metrics.json", dest: "{{ monitoring_dir }}/grafana/dashboards/system_metrics.json" }
   become: true
 
-- name: Copy Docker Compose file
+- name: Скопировать файл Docker Compose
   template:
     src: docker-compose.yml.j2
     dest: "{{ monitoring_dir }}/docker-compose.yml"
@@ -55,19 +54,20 @@
   become: true
   register: compose_template
 
-- name: Start monitoring stack
-  ansible.builtin.command:
-    cmd: "docker compose up -d"
-    chdir: "{{ monitoring_dir }}"
+- name: Создать пользователя MySQL для мониторинга
+  community.mysql.mysql_user:
+    login_host: "{{ monitoring_mysql_master_host }}"
+    login_user: root
+    login_password: "{{ wordpress_mysql_root_password }}"
+    name: "{{ monitoring_mysql_user }}"
+    password: "{{ monitoring_mysql_password }}"
+    priv: '*.*:SELECT,PROCESS,REPLICATION CLIENT'
+    state: present
   become: true
-  async: 300
-  poll: 0
-  register: docker_compose_job
+  ignore_errors: yes
 
-- name: Wait for monitoring stack to start
-  async_status:
-    jid: "{{ docker_compose_job.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 30
-  delay: 10
+- name: Запустить стек мониторинга
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: present
+  become: true

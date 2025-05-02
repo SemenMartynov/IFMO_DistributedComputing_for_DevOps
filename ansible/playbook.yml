@@ -1,5 +1,13 @@
 - name: Развёртывание WordPress на удалённом сервере
   hosts: remote
   become: true
+  pre_tasks:
+    - name: Установить необходимые коллекции Ansible
+      ansible.builtin.command:
+        cmd: "ansible-galaxy collection install community.docker"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
   roles:
     - wordpress

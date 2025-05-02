@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -74,18 +72,18 @@ services:
     container_name: mysql-exporter
     restart: unless-stopped
     environment:
-      - DATA_SOURCE_NAME=root:{{ wordpress_mysql_root_password }}@({{ monitoring_mysql_master_host }}:{{ monitoring_mysql_master_port }})/
+      - MYSQL_USER={{ monitoring_mysql_user }}
+      - MYSQL_PASSWORD={{ monitoring_mysql_password }}
+      - MYSQL_HOST={{ monitoring_mysql_master_host }}
+      - MYSQL_PORT={{ monitoring_mysql_master_port }}
     networks:
       - monitoring_network
-      - wp_network
     depends_on:
       - node-exporter
 
 networks:
   monitoring_network:
     driver: bridge
-  wp_network:
-    external: true
 
 volumes:
   prometheus_data:
