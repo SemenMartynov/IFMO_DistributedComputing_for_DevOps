@@ -28,5 +28,5 @@ Distributed Computing course for DevOps 2025
 vagrant up
 cd old/ansible/
 ansible-playbook -i inventory.ini playbook.yml
-cd ..
+cd ../../ansible/
 ansible-playbook -i inventory.ini playbook.yml --vault-password-file test_vault_pass.txt
