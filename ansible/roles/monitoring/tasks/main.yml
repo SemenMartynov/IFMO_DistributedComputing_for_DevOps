@@ -56,7 +56,8 @@
 
 - name: Создать пользователя MySQL для мониторинга
   community.mysql.mysql_user:
-    login_host: "{{ monitoring_mysql_master_host }}"
+    login_host: "localhost"
+    login_port: 3306
     login_user: root
     login_password: "{{ wordpress_mysql_root_password }}"
     name: "{{ monitoring_mysql_user }}"
@@ -66,8 +67,282 @@
   become: true
   ignore_errors: yes
 
+- name: Установить UFW
+  apt:
+    name: ufw
+    state: present
+  become: true
+
+- name: Разрешить входящий трафик на порт Prometheus
+  ufw:
+    rule: allow
+    port: "{{ monitoring_prometheus_port }}"
+    proto: tcp
+  become: true
+
+- name: Разрешить входящий трафик на порт Grafana
+  ufw:
+    rule: allow
+    port: "{{ monitoring_grafana_port }}"
+    proto: tcp
+  become: true
+
+- name: Разрешить входящий трафик на порт cAdvisor
+  ufw:
+    rule: allow
+    port: "{{ monitoring_cadvisor_port }}"
+    proto: tcp
+  become: true
+
+- name: Включить UFW
+  ufw:
+    state: enabled
+    policy: allow
+  become: true
+
+- name: Проверить существование сети WordPress
+  ansible.builtin.shell:
+    cmd: "docker network ls -q --filter name=wordpress_wp_network"
+  register: wp_network_exists
+  become: true
+  changed_when: false
+
+- name: Создать сеть WordPress, если она не существует
+  ansible.builtin.command:
+    cmd: "docker network create wordpress_wp_network"
+  when: wp_network_exists.stdout == ""
+  become: true
+
 - name: Запустить стек мониторинга
   community.docker.docker_compose_v2:
     project_src: "{{ monitoring_dir }}"
     state: present
+  become: true
+  register: compose_result
+  async: 600
+  poll: 0
+
+- name: Подождать 10 секунд, чтобы контейнеры начали запускаться
+  ansible.builtin.pause:
+    seconds: 10
+  become: true
+
+- name: Проверить статус запуска стека мониторинга
+  async_status:
+    jid: "{{ compose_result.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 60
+  delay: 10
+  become: true
+
+- name: Проверить статус контейнеров
+  ansible.builtin.command:
+    cmd: "docker ps -a"
+  register: docker_ps_result
+  become: true
+  changed_when: false
+
+- name: Вывести статус контейнеров
+  ansible.builtin.debug:
+    var: docker_ps_result.stdout_lines
+  become: true
+
+- name: Проверить логи контейнера Prometheus
+  ansible.builtin.command:
+    cmd: "docker logs prometheus"
+  register: prometheus_logs
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести логи Prometheus
+  ansible.builtin.debug:
+    var: prometheus_logs.stdout_lines
+  become: true
+  when: prometheus_logs is defined
+
+- name: Проверить логи контейнера Grafana
+  ansible.builtin.command:
+    cmd: "docker logs grafana"
+  register: grafana_logs
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести логи Grafana
+  ansible.builtin.debug:
+    var: grafana_logs.stdout_lines
+  become: true
+  when: grafana_logs is defined
+
+- name: Проверить сетевые привязки
+  ansible.builtin.shell:
+    cmd: "netstat -tulpn | grep -E ':({{ monitoring_prometheus_port }}|{{ monitoring_grafana_port }}|{{ monitoring_cadvisor_port }})'"
+  register: netstat_result
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести сетевые привязки
+  ansible.builtin.debug:
+    var: netstat_result.stdout_lines
+  become: true
+  when: netstat_result is defined
+
+- name: Проверить Docker сети
+  ansible.builtin.command:
+    cmd: "docker network ls"
+  register: docker_networks
+  become: true
+  changed_when: false
+
+- name: Вывести Docker сети
+  ansible.builtin.debug:
+    var: docker_networks.stdout_lines
+  become: true
+
+- name: Проверить подключения контейнера Prometheus к сетям
+  ansible.builtin.command:
+    cmd: "docker network inspect monitoring_monitoring_network"
+  register: prometheus_network
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести подключения контейнера Prometheus к сетям
+  ansible.builtin.debug:
+    var: prometheus_network.stdout_lines
+  become: true
+  when: prometheus_network is defined
+
+- name: Проверить подключения к сети WordPress
+  ansible.builtin.command:
+    cmd: "docker network inspect wp_network"
+  register: wp_network
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести подключения к сети WordPress
+  ansible.builtin.debug:
+    var: wp_network.stdout_lines
+  become: true
+  when: wp_network is defined
+
+- name: Проверить использование ресурсов контейнерами
+  ansible.builtin.command:
+    cmd: "docker stats --no-stream"
+  register: docker_stats
+  become: true
+  changed_when: false
+
+- name: Вывести использование ресурсов контейнерами
+  ansible.builtin.debug:
+    var: docker_stats.stdout_lines
+  become: true
+
+- name: Проверить свободную память на сервере
+  ansible.builtin.command:
+    cmd: "free -h"
+  register: free_memory
+  become: true
+  changed_when: false
+
+- name: Вывести свободную память на сервере
+  ansible.builtin.debug:
+    var: free_memory.stdout_lines
+  become: true
+
+- name: Проверить загрузку CPU на сервере
+  ansible.builtin.shell:
+    cmd: "top -bn1 | head -5"
+  register: cpu_load
+  become: true
+  changed_when: false
+
+- name: Вывести загрузку CPU на сервере
+  ansible.builtin.debug:
+    var: cpu_load.stdout_lines
+  become: true
+
+- name: Проверить конфигурацию Prometheus
+  ansible.builtin.command:
+    cmd: "cat {{ monitoring_dir }}/prometheus.yml"
+  register: prometheus_config
+  become: true
+  changed_when: false
+
+- name: Вывести конфигурацию Prometheus
+  ansible.builtin.debug:
+    var: prometheus_config.stdout_lines
+  become: true
+
+- name: Проверить конфигурацию Grafana datasources
+  ansible.builtin.command:
+    cmd: "cat {{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
+  register: grafana_datasources
+  become: true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Вывести конфигурацию Grafana datasources
+  ansible.builtin.debug:
+    var: grafana_datasources.stdout_lines
+  become: true
+  when: grafana_datasources is defined
+
+- name: Проверить конфигурацию Docker Compose
+  ansible.builtin.command:
+    cmd: "cat {{ monitoring_dir }}/docker-compose.yml"
+  register: docker_compose_config
+  become: true
+  changed_when: false
+
+- name: Вывести конфигурацию Docker Compose
+  ansible.builtin.debug:
+    var: docker_compose_config.stdout_lines
+  become: true
+
+- name: Остановить и удалить существующие контейнеры мониторинга
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: absent
+    remove_volumes: false
+  become: true
+  ignore_errors: yes
+
+- name: Запустить стек мониторинга с обновленной конфигурацией
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: present
+    recreate: always
+    pull: always
+  become: true
+  register: restart_result
+  async: 600
+  poll: 0
+
+- name: Подождать 10 секунд, чтобы контейнеры начали запускаться после перезапуска
+  ansible.builtin.pause:
+    seconds: 10
+  become: true
+
+- name: Проверить статус перезапуска стека мониторинга
+  async_status:
+    jid: "{{ restart_result.ansible_job_id }}"
+  register: restart_job_result
+  until: restart_job_result.finished
+  retries: 60
+  delay: 10
+  become: true
+
+- name: Вывести результат перезапуска
+  ansible.builtin.debug:
+    var: restart_job_result
+  become: true
+
+- name: Подождать 30 секунд, чтобы контейнеры полностью запустились
+  ansible.builtin.pause:
+    seconds: 30
   become: true

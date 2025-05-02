@@ -24,5 +24,17 @@
       fail:
         msg: "WordPress должен быть развернут перед мониторингом. Сначала запустите плейбук WordPress."
       when: not wordpress_compose_file.stat.exists
+
+    - name: Проверить, запущены ли контейнеры WordPress
+      ansible.builtin.shell:
+        cmd: "docker ps -q --filter name=wordpress"
+      register: wordpress_containers
+      become: true
+      changed_when: false
+
+    - name: Прервать выполнение, если контейнеры WordPress не запущены
+      fail:
+        msg: "Контейнеры WordPress должны быть запущены перед мониторингом. Убедитесь, что WordPress работает."
+      when: wordpress_containers.stdout == ""
   roles:
     - monitoring

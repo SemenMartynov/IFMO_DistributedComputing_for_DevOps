@@ -12,10 +12,19 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
+      - '--web.read-timeout=10m'
+      - '--web.max-connections=1024'
+      - '--query.timeout=5m'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.external-url=http://51.250.33.142:{{ monitoring_prometheus_port }}'
+      - '--web.enable-admin-api'
     ports:
-      - "{{ monitoring_prometheus_port }}:9090"
+      - "0.0.0.0:{{ monitoring_prometheus_port }}:9090"
     networks:
       - monitoring_network
+      - wp_network
+    mem_limit: 2G
+    mem_reservation: 1G
 
   grafana:
     image: grafana/grafana:latest
@@ -29,12 +38,23 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_HTTP_ADDR=0.0.0.0
+      - GF_SERVER_ROOT_URL=http://51.250.33.142:{{ monitoring_grafana_port }}
+      - GF_SERVER_DOMAIN=51.250.33.142
+      - GF_SERVER_ENFORCE_DOMAIN=false
+      - GF_SERVER_ENABLE_GZIP=true
+      - GF_DATABASE_TYPE=sqlite3
+      - GF_LOG_MODE=console
+      - GF_LOG_LEVEL=info
     ports:
-      - "{{ monitoring_grafana_port }}:3000"
+      - "0.0.0.0:{{ monitoring_grafana_port }}:3000"
     networks:
       - monitoring_network
+      - wp_network
     depends_on:
       - prometheus
+    mem_limit: 1G
+    mem_reservation: 512M
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -46,10 +66,20 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+    command:
+      - '--port=8080'
+      - '--listen_ip=0.0.0.0'
+      - '--housekeeping_interval=10s'
+      - '--max_housekeeping_interval=15s'
+      - '--allow_dynamic_housekeeping=true'
+      - '--global_housekeeping_interval=15s'
     ports:
-      - "{{ monitoring_cadvisor_port }}:8080"
+      - "0.0.0.0:{{ monitoring_cadvisor_port }}:8080"
     networks:
       - monitoring_network
+      - wp_network
+    mem_limit: 1G
+    mem_reservation: 256M
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -64,8 +94,19 @@ services:
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--web.listen-address=:9100'
+      - '--web.telemetry-path=/metrics'
+      - '--collector.disable-defaults'
+      - '--collector.cpu'
+      - '--collector.meminfo'
+      - '--collector.loadavg'
+      - '--collector.filesystem'
+      - '--collector.netdev'
     networks:
       - monitoring_network
+      - wp_network
+    mem_limit: 512M
+    mem_reservation: 128M
 
   mysql-exporter:
     image: prom/mysqld-exporter:latest
@@ -74,16 +115,29 @@ services:
     environment:
       - MYSQL_USER={{ monitoring_mysql_user }}
       - MYSQL_PASSWORD={{ monitoring_mysql_password }}
-      - MYSQL_HOST={{ monitoring_mysql_master_host }}
-      - MYSQL_PORT={{ monitoring_mysql_master_port }}
+      - MYSQL_HOST=db_master
+      - MYSQL_PORT=3306
+      - DATA_SOURCE_NAME={{ monitoring_mysql_user }}:{{ monitoring_mysql_password }}@(db_master:3306)/
+    command:
+      - '--web.listen-address=:9104'
+      - '--web.telemetry-path=/metrics'
+      - '--collect.info_schema.tables=false'
+      - '--collect.info_schema.innodb_metrics=false'
+      - '--collect.perf_schema.eventsstatements=false'
     networks:
       - monitoring_network
+      - wp_network
     depends_on:
       - node-exporter
+    mem_limit: 512M
+    mem_reservation: 128M
 
 networks:
   monitoring_network:
     driver: bridge
+  wp_network:
+    external: 
+      name: wordpress_wp_network
 
 volumes:
   prometheus_data:

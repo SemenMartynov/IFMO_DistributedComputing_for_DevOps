@@ -7,7 +7,7 @@ services:
       - db_master
       - db_slave
     ports:
-      - "8080:80"
+      - "80:80"
     environment:
       # Приложение будет работать с мастером
       WORDPRESS_DB_HOST: db_master:3306
