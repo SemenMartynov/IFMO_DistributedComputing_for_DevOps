@@ -17,35 +17,52 @@
         dest: wordpress/docker-compose.yml
       tags: copy1
 
+    - name: Скопировать master_create_tes.sql
+      copy:
+        src: master_create_test.sql
+        dest: wordpress/master_create_test.sql
+
     - name: Запустить Wordpress и Mysql
-      command: docker-compose up -d
-      args:
-        chdir: wordpress/
-      tags: play
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        state: present
+      # command: docker-compose up -d
+      # args:
+      #   chdir: wordpress/
+      # tags: play
 
     - name: Проверка доступности MySQL
-      shell: docker exec wordpress_db mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
-      register: result
+      community.mysql.mysql_info:
+        login_port: "{{ mysql_master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: mysql_check
       retries: 10
       delay: 3
-      until: result.rc == 0
+      until: mysql_check is succeeded
 
-    - name: Создать дамп базы данных
-      command: > 
-        docker exec -i wordpress_db 
-        mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }} 
-        --all-databases --source-data=2
-      register: dump_output
+    # - name: Подтвердить продолжение
+    #   pause:
+    #     prompt: "Продолжить? Нажми Enter"
 
-    - name: Сохранить дамп в файл
-      copy:
-        content: "{{ dump_output.stdout }}"
-        dest: /home/server_artur/wordpress/wordpress_dump.sql
+    - name: Создать дамп базы данных и сохранить на хосте
+      community.mysql.mysql_db:
+        state: dump
+        name:
+          - all
+        target: "{{ project_dir }}/wordpress_dump.sql"
+        login_host: "127.0.0.1"
+        login_port: "{{ mysql_master_port }}"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Остановить и удалить контейнеры из ДЗ1
-      command: docker-compose down
-      args:
-        chdir: wordpress/
+      community.docker.docker_compose:
+        project_src: wordpress/
+        state: absent
+      # command: docker-compose down
+      # args:
+      #   chdir: wordpress/
 
     - name: Скопировать docker-compose_dz2.yml.j2 на сервер
       template:
@@ -58,45 +75,79 @@
         dest: wordpress/master_init.sql
 
     - name: Запустить инстанс Wordpress, mysql-master, mysql-slave
-      command: docker-compose up -d
-      args:
-        chdir: wordpress/
-      tags: play
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        state: present
 
-    - name: Проверка доступности MySQL
-      shell: docker exec mysql-master mysqladmin ping -uroot -p{{ mysql_root_password }} --silent
-      register: result
+    - name: Проверка доступности MySQL_2
+      community.mysql.mysql_info:
+        login_port: "{{ mysql_master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: mysql_check
       retries: 10
       delay: 3
-      until: result.rc == 0
+      until: mysql_check is succeeded
 
     - name: Выполнить дамп на мастере
-      shell: cat /home/server_artur/wordpress/wordpress_dump.sql | docker exec -i mysql-master mysql -uroot -p{{ mysql_root_password }}
+      community.mysql.mysql_db:
+        state: import
+        name:
+          - all
+        target: "{{ project_dir }}/wordpress_dump.sql"
+        login_host: "127.0.0.1"
+        login_port: "{{ mysql_master_port }}"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Удалить дамп после восстановления
+      file:
+        path: "{{ project_dir }}/wordpress_dump.sql"
+        state: absent
 
     - name: Получить координаты binlog с мастера
-      shell: docker exec mysql-master mysql -uroot -p{{ mysql_root_password }} -e "SHOW MASTER STATUS"
+      community.mysql.mysql_query:
+        login_port: "{{ mysql_master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: "SHOW MASTER STATUS"
       register: master_status
+      become: false
 
     - name: Сохранить MASTER_LOG_FILE и MASTER_LOG_POS в перменные
       set_fact:
-        master_log_file: "{{ master_status.stdout | regex_search('File: (.*)', '\\1') }}"
-        master_log_pos: "{{ master_status.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+        master_log_file: "{{ master_status.query_result[0][0].File }}"
+        master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
     - name: Настроить репликацию на слейв-сервере
-      shell: |
-        docker exec -i mysql-slave mysql -uroot -p{{ mysql_root_password }} -e "
-        CHANGE MASTER TO
-          MASTER_HOST='mysql-master',
-          MASTER_USER='replica_user',
-          MASTER_PASSWORD='{{ MASTER_PASSWORD }}',
-          MASTER_LOG_FILE='{{ master_log_file }}',
-          MASTER_LOG_POS={{ master_log_pos }};
-        START SLAVE;"
+      community.mysql.mysql_query:
+        login_port: "{{ mysql_slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: >
+          CHANGE MASTER TO
+            MASTER_HOST='mysql-master',
+            MASTER_USER='replica_user',
+            MASTER_PASSWORD='{{ MASTER_PASSWORD }}',
+            MASTER_LOG_FILE='{{ master_log_file }}',
+            MASTER_LOG_POS={{ master_log_pos }};
+
+    - name: Запустить репликацию на слейв-сервере 
+      community.mysql.mysql_query:
+        login_port: "{{ mysql_slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: "START SLAVE;"
 
     - name: Проверить статус репликации на слейве
-      shell: docker exec mysql-slave mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      community.mysql.mysql_query:
+        login_port: "{{ mysql_slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: "SHOW SLAVE STATUS"
       register: slave_status
+      become: false
 
     - name: Вывести статус репликации
       debug:
-        msg: "{{ slave_status.stdout_lines }}"
+        var: slave_status

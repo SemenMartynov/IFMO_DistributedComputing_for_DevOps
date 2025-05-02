@@ -43,3 +43,14 @@
         name: docker
         state: started
         enabled: yes
+
+    - name: Установить зависимости для подключения к MySQL через Python
+      ansible.builtin.apt:
+        name:
+          - python3-pymysql
+        state: present
+    
+    - name: Установить mysql-client на хосте
+      ansible.builtin.apt:
+        name: mysql-client
+        state: present
