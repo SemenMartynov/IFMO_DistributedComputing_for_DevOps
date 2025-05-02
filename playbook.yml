@@ -149,12 +149,12 @@
             (galera_check_master.query_result[0][0].Value | int) >= 2 and
             galera_check_master.query_result[1][0].Value == "ON"
 
-    - name: Debug Galera master response
+    - name: debug for db-master staus
       debug:
         var: galera_check_master
       when: galera_check_master is defined
 
-    - name: Query Galera status on db-slave
+    - name: check galera status on db-ыдфму
       community.mysql.mysql_query:
         login_host: 127.0.0.1
         login_port: 3307
@@ -174,7 +174,7 @@
             (galera_check_slave.query_result[0][0].Value | int) >= 2 and
             galera_check_slave.query_result[1][0].Value == "ON"
 
-    - name: Debug Galera slave response
+    - name: debug for db-slave staus
       debug:
         var: galera_check_slave
       when: galera_check_slave is defined
