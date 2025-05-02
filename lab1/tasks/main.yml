@@ -1,14 +1,15 @@
-#SPDX-License-Identifier: MIT-0
+# SPDX-License-Identifier: MIT-0
 ---
-# tasks file for lab1
-##### Default settings
-- include_tasks: default_settings.yml
-##### Install Docker
-- include_tasks: install_docker.yml
-##### Install WordPress
-- include_tasks: install_wordpress.yml
-##### Create MariaDB replica
-- include_tasks: create_replica.yml
+# Tasks file for lab1
 
+- name: Include default settings
+  ansible.builtin.include_tasks: default_settings.yml
 
+- name: Include Docker installation
+  ansible.builtin.include_tasks: install_docker.yml
 
+- name: Include WordPress installation
+  ansible.builtin.include_tasks: install_wordpress.yml
+
+- name: Include MariaDB replica creation
+  ansible.builtin.include_tasks: create_replica.yml
