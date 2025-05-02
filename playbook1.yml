@@ -85,9 +85,9 @@
           - name: '{{ wp_int_network }}'
             aliases: '{{ db_container_name }}'
             ipv4_address: 10.16.1.3
-        exposed_ports:
-          - 3306
-          - 33060
+#        exposed_ports:
+#          - 3306
+#          - 33060
         volumes:
           - 'db:/var/lib/mysql'
         env:
@@ -108,7 +108,8 @@
             aliases: '{{ wp_container_name }}int'
             ipv4_address: 10.16.1.2
           - name: '{{ wp_ext_network }}'
-        ports: [ "{{ wordpress_port }}" ]
+        ports:
+          - '{{ wordpress_port }}:{{ wordpress_port }}'
         volumes:
           - 'wordpress:/var/www/html'
         env:
