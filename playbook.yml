@@ -1,5 +1,5 @@
 ---
-- name:  wordpress splitted to containers (web + db)
+- name:  Wordpress splitted to containers (web + db)
   hosts: all
   become: true
 
@@ -10,11 +10,11 @@
     - vars.yml
 
   tasks:
-    - name: print detected OS
+    - name: Print detected OS
       debug:
         msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
 
-    - name: install dependencies (Debian family)
+    - name: Install dependencies (Debian family)
       apt:
         name:
           - apt-transport-https
@@ -26,7 +26,7 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: install dependencies (RHEL familн)
+    - name: Install dependencies (RHEL familн)
       dnf:
         name:
           - dnf-plugins-core
@@ -36,32 +36,32 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: install pymysql for ansible mariadb modules
+    - name: Install pymysql for ansible mariadb modules
       pip:
         name: PyMySQL
       delegate_to: localhost
       become: false
 
-    - name: add docker gpg on debian-based systems
+    - name: Add docker gpg on debian-based systems
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: set docker repo based on distribution
+    - name: Set docker repo based on distribution
       set_fact:
         docker_repo: >-
           {{ 'deb https://download.docker.com/linux/ubuntu focal stable'
             if ansible_facts['distribution'] == 'Ubuntu'
             else 'deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable' }}
 
-    - name: add docker apt repository
+    - name: Add docker apt repository
       apt_repository:
         repo: "{{ docker_repo }}"
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: install docker on debian-based systems
+    - name: Install docker on debian-based systems
       apt:
         name:
           - docker-ce
@@ -72,13 +72,13 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: add docker repo on RHEL-based systems
+    - name: Add docker repo on RHEL-based systems
       get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: install docker on RHEL-based systems
+    - name: Install docker on RHEL-based systems
       dnf:
         name:
           - docker-ce
@@ -89,28 +89,28 @@
         update_cache: yes
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: checking status for docker service
+    - name: Checking status for docker service
       service:
         name: docker
         state: started
         enabled: yes
 
-    - name: project dir creation
+    - name: Project dir creation
       file:
         path: "{{ project_dir }}"
         state: directory
 
-    - name: docker compose from template
+    - name: Docker compose from template
       template:
         src: docker-compose.yml.j2
         dest: "{{ docker_compose_dest }}"
 
-    - name: run docker compose (v2)
+    - name: Run docker compose (v2)
       community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         state: present
 
-    - name: wait for db-master healthy
+    - name: Wait for db-master healthy
       community.docker.docker_container_info:
         name: db-master
       register: master_info
@@ -118,13 +118,13 @@
       retries: 15
       delay: 5
 
-    - name: check if db-slave container exists
+    - name: Check if db-slave container exists
       community.docker.docker_container_info:
         name: db-slave
       register: slave_info
       failed_when: not slave_info.exists
 
-    - name: wait for db-slave healthy
+    - name: Wait for db-slave healthy
       community.docker.docker_container_info:
         name: db-slave
       register: slave_info
@@ -132,7 +132,7 @@
       retries: 15
       delay: 5
 
-    - name: check galera status on db-master
+    - name: Check galera status on db-master
       community.mysql.mysql_query:
         login_host: 127.0.0.1
         login_port: 3306
@@ -152,12 +152,12 @@
             (galera_check_master.query_result[0][0].Value | int) >= 2 and
             galera_check_master.query_result[1][0].Value == "ON"
 
-    - name: debug for db-master staus
+    - name: Debug for db-master staus
       debug:
         var: galera_check_master
       when: galera_check_master is defined
 
-    - name: check galera status on db-ыдфму
+    - name: Check galera status on db-ыдфму
       community.mysql.mysql_query:
         login_host: 127.0.0.1
         login_port: 3307
@@ -177,7 +177,7 @@
             (galera_check_slave.query_result[0][0].Value | int) >= 2 and
             galera_check_slave.query_result[1][0].Value == "ON"
 
-    - name: debug for db-slave staus
+    - name: Debug for db-slave staus
       debug:
         var: galera_check_slave
       when: galera_check_slave is defined
