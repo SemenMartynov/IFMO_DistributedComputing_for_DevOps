@@ -6,10 +6,6 @@
 
 # Ansible
 *.retry
-ansible.cfg
-ansible.log
-inventory.ini
-*.vault_pass
 
 # Переменные окружения и секреты
 .env
