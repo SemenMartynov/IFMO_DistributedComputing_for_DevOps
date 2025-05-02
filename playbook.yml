@@ -43,6 +43,7 @@
       ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
+        mode: '0644'
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Set docker repo based on distribution
@@ -73,6 +74,7 @@
       ansible.builtin.get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0644'
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Install docker on RHEL-based systems
