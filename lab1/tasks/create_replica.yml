@@ -8,7 +8,18 @@
     - { path: "{{ vol_db_data_slave }}" }
   become: true
 
+- name: Primary status
+  community.mysql.mysql_replication:
+    login_port: 3306
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    mode: getprimary
+  register: primary_status
+
 - name: Setup MariaDB Master
+  when:
+    - primary_status is defined
+    - not primary_status.get('Is_Primary', false)
   block:
     - name: Ensure mariadb.cnf exists for master
       ansible.builtin.stat:
@@ -60,10 +71,10 @@
         - { regexp: '^binlog-ignore-db=', line: 'binlog-ignore-db=information_schema' }
         - { regexp: '^binlog-format=', line: 'binlog-format=ROW' }
         - { regexp: '^bind-address=', line: 'bind-address=0.0.0.0' }
-      register: replication_parameters
+      notify: restart docker-compose
       become: true
 
-    - name: Restart MariaDB Master container only if configuration changed
+    - name: Restart MariaDB Master container
       ansible.builtin.meta: flush_handlers
       notify: restart docker-compose
 
@@ -78,6 +89,7 @@
         src: "{{ vol_db_conf }}/mariadb.cnf.backup"
         dest: "{{ vol_db_conf }}/mariadb.cnf"
         mode: '0644'
+      notify: restart docker-compose
       become: true
 
     - name: Restart MariaDB with original configuration
@@ -88,7 +100,19 @@
       ansible.builtin.debug:
         msg: "MariaDB configuration inside the Docker container was restored from backup."
 
+- name: Replica status
+  community.mysql.mysql_replication:
+    login_port: 3307
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    mode: getreplica
+  register: replica_status
+  failed_when: false
+
 - name: Setup MariaDB Replica
+  when:
+    - replica_status is defined
+    - not replica_status.Is_Replica
   block:
     - name: Ensure mariadb.cnf exists for replica
       ansible.builtin.stat:
@@ -126,12 +150,21 @@
         insertafter: "[mysqld]"
       loop:
         - { regexp: '^server-id=', line: 'server-id=2' }
-      register: replica_config_changes
+      notify: restart docker-compose-slave-sql
       become: true
 
     - name: Restart MariaDB Replica container only if configuration changed
       ansible.builtin.meta: flush_handlers
       notify: restart docker-compose-slave-sql
+
+    - name: Wait for slave_db to be ready
+      community.docker.docker_container_exec:
+        container: db_slave
+        command: healthcheck.sh --connect --innodb_initialized
+      register: mysql_ready
+      retries: 10
+      delay: 5
+      until: mysql_ready.rc == 0
 
     - name: Get master status
       community.mysql.mysql_replication:
@@ -208,14 +241,18 @@
         login_user: root
         login_password: "{{ db_root_password }}"
         mode: getreplica
-      register: replica_status
+      register: check_replica_status
       retries: 5
       delay: 10
       until:
-        - replica_status.Slave_IO_Running == 'Yes'
-        - replica_status.Slave_SQL_Running == 'Yes'
-        - replica_status.Last_SQL_Error == ''
-        - replica_status.Last_IO_Error == ''
+        - check_replica_status.Slave_IO_Running == 'Yes'
+        - check_replica_status.Slave_SQL_Running == 'Yes'
+        - check_replica_status.Last_SQL_Error == ''
+        - check_replica_status.Last_IO_Error == ''
+
+    - name: Display final replication status
+      ansible.builtin.debug:
+        msg: "{{ check_replica_status | default('Replication status not available') }}"
 
   rescue:
     - name: Log failure
@@ -253,6 +290,8 @@
         dest: "{{ vol_db_conf_slave }}/mariadb.cnf"
         mode: '0644'
       become: true
+      notify: restart docker-compose-slave-sql
+      failed_when: false
 
     - name: Restart MariaDB with original configuration
       ansible.builtin.meta: flush_handlers
@@ -263,7 +302,4 @@
       ansible.builtin.file:
         path: /data/wordpress_dump.sql
         state: absent
-
-- name: Display final replication status
-  ansible.builtin.debug:
-    msg: "{{ replica_status | default('Replication status not available') }}"
+      failed_when: false
