@@ -8,20 +8,17 @@
   tasks:
     - name: Prepare project dir
       ansible.builtin.file:
-        path: /opt/wordpress
+        path: "{{ project_dir }}"
         state: directory
         mode: '0755'
 
     - name: Copy docker-compose and env
       ansible.builtin.copy:
         src: files/
-        dest: /opt/wordpress/
+        dest: "{{ project_dir }}"
         mode: '0755'
 
     - name: Start docker containers
-      ansible.builtin.shell:
-        chdir: /opt/wordpress/
-        cmd: |
-          docker compose down
-          docker compose up -d
-      changed_when: false
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present

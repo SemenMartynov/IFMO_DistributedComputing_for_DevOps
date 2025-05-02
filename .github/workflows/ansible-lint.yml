@@ -27,6 +27,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Install-ansible-reqs"
+        run: |
+          pip install ansible      
+          ansible-galaxy collection install community.docker community.mysql --force
+
       # Runs the ansible lint check
       - name: run-ansible-lint
         uses: ansible/ansible-lint@v25.2.1
