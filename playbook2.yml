@@ -114,7 +114,7 @@
         delay: 10
       delegate_to: localhost
     - name: Cloning DB from MASTER to SLAVE
-      ignore_errors: true
+#      ignore_errors: true
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.4
