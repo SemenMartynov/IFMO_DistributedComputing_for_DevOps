@@ -1,5 +1,5 @@
 ---
-- name:  Wordpress splitted to containers (web + db)
+- name: Wordpress splitted to containers (web + db)
   hosts: all
   become: true
 
@@ -96,11 +96,13 @@
       ansible.builtin.file:
         path: "{{ project_dir }}"
         state: directory
+        mode: '0755'
 
     - name: Docker compose from template
       ansible.builtin.template:
         src: docker-compose.yml.j2
         dest: "{{ docker_compose_dest }}"
+        mode: '0644'
 
     - name: Run docker compose (v2)
       community.docker.docker_compose_v2:
@@ -154,7 +156,7 @@
         var: galera_check_master
       when: galera_check_master is defined
 
-    - name: Check galera status on db-ыдфму
+    - name: Check galera status on db-slave
       community.mysql.mysql_query:
         login_host: 127.0.0.1
         login_port: 3307
