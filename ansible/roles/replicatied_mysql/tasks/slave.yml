@@ -1,4 +1,10 @@
 ---
+- name: Создание .my.cnf на хосте
+  template:
+    src: my.cnf.j2
+    dest: "/root/.my.cnf"
+    mode: 0600
+  
 - name: Создание контейнера для слейва
   community.docker.docker_container:
     name: "{{ slave_mysql_container_name }}"
@@ -15,22 +21,20 @@
     restart_policy: always
     state: started
     env:
-      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
       MYSQL_DATABASE: "{{ vault_mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
 
 - name: Ожидание готовности MySQL
   ansible.builtin.wait_for:
-    host: localhost
+    host: 127.0.0.1
     port: 3306
     delay: 10
     timeout: 300
 
 - name: Проверка статуса репликации на слейве
   community.mysql.mysql_replication:
-    login_host: localhost
+    login_host: 127.0.0.1
     login_port: 3306
-    login_user: root
-    login_password: "{{ vault_mysql_root_password }}"
     mode: getreplica
   register: slave_status
 
@@ -40,9 +44,7 @@
 
 - name: Настройка слейва
   community.mysql.mysql_replication:
-    login_host: localhost
-    login_user: root
-    login_password: "{{ vault_mysql_root_password }}"
+    login_host: 127.0.0.1
     primary_host: "{{ hostvars['mysql-master']['ansible_host'] }}"
     primary_port: 3306
     primary_user: "{{ vault_mysql_replication_user }}"
@@ -55,15 +57,13 @@
 
 - name: Запуск репликации
   community.mysql.mysql_replication:
-    login_host: localhost
-    login_user: root
+    login_host: 127.0.0.1
     login_password: "{{ vault_mysql_root_password }}"
     mode: startreplica
 
 - name: Проверка финального статуса репликации
   community.mysql.mysql_replication:
-    login_host: localhost
-    login_user: root
+    login_host: 127.0.0.1
     login_password: "{{ vault_mysql_root_password }}"
     mode: getreplica
   register: final_slave_status

@@ -70,7 +70,7 @@
     state: present
 
 - name: Установка Python модуля для Docker
-  ansible.builtin.pip:
+  ansible.builtin.apt:
     name: docker
     state: present
 

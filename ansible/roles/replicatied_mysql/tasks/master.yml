@@ -1,4 +1,10 @@
 ---
+- name: Создание .my.cnf на хосте
+  template:
+    src: my.cnf.j2
+    dest: "/root/.my.cnf"
+    mode: 0600
+
 - name: Создание контейнера для мастера
   community.docker.docker_container:
     name: "{{ master_mysql_container_name }}"
@@ -32,7 +38,6 @@
   community.mysql.mysql_user:
     login_host: localhost
     login_user: root
-    login_password: "{{ vault_mysql_root_password }}"
     name: "{{ vault_mysql_replication_user }}"
     host: "%"
     password: "{{ vault_mysql_replication_password }}"
@@ -51,7 +56,6 @@
   community.mysql.mysql_replication:
     login_host: localhost
     login_user: root
-    login_password: "{{ vault_mysql_root_password }}"
     mode: getprimary
   register: master_binlog_info_before_dump
   when: dump_result.stat.exists
@@ -79,7 +83,6 @@
     login_host: 127.0.0.1
     login_port: 3306
     login_user: root
-    login_password: "{{ vault_mysql_root_password }}"
     name: "{{ vault_mysql_database }}"
     state: import
     target: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"

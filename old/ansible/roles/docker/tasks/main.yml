@@ -7,7 +7,7 @@
 - name: Обновление списка пакетов
   ansible.builtin.apt:
     update_cache: true
-    cache_valid_time: 0  # принудительное обновление кеша
+    cache_valid_time: 0
   register: apt_update_result
   retries: 5
   delay: 2
@@ -70,7 +70,7 @@
     state: present
 
 - name: Установка Python модуля для Docker
-  ansible.builtin.pip:
+  ansible.builtin.apt:
     name: docker
     state: present
 
