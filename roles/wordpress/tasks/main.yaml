@@ -1,0 +1,57 @@
+---
+- name: Create user group
+  group:
+    name: '{{ user_group }}'
+    system: yes
+    state: present
+
+- name: Create wordpress user
+  user:
+    name: '{{ user_login }}'
+    group: '{{ user_group }}'
+    system: yes
+    create_home: no
+
+- name: Install Dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  with_items: "{{ dependencies }}"
+
+- name: Download WordPress
+  get_url:
+    url: "{{ wordpress_download_url }}"
+    dest: "{{ wordpress_download_path }}"
+
+- name: Extract WordPress
+  unarchive:
+    src: "{{ wordpress_download_path }}"
+    dest: "{{ wordpress_extract_path }}"
+    remote_src: yes
+    owner: '{{ user_login }}'
+    group: '{{ user_group }}'
+    mode: '0755'
+
+- name: Move WordPress files
+  copy:
+    src: "{{ wordpress_extract_path }}/wordpress/"
+    dest: "{{ wordpress_install_path }}"
+    remote_src: yes
+    owner: '{{ user_login }}'
+    group: '{{ user_group }}'
+    mode: '0755'
+
+- name: Delete Apache default index.html
+  file:
+    path: "{{ apache_index_file }}"
+    state: absent
+
+- name: Generate wp-config.php from template
+  template:
+    src: wp-config.php.j2
+    dest: "{{ wordpress_install_path }}/wp-config.php"
+    owner: '{{ user_login }}'
+    group: '{{ user_group }}'
+    mode: '0755'
+  notify: Restart Apache Service

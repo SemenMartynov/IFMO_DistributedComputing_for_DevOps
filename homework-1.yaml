@@ -1,0 +1,19 @@
+- name: Setup master DB
+  hosts: beta
+  vars:
+    mysql_db_id: 1
+  roles:
+    - mysql-master
+    - mysql-init-db
+  tags:
+    - master
+    - db
+
+- name: Setup WordPress
+  hosts: alpha
+  roles:
+    - apache
+    - wordpress
+  tags:
+    - web
+    - wordpress

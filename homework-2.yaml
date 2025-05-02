@@ -1,0 +1,35 @@
+- name: Setup master DB
+  hosts: beta
+  vars:
+    mysql_db_id: 1
+  roles:
+    - mysql-master
+  tags:
+    - master
+    - db
+
+- name: Setup slave DB
+  hosts: gamma
+  vars:
+    mysql_db_id: 2
+  roles:
+    - mysql-slave
+  tags:
+    - slave
+    - db
+
+- name: Create database and user for WordPress
+  hosts: beta
+  roles:
+    - mysql-init-db
+  tags:
+    - db
+
+- name: Setup WordPress
+  hosts: alpha
+  roles:
+    - apache
+    - wordpress
+  tags:
+    - web
+    - wordpress

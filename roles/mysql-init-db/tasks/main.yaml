@@ -1,0 +1,15 @@
+---
+- name: Create MySQL user
+  mysql_user:
+    login_unix_socket: "{{ mysql_login_unix_socket}}"
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    state: present
+    host: "%"
+    priv: "*.*:ALL"
+
+- name: Create database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_unix_socket: "{{ mysql_login_unix_socket}}"

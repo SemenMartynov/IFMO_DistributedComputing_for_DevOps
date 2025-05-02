@@ -1,0 +1,43 @@
+all:
+  hosts:
+    alpha:
+      ansible_host: 127.0.0.1
+      ansible_port: 2215
+      ansible_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/alpha/virtualbox/private_key
+      internal_host: 192.168.56.15
+
+    beta:
+      ansible_host: 127.0.0.1
+      ansible_port: 2219
+      ansible_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/beta/virtualbox/private_key
+      internal_host: 192.168.56.19
+
+    gamma:
+      ansible_host: 127.0.0.1
+      ansible_port: 2223
+      ansible_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/gamma/virtualbox/private_key
+      internal_host: 192.168.56.23
+
+    delta:
+      ansible_host: 127.0.0.1
+      ansible_port: 2227
+      ansible_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/delta/virtualbox/private_key
+      internal_host: 192.168.56.27
+
+  children:
+    web:
+      hosts:
+        alpha:
+    
+    db:
+      hosts:
+        beta:
+        gamma:
+    
+    monitoring:
+      hosts:
+        delta:
