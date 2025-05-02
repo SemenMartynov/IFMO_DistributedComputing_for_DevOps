@@ -32,12 +32,12 @@
 
 - name: Setup timezone
   shell:
-    cmd: "timedatectl set-timezone {{time_zone}}"
+    cmd: "timedatectl set-timezone {{ time_zone }}"
   when: "ansible_date_time.tz != time_zone"
 
 - name: Setup locale settings
   shell:
-    cmd: 'locale-gen {{locale1}} && update-locale LANG={{locale2}} LC_TIME={{locale1}}'
+    cmd: 'locale-gen {{ locale1 }} && update-locale LANG={{ locale2 }} LC_TIME={{ locale1 }}'
   when:
     - "ansible_env.LANG != locale2"
     - "ansible_env.LC_TIME != locale1"

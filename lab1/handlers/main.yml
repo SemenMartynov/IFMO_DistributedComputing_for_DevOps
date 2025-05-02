@@ -54,12 +54,12 @@
     files:
       - docker-compose-slave-sql.yml
   environment:
-    - MARIADB_ROOT_PASSWORD: "{{db_root_password}}"
-    - MARIADB_DATABASE: "{{wordpress_database}}"
-    - MARIADB_USER: "{{db_wordpress_user}}"
-    - MARIADB_PASSWORD: "{{db_wordpress_password}}"
-    - VOL_DB_DATA_SLAVE: "{{vol_db_data_slave}}"
-    - VOL_DB_CONF_SLAVE: "{{vol_db_conf_slave}}"
+    - MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+    - MARIADB_DATABASE: "{{ wordpress_database }}"
+    - MARIADB_USER: "{{ db_wordpress_user }}"
+    - MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+    - VOL_DB_DATA_SLAVE: "{{ vol_db_data_slave }}"
+    - VOL_DB_CONF_SLAVE: "{{ vol_db_conf_slave }}"
   listen: "restart docker-compose-slave-sql"
 
 - name: Run docker compose slave sql
@@ -70,12 +70,12 @@
       - docker-compose-slave-sql.yml
     remove_volumes: true
   environment:
-    - MARIADB_ROOT_PASSWORD: "{{db_root_password}}"
-    - MARIADB_DATABASE: "{{wordpress_database}}"
-    - MARIADB_USER: "{{db_wordpress_user}}"
-    - MARIADB_PASSWORD: "{{db_wordpress_password}}"
-    - VOL_DB_DATA_SLAVE: "{{vol_db_data_slave}}"
-    - VOL_DB_CONF_SLAVE: "{{vol_db_conf_slave}}"
+    - MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+    - MARIADB_DATABASE: "{{ wordpress_database }}"
+    - MARIADB_USER: "{{ db_wordpress_user }}"
+    - MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+    - VOL_DB_DATA_SLAVE: "{{ vol_db_data_slave }}"
+    - VOL_DB_CONF_SLAVE: "{{ vol_db_conf_slave }}"
   listen: "restart docker-compose-slave-sql"
 
 
