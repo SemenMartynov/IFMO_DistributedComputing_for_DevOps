@@ -94,7 +94,7 @@
       register: is_clone_plugin_installed
     - name: Prepare MASTER for Cloning - install plugin
 #      ignore_errors: true
-      when: is_clone_plugin_installed.rowcount == 0
+      when: is_clone_plugin_installed.rowcount | first == 0
       community.mysql.mysql_query:
         login_db: mysql
         login_host: 10.16.1.3
