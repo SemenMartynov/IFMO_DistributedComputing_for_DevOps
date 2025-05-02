@@ -50,7 +50,7 @@
 - name: Configure slave replication 
   community.mysql.mysql_replication:
     mode: changeprimary
-    primary_host: db-master
+    primary_host: "{{ db_master }}"
     primary_port: 3306
     primary_user: replicator
     primary_password: "{{ replication_password }}"

@@ -1,9 +1,20 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 192.168.56.101         # IP-адрес удалённого сервера
+      ansible_user: wurt83ow               # Пользователь для SSH-подключения
+      ansible_ssh_pass: your_ssh_password  # Пароль пользователя  
+      ansible_become: yes                  # Использовать привилегии root  
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
-      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_become_pass: "Vb[jnbh25"     # Пароль для sudo  
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+      # Параметры развертывания  
+      is_wordpress: true                   # Флаг для вывода  
+      wp_install_dir: /opt/wordpress       # Директория установки WordPress
+      wordpress_port: 80                   # Порт WordPress
+      mysql_root_password: somewordpress   # Пароль root для MySQL
+      db_name: wordpress                   # Имя базы данных WordPress
+      db_master: "db-master"               # Имя контейнера MySQL Master
+      db_replica: "db-slave"               # Имя контейнера MySQL Slave
+      replication_password: somewordpress  # Пароль пользователя репликации

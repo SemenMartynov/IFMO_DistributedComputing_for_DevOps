@@ -8,37 +8,37 @@
 - name: Copy docker-compose template
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ wp_install_dir }}/docker-compose.yml" 
+    dest: "{{ wp_install_dir }}/docker-compose.yml"
 
-# Разделяем запуск: сначала БД, потом WP
-- name: Start DB services (master & slave)
+# 1. Запускаем master‑БД
+- name: Start DB master service
   community.docker.docker_compose_v2:
     project_src: "{{ wp_install_dir }}"
     state: present
-    services:
-      - db-master
-      - db-slave
-    pull: always
-    recreate: always
+    services: 
+      - "{{ db_master }}"
+    pull: missing
+    recreate: never
     remove_orphans: true
 
-- name: Install PyMySQL for Ansible MySQL modules
+- name: Install PyMySQL for Ansible modules
   apt:
     name: python3-pymysql
     state: present
     update_cache: yes
 
-- name: Wait for MySQL master port 3306
+- name: Wait for MySQL master on 3306
   wait_for:
     host: localhost
     port: 3306
     state: started
-    delay: 10
+    delay: 5
     timeout: 120
 
+# 2. Запускаем WordPress  
 - name: Start WordPress service
   community.docker.docker_compose_v2:
     project_src: "{{ wp_install_dir }}"
-    state: present
-    services:
-      - wordpress
+    services: [wordpress]
+    pull: missing
+    recreate: never
