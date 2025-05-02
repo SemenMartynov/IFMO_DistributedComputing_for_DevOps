@@ -1,6 +1,5 @@
-/.idea/
+/.idea/**
 /.vagrant/
 /.ansible/
-/.idea/
 /logs/
-/.idea/
+
