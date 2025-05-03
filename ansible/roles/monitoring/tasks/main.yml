@@ -110,7 +110,6 @@
     name: wordpress_wp_network
   register: wp_network_info
   become: true
-  ignore_errors: true
 
 - name: Создать сеть WordPress, если она не существует
   community.docker.docker_network:
@@ -164,7 +163,6 @@
     cmd: "docker logs prometheus --tail 20"
   register: prometheus_logs
   become: true
-  ignore_errors: yes
 
 - name: Вывести логи Prometheus
   ansible.builtin.debug:
@@ -177,7 +175,6 @@
     cmd: "docker logs grafana --tail 20"
   register: grafana_logs
   become: true
-  ignore_errors: yes
 
 - name: Вывести логи Grafana
   ansible.builtin.debug:
@@ -220,7 +217,6 @@
     cmd: "docker network inspect monitoring_monitoring_network"
   register: prometheus_network
   become: true
-  ignore_errors: yes
 
 - name: Вывести подключения контейнера Prometheus к сетям
   ansible.builtin.debug:
@@ -233,7 +229,6 @@
     cmd: "docker network inspect wordpress_wp_network"
   register: wp_network
   become: true
-  ignore_errors: yes
 
 - name: Вывести подключения к сети WordPress
   ansible.builtin.debug:
@@ -252,7 +247,6 @@
     - node-exporter
     - mysql-exporter
   become: true
-  ignore_errors: yes
 
 - name: Вывести информацию о контейнерах
   ansible.builtin.debug:
@@ -293,7 +287,6 @@
     src: "{{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
   register: grafana_datasources_b64
   become: true
-  ignore_errors: yes
 
 - name: Вывести конфигурацию Grafana datasources
   ansible.builtin.debug:
@@ -318,7 +311,6 @@
     state: absent
     remove_volumes: false
   become: true
-  ignore_errors: yes
 
 - name: Запустить стек мониторинга с обновленной конфигурацией
   community.docker.docker_compose_v2:

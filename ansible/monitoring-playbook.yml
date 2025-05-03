@@ -41,7 +41,6 @@
       become: false
       run_once: true
       register: docker_module_check
-      ignore_errors: true
 
     - name: Вывести информацию о модуле Docker
       ansible.builtin.debug:
@@ -111,7 +110,6 @@
       ansible.builtin.command:
         cmd: "python3 -c 'import docker; print(docker.__version__)'"
       register: remote_docker_check
-      ignore_errors: true
       retries: 3
       delay: 5
       until: remote_docker_check is success or remote_docker_check is failed
@@ -158,7 +156,6 @@
         name: wordpress-wordpress-1
       register: wordpress_container
       become: true
-      ignore_errors: true
       retries: 3
       delay: 5
       until: wordpress_container is success or wordpress_container is failed
