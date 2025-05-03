@@ -1,0 +1,73 @@
+---
+- name: Создание контейнера для слейва
+  community.docker.docker_container:
+    name: "{{ slave_mysql_container_name }}"
+    image: "{{ mysql_image }}"
+    command:
+      - "mysqld"
+      - "--server-id=2"
+      - "--log-bin=mysql-bin"
+      - "--binlog-format=ROW"
+    ports:
+      - "3306:3306"
+    volumes:
+      - /opt/mysql/data:/var/lib/mysql
+    restart_policy: always
+    state: started
+    env:
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+
+- name: Ожидание готовности MySQL
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3306
+    delay: 10
+    timeout: 300
+
+- name: Проверка статуса репликации на слейве
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    mode: getreplica
+  register: slave_status
+
+- name: Дебаг
+  ansible.builtin.debug:
+    msg: "{{ slave_status }}"
+
+- name: Настройка слейва
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    primary_host: "{{ hostvars['mysql-master']['ansible_host'] }}"
+    primary_port: 3306
+    primary_user: "{{ mysql_replication_user }}"
+    primary_password: "{{ mysql_replication_password }}"
+    primary_log_file: "{{ hostvars['mysql-master']['binlog_info_for_slave'].file }}"
+    primary_log_pos: "{{ hostvars['mysql-master']['binlog_info_for_slave'].position }}"
+    mode: changeprimary
+  when: >
+    not (slave_status is defined and slave_status.get('Replica_IO_Running', 'No') == 'Yes')
+
+- name: Запуск репликации
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    mode: startreplica
+
+- name: Проверка финального статуса репликации
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    mode: getreplica
+  register: final_slave_status
+
+- name: Показать финальный статус репликации
+  ansible.builtin.debug:
+    msg: "{{ final_slave_status }}"

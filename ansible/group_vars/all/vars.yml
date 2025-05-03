@@ -1,0 +1,13 @@
+---
+docker_network: "lemp_docker_network"
+wordpress_volume: "wordpress_data"
+master_mysql_container_name: "master_mysql-container"
+slave_mysql_container_name: "slave_mysql-container"
+
+mysql_database: "wordpress"
+mysql_user: "wp_user"
+mysql_replication_user: "replication_user"
+
+mysql_root_password: "{{ vault_mysql_root_password }}"
+mysql_password: "{{ vault_mysql_password }}"
+mysql_replication_password: "{{ vault_mysql_replication_password }}"
