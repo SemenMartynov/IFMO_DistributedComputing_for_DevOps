@@ -97,10 +97,12 @@
       command: docker cp "{{ docker_compose_path }}/wordpress.sql" mysql_master:/wordpress.sql
       changed_when: true
 
-    - name: Import dump into mysql_master
+    - name: Import dump into mysql_master (use mysql without warning)
       community.docker.docker_container_exec:
         container: mysql_master
-        command: "mysql -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }} < /wordpress.sql"
+        command: "mysql -u root {{ wordpress_db_name }} < /wordpress.sql"
+        environment:
+          MYSQL_PWD: "{{ wordpress_db_root_password }}"
       changed_when: true
 
     - name: Create replication user on master
