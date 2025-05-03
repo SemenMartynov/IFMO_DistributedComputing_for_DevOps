@@ -54,9 +54,15 @@
   become: true
   register: compose_template
 
+- name: Установить Python MySQL библиотеку
+  apt:
+    name: python3-pymysql
+    state: present
+  become: true
+
 - name: Создать пользователя MySQL для мониторинга
   community.mysql.mysql_user:
-    login_host: "localhost"
+    login_host: "127.0.0.1"
     login_port: 3306
     login_user: root
     login_password: "{{ wordpress_mysql_root_password }}"
@@ -65,7 +71,6 @@
     priv: '*.*:SELECT,PROCESS,REPLICATION CLIENT'
     state: present
   become: true
-  ignore_errors: yes
 
 - name: Установить UFW
   apt:
@@ -101,16 +106,17 @@
   become: true
 
 - name: Проверить существование сети WordPress
-  ansible.builtin.shell:
-    cmd: "docker network ls -q --filter name=wordpress_wp_network"
-  register: wp_network_exists
+  community.docker.docker_network_info:
+    name: wordpress_wp_network
+  register: wp_network_info
   become: true
-  changed_when: false
+  ignore_errors: true
 
 - name: Создать сеть WordPress, если она не существует
-  ansible.builtin.command:
-    cmd: "docker network create wordpress_wp_network"
-  when: wp_network_exists.stdout == ""
+  community.docker.docker_network:
+    name: wordpress_wp_network
+    state: present
+  when: wp_network_info.failed | default(true)
   become: true
 
 - name: Запустить стек мониторинга
@@ -137,65 +143,72 @@
   become: true
 
 - name: Проверить статус контейнеров
-  ansible.builtin.command:
-    cmd: "docker ps -a"
-  register: docker_ps_result
+  community.docker.docker_container_info:
+    name: "{{ item }}"
+  register: container_info
+  loop:
+    - prometheus
+    - grafana
+    - cadvisor
+    - node-exporter
+    - mysql-exporter
   become: true
-  changed_when: false
 
 - name: Вывести статус контейнеров
   ansible.builtin.debug:
-    var: docker_ps_result.stdout_lines
+    var: container_info.results
   become: true
 
 - name: Проверить логи контейнера Prometheus
   ansible.builtin.command:
-    cmd: "docker logs prometheus"
+    cmd: "docker logs prometheus --tail 20"
   register: prometheus_logs
   become: true
-  changed_when: false
   ignore_errors: yes
 
 - name: Вывести логи Prometheus
   ansible.builtin.debug:
-    var: prometheus_logs.stdout_lines
+    var: prometheus_logs.stdout
   become: true
   when: prometheus_logs is defined
 
 - name: Проверить логи контейнера Grafana
   ansible.builtin.command:
-    cmd: "docker logs grafana"
+    cmd: "docker logs grafana --tail 20"
   register: grafana_logs
   become: true
-  changed_when: false
   ignore_errors: yes
 
 - name: Вывести логи Grafana
   ansible.builtin.debug:
-    var: grafana_logs.stdout_lines
+    var: grafana_logs.stdout
   become: true
   when: grafana_logs is defined
 
 - name: Проверить сетевые привязки
-  ansible.builtin.shell:
-    cmd: "netstat -tulpn | grep -E ':({{ monitoring_prometheus_port }}|{{ monitoring_grafana_port }}|{{ monitoring_cadvisor_port }})'"
-  register: netstat_result
+  community.general.listen_ports_facts:
   become: true
-  changed_when: false
-  ignore_errors: yes
 
-- name: Вывести сетевые привязки
+- name: Вывести сетевые привязки для Prometheus
   ansible.builtin.debug:
-    var: netstat_result.stdout_lines
+    msg: "Prometheus порт {{ monitoring_prometheus_port }} прослушивается: {{ monitoring_prometheus_port in ansible_facts.tcp_listen | map(attribute='port') | list }}"
   become: true
-  when: netstat_result is defined
+
+- name: Вывести сетевые привязки для Grafana
+  ansible.builtin.debug:
+    msg: "Grafana порт {{ monitoring_grafana_port }} прослушивается: {{ monitoring_grafana_port in ansible_facts.tcp_listen | map(attribute='port') | list }}"
+  become: true
+
+- name: Вывести сетевые привязки для cAdvisor
+  ansible.builtin.debug:
+    msg: "cAdvisor порт {{ monitoring_cadvisor_port }} прослушивается: {{ monitoring_cadvisor_port in ansible_facts.tcp_listen | map(attribute='port') | list }}"
+  become: true
 
 - name: Проверить Docker сети
   ansible.builtin.command:
-    cmd: "docker network ls"
+    cmd: "docker network ls --format '{% raw %}{{.Name}}{% endraw %}'"
   register: docker_networks
   become: true
-  changed_when: false
 
 - name: Вывести Docker сети
   ansible.builtin.debug:
@@ -207,101 +220,96 @@
     cmd: "docker network inspect monitoring_monitoring_network"
   register: prometheus_network
   become: true
-  changed_when: false
   ignore_errors: yes
 
 - name: Вывести подключения контейнера Prometheus к сетям
   ansible.builtin.debug:
-    var: prometheus_network.stdout_lines
+    var: prometheus_network.stdout | default('Network not found')
   become: true
-  when: prometheus_network is defined
+  when: prometheus_network is defined and prometheus_network.rc is defined and prometheus_network.rc == 0
 
 - name: Проверить подключения к сети WordPress
   ansible.builtin.command:
-    cmd: "docker network inspect wp_network"
+    cmd: "docker network inspect wordpress_wp_network"
   register: wp_network
   become: true
-  changed_when: false
   ignore_errors: yes
 
 - name: Вывести подключения к сети WordPress
   ansible.builtin.debug:
-    var: wp_network.stdout_lines
+    var: wp_network.stdout | default('Network not found')
   become: true
-  when: wp_network is defined
+  when: wp_network is defined and wp_network.rc is defined and wp_network.rc == 0
 
-- name: Проверить использование ресурсов контейнерами
+- name: Собрать информацию о контейнерах
   ansible.builtin.command:
-    cmd: "docker stats --no-stream"
-  register: docker_stats
+    cmd: "docker inspect {{ item }}"
+  register: container_stats
+  loop:
+    - prometheus
+    - grafana
+    - cadvisor
+    - node-exporter
+    - mysql-exporter
   become: true
-  changed_when: false
+  ignore_errors: yes
 
-- name: Вывести использование ресурсов контейнерами
+- name: Вывести информацию о контейнерах
   ansible.builtin.debug:
-    var: docker_stats.stdout_lines
+    var: item.stdout | default('Container not found')
+  loop: "{{ container_stats.results }}"
+  when: item.rc is defined and item.rc == 0
   become: true
 
-- name: Проверить свободную память на сервере
-  ansible.builtin.command:
-    cmd: "free -h"
-  register: free_memory
+- name: Собрать факты о системе
+  ansible.builtin.setup:
+    gather_subset:
+      - hardware
   become: true
-  changed_when: false
 
-- name: Вывести свободную память на сервере
+- name: Вывести информацию о памяти
   ansible.builtin.debug:
-    var: free_memory.stdout_lines
+    msg: "Свободная память: {{ ansible_facts.memfree_mb }} MB, Всего памяти: {{ ansible_facts.memtotal_mb }} MB"
   become: true
 
-- name: Проверить загрузку CPU на сервере
-  ansible.builtin.shell:
-    cmd: "top -bn1 | head -5"
-  register: cpu_load
-  become: true
-  changed_when: false
-
-- name: Вывести загрузку CPU на сервере
+- name: Вывести информацию о CPU
   ansible.builtin.debug:
-    var: cpu_load.stdout_lines
+    msg: "Процессоры: {{ ansible_facts.processor_count }}, Модель: {{ ansible_facts.processor[0] }}"
   become: true
 
 - name: Проверить конфигурацию Prometheus
-  ansible.builtin.command:
-    cmd: "cat {{ monitoring_dir }}/prometheus.yml"
-  register: prometheus_config
+  ansible.builtin.slurp:
+    src: "{{ monitoring_dir }}/prometheus.yml"
+  register: prometheus_config_b64
   become: true
-  changed_when: false
 
 - name: Вывести конфигурацию Prometheus
   ansible.builtin.debug:
-    var: prometheus_config.stdout_lines
+    msg: "{{ prometheus_config_b64['content'] | b64decode | split('\n') }}"
   become: true
 
 - name: Проверить конфигурацию Grafana datasources
-  ansible.builtin.command:
-    cmd: "cat {{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
-  register: grafana_datasources
+  ansible.builtin.slurp:
+    src: "{{ monitoring_dir }}/grafana/provisioning/datasources/prometheus.yml"
+  register: grafana_datasources_b64
   become: true
-  changed_when: false
   ignore_errors: yes
 
 - name: Вывести конфигурацию Grafana datasources
   ansible.builtin.debug:
-    var: grafana_datasources.stdout_lines
+    msg: "{{ grafana_datasources_b64['content'] | b64decode | split('\n') }}"
   become: true
-  when: grafana_datasources is defined
+  when: grafana_datasources_b64 is defined and grafana_datasources_b64.content is defined
 
 - name: Проверить конфигурацию Docker Compose
-  ansible.builtin.command:
-    cmd: "cat {{ monitoring_dir }}/docker-compose.yml"
-  register: docker_compose_config
+  ansible.builtin.slurp:
+    src: "{{ monitoring_dir }}/docker-compose.yml"
+  register: docker_compose_config_b64
   become: true
-  changed_when: false
 
 - name: Вывести конфигурацию Docker Compose
   ansible.builtin.debug:
-    var: docker_compose_config.stdout_lines
+    msg: "{{ docker_compose_config_b64['content'] | b64decode | split('\n') }}"
   become: true
 
 - name: Остановить и удалить существующие контейнеры мониторинга

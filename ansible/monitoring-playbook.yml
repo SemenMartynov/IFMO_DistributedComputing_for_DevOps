@@ -3,22 +3,150 @@
   become: true
   vars_files:
     - roles/wordpress/vars/main.yml
+  vars:
+    ansible_ssh_pipelining: true
+    ansible_ssh_common_args: '-o ServerAliveInterval=60 -o ServerAliveCountMax=10'
   pre_tasks:
     - name: Установить необходимые коллекции Ansible
       ansible.builtin.command:
-        cmd: "ansible-galaxy collection install {{ item }}"
-      with_items:
-        - community.docker
-        - community.mysql
+        cmd: "ansible-galaxy collection install -r requirements.yml --force"
       delegate_to: localhost
       become: false
       run_once: true
       changed_when: false
+      register: collection_install
+
+    - name: Вывести результат установки коллекций
+      ansible.builtin.debug:
+        var: collection_install
+      run_once: true
+
+    - name: Проверить доступность коллекции Docker
+      ansible.builtin.command:
+        cmd: "ansible-galaxy collection list community.docker"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: docker_collection_check
+
+    - name: Вывести информацию о коллекции Docker
+      ansible.builtin.debug:
+        var: docker_collection_check
+      run_once: true
+
+    - name: Проверить доступность модуля Docker
+      ansible.builtin.command:
+        cmd: "ansible-doc -t module community.docker.docker_container_logs"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: docker_module_check
+      ignore_errors: true
+
+    - name: Вывести информацию о модуле Docker
+      ansible.builtin.debug:
+        var: docker_module_check
+      run_once: true
+
+    - name: Установить Python модуль Docker
+      ansible.builtin.pip:
+        name: docker
+        state: present
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: pip_install_result
+
+    - name: Вывести результат установки Python модуля Docker
+      ansible.builtin.debug:
+        var: pip_install_result
+      run_once: true
+
+    # Removed task to install Docker collection on remote host as it's not needed
+    # Ansible collections are only required on the control node
+
+    - name: Вывести информацию о задаче установки коллекции Docker
+      ansible.builtin.debug:
+        msg: "Установка коллекции Docker на удаленном хосте не требуется. Коллекции Ansible нужны только на управляющем узле."
+
+    - name: Проверить SSH соединение с удаленным хостом
+      ansible.builtin.ping:
+      register: ping_result
+
+    - name: Вывести результат проверки SSH соединения
+      ansible.builtin.debug:
+        var: ping_result
+
+    - name: Сбросить SSH соединение
+      meta: reset_connection
+
+    - name: Установить pip на удаленном хосте
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+      register: pip_apt_install
+      retries: 3
+      delay: 5
+      until: pip_apt_install is success
+
+    - name: Вывести результат установки pip на удаленном хосте
+      ansible.builtin.debug:
+        var: pip_apt_install
+
+    - name: Установить Python модуль Docker на удаленном хосте
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+      register: remote_pip_install
+      retries: 3
+      delay: 5
+      until: remote_pip_install is success
+
+    - name: Вывести результат установки Python модуля Docker на удаленном хосте
+      ansible.builtin.debug:
+        var: remote_pip_install
+
+    - name: Проверить доступность модуля Docker на удаленном хосте
+      ansible.builtin.command:
+        cmd: "python3 -c 'import docker; print(docker.__version__)'"
+      register: remote_docker_check
+      ignore_errors: true
+      retries: 3
+      delay: 5
+      until: remote_docker_check is success or remote_docker_check is failed
+
+    - name: Вывести результат проверки модуля Docker на удаленном хосте
+      ansible.builtin.debug:
+        var: remote_docker_check
+
+    - name: Установить Python модуль для Docker SDK
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+      register: docker_sdk_install
+      retries: 3
+      delay: 5
+      until: docker_sdk_install is success
+
+    - name: Вывести результат установки Python модулей для Docker SDK
+      ansible.builtin.debug:
+        var: docker_sdk_install
+
+    # Removed tasks related to Ansible collections on remote host as they're not needed
+    # Ansible collections are only required on the control node
+
+    - name: Вывести информацию о задачах установки коллекций
+      ansible.builtin.debug:
+        msg: "Установка коллекций Ansible на удаленном хосте не требуется. Коллекции Ansible нужны только на управляющем узле. Для работы модулей Docker на удаленном хосте достаточно установить Python модуль docker."
 
     - name: Проверить, развернут ли WordPress
       stat:
         path: "{{ wordpress_dir | default('/home/ubuntu/wordpress') }}/docker-compose.yml"
       register: wordpress_compose_file
+      retries: 3
+      delay: 5
+      until: wordpress_compose_file is success
 
     - name: Прервать выполнение, если WordPress не развернут
       fail:
@@ -26,15 +154,18 @@
       when: not wordpress_compose_file.stat.exists
 
     - name: Проверить, запущены ли контейнеры WordPress
-      ansible.builtin.shell:
-        cmd: "docker ps -q --filter name=wordpress"
-      register: wordpress_containers
+      community.docker.docker_container_info:
+        name: wordpress-wordpress-1
+      register: wordpress_container
       become: true
-      changed_when: false
+      ignore_errors: true
+      retries: 3
+      delay: 5
+      until: wordpress_container is success or wordpress_container is failed
 
     - name: Прервать выполнение, если контейнеры WordPress не запущены
       fail:
         msg: "Контейнеры WordPress должны быть запущены перед мониторингом. Убедитесь, что WordPress работает."
-      when: wordpress_containers.stdout == ""
+      when: wordpress_container.failed or not wordpress_container.exists or wordpress_container.container.State.Status != 'running'
   roles:
     - monitoring

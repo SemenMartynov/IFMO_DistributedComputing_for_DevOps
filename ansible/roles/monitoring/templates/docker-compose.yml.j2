@@ -16,7 +16,7 @@ services:
       - '--web.max-connections=1024'
       - '--query.timeout=5m'
       - '--storage.tsdb.retention.time=15d'
-      - '--web.external-url=http://51.250.33.142:{{ monitoring_prometheus_port }}'
+      - '--web.external-url=http://{{ monitoring_server_ip }}:{{ monitoring_prometheus_port }}'
       - '--web.enable-admin-api'
     ports:
       - "0.0.0.0:{{ monitoring_prometheus_port }}:9090"
@@ -39,8 +39,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_ADDR=0.0.0.0
-      - GF_SERVER_ROOT_URL=http://51.250.33.142:{{ monitoring_grafana_port }}
-      - GF_SERVER_DOMAIN=51.250.33.142
+      - GF_SERVER_ROOT_URL=http://{{ monitoring_server_ip }}:{{ monitoring_grafana_port }}
+      - GF_SERVER_DOMAIN={{ monitoring_server_ip }}
       - GF_SERVER_ENFORCE_DOMAIN=false
       - GF_SERVER_ENABLE_GZIP=true
       - GF_DATABASE_TYPE=sqlite3
@@ -113,17 +113,10 @@ services:
     container_name: mysql-exporter
     restart: unless-stopped
     environment:
-      - MYSQL_USER={{ monitoring_mysql_user }}
-      - MYSQL_PASSWORD={{ monitoring_mysql_password }}
-      - MYSQL_HOST=db_master
-      - MYSQL_PORT=3306
-      - DATA_SOURCE_NAME={{ monitoring_mysql_user }}:{{ monitoring_mysql_password }}@(db_master:3306)/
+      - DATA_SOURCE_NAME={{ monitoring_mysql_user }}:{{ monitoring_mysql_password }}@({{ monitoring_mysql_master_host }}:{{ monitoring_mysql_master_port }})/
     command:
       - '--web.listen-address=:9104'
       - '--web.telemetry-path=/metrics'
-      - '--collect.info_schema.tables=false'
-      - '--collect.info_schema.innodb_metrics=false'
-      - '--collect.perf_schema.eventsstatements=false'
     networks:
       - monitoring_network
       - wp_network

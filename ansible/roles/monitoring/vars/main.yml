@@ -3,6 +3,7 @@ monitoring_dir: "/home/ubuntu/monitoring"
 monitoring_prometheus_port: 9090
 monitoring_grafana_port: 3000
 monitoring_cadvisor_port: 8081
+monitoring_server_ip: "{{ ansible_host }}"
 
 # Сервисы для мониторинга
 monitoring_wordpress_host: "localhost"
