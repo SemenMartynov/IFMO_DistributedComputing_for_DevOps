@@ -1,0 +1,24 @@
+---
+
+- name: Stop Wordpress container
+  community.docker.docker_container:
+    name: wordpress
+    state: stopped
+
+- name: Run Wordpress Docker container and connect it to Haproxy
+  community.docker.docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    restart_policy: unless-stopped
+    env:
+      WORDPRESS_DB_HOST: "{{ wp_vars.db_host }}"
+      WORDPRESS_DB_USER: "{{ mariadb_and_wp_vars.user }}"
+      WORDPRESS_DB_PASSWORD: "{{ mariadb_and_wp_vars.password }}"
+      WORDPRESS_DB_NAME: "{{ mariadb_and_wp_vars.database }}"
+    ports:
+      - "80:80"
+    networks:
+      - name: wp_network
+    volumes:
+      - "wordpress_data:/var/www/html/"

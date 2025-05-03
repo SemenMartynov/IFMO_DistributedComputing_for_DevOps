@@ -1,0 +1,12 @@
+---
+
+- name: Create folder
+  ansible.builtin.file:
+    path: /opt/haproxy
+    state: directory
+    mode: '0755'
+
+- name: Copy Haproxy config
+  ansible.builtin.copy:
+    src: haproxy.cfg
+    dest: /opt/haproxy/haproxy.cfg

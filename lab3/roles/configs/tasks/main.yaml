@@ -1,0 +1,25 @@
+---
+
+- name: Create folders
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "/opt/prometheus"
+    - "/opt/grafana"
+
+- name: Copy Prometheus configs
+  ansible.builtin.copy:
+    src: prometheus.yaml
+    dest: /opt/prometheus/prometheus.yaml
+
+- name: Copy Grafana dashboard
+  ansible.builtin.copy:
+    src: dashboard.json
+    dest: /opt/grafana/dashboard.json
+
+- name: Copy Grafana datasource
+  ansible.builtin.copy:
+    src: datasource.yaml
+    dest: /opt/grafana/datasource.yaml

@@ -1,0 +1,9 @@
+wp_vars:
+  db_host: mariadb
+mariadb_vars:
+  backup_password: somewordpress
+  root_password: somewordpress
+mariadb_and_wp_vars:
+  database: wordpress
+  user: wordpress
+  password: wordpress

@@ -1,0 +1,21 @@
+---
+
+- name: Run Grafana container
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana:latest
+    state: started
+    restart_policy: unless-stopped
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ GF_SECURITY_ADMIN_USER }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ GF_SECURITY_ADMIN_PASSWORD }}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/etc/grafana/provisioning/dashboards/dashboard.json"
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - /opt/grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - /opt/grafana/dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json
+    networks:
+      - name: monitoring_network

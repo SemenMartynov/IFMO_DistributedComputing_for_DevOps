@@ -1,0 +1,12 @@
+---
+- name: Run Haproxy
+  community.docker.docker_container:
+    name: haproxy
+    image: haproxy:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - /opt/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - name: mariadb_network
+      - name: wp_network

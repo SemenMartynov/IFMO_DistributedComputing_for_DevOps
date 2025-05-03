@@ -1,0 +1,39 @@
+---
+
+- name: Ensure Docker is running and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Delete content
+  ansible.builtin.file:
+    state: absent
+    path: "{{ backup_dest }}"
+
+- name: Create backup directory on host if doesn't exist
+  file:
+    path: "{{ backup_dest }}"
+    state: directory
+    mode: '0755'
+
+- name: Install MariaDB client
+  ansible.builtin.apt:
+    name: mariadb-client
+    state: present
+  become: yes
+
+- name: Install PyMySQL
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+  become: yes
+
+- name: Dump databases using mysql_db module
+  community.mysql.mysql_db:
+    name: all
+    login_user: root
+    login_password: "{{ mariadb_vars.root_password }}"
+    state: dump
+    target: /tmp/mariadb_backups/db.sql
+    single_transaction: yes

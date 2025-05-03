@@ -1,0 +1,25 @@
+---
+
+- name: Ensure MariaDB volume exists
+  community.docker.docker_volume:
+    name: mariadb_data
+    state: present
+
+- name: Run MariaDB Docker container
+  community.docker.docker_container:
+    name: mariadb
+    image: bitnami/mariadb-galera:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "mariadb_data:/var/lib/mysql"
+    networks:
+      - name: wp_network
+    env:
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariadb_vars.backup_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ mariadb_vars.root_password }}"
+      MARIADB_DATABASE: "{{ mariadb_and_wp_vars.database }}"
+      MARIADB_USER: "{{ mariadb_and_wp_vars.user }}"
+      MARIADB_PASSWORD: "{{ mariadb_and_wp_vars.password }}"
+    ports:
+      - "3306:3306"

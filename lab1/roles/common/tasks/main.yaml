@@ -1,0 +1,19 @@
+---
+
+- name: Update repositories
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install ca-certificates and curl packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - curl
+    - ca-certificates
+
+- name: Create /etc/apt/keyrings folder
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'

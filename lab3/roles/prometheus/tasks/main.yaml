@@ -1,0 +1,18 @@
+---
+
+- name: Run Prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    image: prom/prometheus:latest
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - /opt/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - name: monitoring_network

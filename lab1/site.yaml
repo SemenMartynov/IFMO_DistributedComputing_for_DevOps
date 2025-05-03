@@ -1,0 +1,25 @@
+---
+
+- name: Base System Setup
+  hosts: all
+  become: yes
+  roles:
+    - common
+    
+- name: Docker Setup
+  hosts: all
+  become: yes
+  roles:
+    - docker
+
+- name: MariaDB Setup
+  hosts: all
+  become: yes
+  roles:
+    - mariadb
+
+- name: Wordpress Setup
+  hosts: all
+  become: yes
+  roles:
+    - wordpress

@@ -1,0 +1,19 @@
+wp_vars:
+  db_host: haproxy
+mariadb_vars:
+  replication_user: wordpress
+  replication_password: wordpress
+  backup_password: somewordpress
+  root_password: somewordpress
+  galera_cluster: galera_cluster
+  mariadb_slaves:
+  - name: mariadb-slave-2
+    volume: mariadb_slave_2_data
+  - name: mariadb-slave-3
+    volume: mariadb_slave_3_data
+  - name: mariadb-slave-4
+    volume: mariadb_slave_4_data
+mariadb_and_wp_vars:
+  database: wordpress
+  user: wordpress
+  password: wordpress

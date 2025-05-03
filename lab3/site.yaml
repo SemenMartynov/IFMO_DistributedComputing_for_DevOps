@@ -1,0 +1,25 @@
+---
+
+- name: Configs
+  hosts: all
+  become: yes
+  roles:
+    - configs
+
+- name: Cadvisor
+  hosts: all
+  become: yes
+  roles:
+    - cadvisor
+
+- name: Prometheus
+  hosts: all
+  become: yes
+  roles:
+    - prometheus
+
+- name: Grafana
+  hosts: all
+  become: yes
+  roles:
+    - grafana

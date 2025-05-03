@@ -1,0 +1,25 @@
+---
+
+- name: Cluster
+  hosts: all
+  become: yes
+  roles:
+    - cluster
+
+- name: Configs
+  hosts: all
+  become: yes
+  roles:
+    - configs
+
+- name: Haproxy
+  hosts: all
+  become: yes
+  roles:
+    - haproxy
+
+- name: Wordpress
+  hosts: all
+  become: yes
+  roles:
+    - wordpress

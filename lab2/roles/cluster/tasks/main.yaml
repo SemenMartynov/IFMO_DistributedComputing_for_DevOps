@@ -1,0 +1,84 @@
+---
+
+- name: Ensure MariaDB volumes exist
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - mariadb_master_data
+    - mariadb_slave_1_data
+
+- name: Create a Docker network for MariaDB Cluster
+  community.docker.docker_network:
+    name: "{{ item }}"
+    driver: bridge
+  loop:
+    - mariadb_network
+
+- name: Stop Wordpress container
+  community.docker.docker_container:
+    name: wordpress
+    state: stopped
+
+- name: Check if mariadb container exists
+  community.docker.docker_container_info:
+    name: mariadb
+  register: result
+
+- name: Stop and Remove old MariaDB container
+  community.docker.docker_container:
+    name: mariadb
+    state: absent
+  when: result.exists
+
+- name: Check if mariadb-master container exists
+  community.docker.docker_container_info:
+    name: mariadb-master
+  register: result
+    
+- name: Run MariaDB-Master Docker container with Galera cluster and restore backup
+  community.docker.docker_container:
+    name: mariadb-master
+    image: bitnami/mariadb-galera:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "mariadb_master_data:/var/lib/mysql"
+      - "{{ backup_dest }}:/docker-entrypoint-initdb.d"
+    networks:
+      - name: wp_network
+      - name: mariadb_network
+    env:
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariadb_vars.backup_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ mariadb_vars.root_password }}"
+      MARIADB_DATABASE: "{{ mariadb_and_wp_vars.database }}"
+      MARIADB_USER: "{{ mariadb_and_wp_vars.user }}"
+      MARIADB_PASSWORD: "{{ mariadb_and_wp_vars.password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ mariadb_vars.galera_cluster }}"
+      MARIADB_REPLICATION_USER: "{{ mariadb_vars.replication_user }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ mariadb_vars.replication_password }}"
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+    ports:
+      - "3306:3306"
+  when:
+    - not result.exists
+    
+
+- name: Run MariaDB-Slave-1 Docker container joining Galera cluster
+  community.docker.docker_container:
+    name: mariadb-slave-1
+    image: bitnami/mariadb-galera:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "mariadb_slave_1_data:/var/lib/mysql"
+    networks:
+      - name: mariadb_network
+    env:
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariadb_vars.backup_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ mariadb_vars.root_password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ mariadb_vars.galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://mariadb-master"
+      MARIADB_REPLICATION_USER: "{{ mariadb_vars.replication_user }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ mariadb_vars.replication_password }}"

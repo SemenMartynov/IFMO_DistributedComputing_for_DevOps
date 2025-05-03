@@ -1,0 +1,25 @@
+---
+- name: Ensure MariaDB volumes exist
+  community.docker.docker_volume:
+    name: "{{ item.volume }}"
+    state: present
+  loop: "{{ mariadb_vars.mariadb_slaves }}"
+
+- name: Run additional MariaDB-Slave Docker containers joining Galera cluster
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: bitnami/mariadb-galera:latest
+    state: started
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ item.volume }}:/var/lib/mysql"
+    networks:
+      - name: mariadb_network
+    env:
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariadb_vars.backup_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ mariadb_vars.root_password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ mariadb_vars.galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://mariadb-master"
+      MARIADB_REPLICATION_USER: "{{ mariadb_vars.replication_user }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ mariadb_vars.replication_password }}"
+  loop: "{{ mariadb_vars.mariadb_slaves }}"
