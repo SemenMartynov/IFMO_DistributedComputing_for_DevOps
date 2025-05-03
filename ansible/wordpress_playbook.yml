@@ -14,9 +14,29 @@
       apt:
         name:
           - docker.io
-          - docker-compose-plugin
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
         state: present
         update_cache: true
+
+    - name: Add Docker's official GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+        update_cache: true
+
+    - name: Install docker-compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
 
     - name: Enable and start Docker service
       systemd:
@@ -63,7 +83,9 @@
         state: present
 
     - name: Wait for master to be ready
-      shell: "docker exec mysql_master mysqladmin ping -u root -p{{ wordpress_db_root_password }}"
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: mysqladmin ping -u root -p{{ wordpress_db_root_password }}
       register: result
       retries: 10
       delay: 5
@@ -71,7 +93,9 @@
       changed_when: false
 
     - name: Dump existing WordPress database from master
-      shell: "docker exec mysql_master sh -c 'exec mysqldump -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }}'"
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: mysqldump -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }}
       register: dump_result
       changed_when: false
       failed_when: dump_result.rc != 0
@@ -83,13 +107,14 @@
         mode: '0644'
 
     - name: Copy dump file into mysql_master container
-      command: docker cp "{{ docker_compose_path }}/wordpress.sql" mysql_master:/wordpress.sql
-      changed_when: true
+      community.docker.docker_cp:
+        src: "{{ docker_compose_path }}/wordpress.sql"
+        dest: mysql_master:/wordpress.sql
 
     - name: Import dump into mysql_master
-      command: >
-        docker exec mysql_master sh -c "mysql -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }} < /wordpress.sql"
-      changed_when: true
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: mysql -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }} < /wordpress.sql
 
     - name: Create replication user on master
       community.mysql.mysql_user:
@@ -103,7 +128,9 @@
       delegate_to: localhost
 
     - name: Get master status
-      shell: docker exec mysql_master mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\G"
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\G"
       register: master_status_output
       changed_when: false
 
@@ -116,7 +143,9 @@
         master_log_pos: "{{ master_status_output.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
 
     - name: Wait for replica to be ready
-      shell: "docker exec mysql_replica mysqladmin ping -u root -p{{ wordpress_db_root_password }}"
+      community.docker.docker_container_exec:
+        container: mysql_replica
+        command: mysqladmin ping -u root -p{{ wordpress_db_root_password }}
       register: result
       retries: 10
       delay: 5
@@ -124,20 +153,23 @@
       changed_when: false
 
     - name: Configure replication on replica
-      shell: >
-        docker exec mysql_replica mysql -u root -p{{ wordpress_db_root_password }} -e "
-        STOP SLAVE;
-        CHANGE MASTER TO
-          MASTER_HOST='mysql_master',
-          MASTER_USER='{{ repl_user }}',
-          MASTER_PASSWORD='{{ repl_password }}',
-          MASTER_LOG_FILE='{{ master_log_file }}',
-          MASTER_LOG_POS={{ master_log_pos }},
-          GET_MASTER_PUBLIC_KEY = 1;
-        START SLAVE;"
-      changed_when: true
+      community.docker.docker_container_exec:
+        container: mysql_replica
+        command: >
+          mysql -u root -p{{ wordpress_db_root_password }} -e "
+          STOP SLAVE;
+          CHANGE MASTER TO
+            MASTER_HOST='mysql_master',
+            MASTER_USER='{{ repl_user }}',
+            MASTER_PASSWORD='{{ repl_password }}',
+            MASTER_LOG_FILE='{{ master_log_file }}',
+            MASTER_LOG_POS={{ master_log_pos }},
+            GET_MASTER_PUBLIC_KEY = 1;
+          START SLAVE;"
 
     - name: Check slave status
-      shell: docker exec mysql_replica mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW SLAVE STATUS\G"
+      community.docker.docker_container_exec:
+        container: mysql_replica
+        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW SLAVE STATUS\G"
       register: slave_status_output
       changed_when: false
