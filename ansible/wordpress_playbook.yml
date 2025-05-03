@@ -93,10 +93,9 @@
         dest: "{{ docker_compose_path }}/wordpress.sql"
         mode: '0644'
 
-    - name: Copy dump file into mysql_master container using docker cp
-      community.docker.docker_compose_exec:
-        project_src: "{{ docker_compose_path }}"
-        service: mysql_master
+    - name: Copy dump file into mysql_master container using docker exec
+      community.docker.docker_container_exec:
+        container: mysql_master
         command: "docker cp {{ docker_compose_path }}/wordpress.sql mysql_master:/wordpress.sql"
       changed_when: true
 
