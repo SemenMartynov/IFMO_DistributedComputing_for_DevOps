@@ -107,6 +107,32 @@
     - name: Wait for replica to be ready
       community.docker.docker_container_exec:
         container: mysql_replica
+        command: "mysqladmin ping -u root -p{{ wordpress_db_root_password }}"
+      register: result
+      retries: 10
+      delay: 5
+      until: result.rc == 0
+      changed_when: false
+
+    - name: Configure replication on replica
+      community.docker.docker_container_exec:
+        container: mysql_replica
+        command: >
+          mysql -u root -p{{ wordpress_db_root_password }} -e "
+          STOP SLAVE;
+          CHANGE MASTER TO
+            MASTER_HOST='mysql_master',
+            MASTER_USER='{{ repl_user }}',
+            MASTER_PASSWORD='{{ repl_password }}',
+            MASTER_LOG_FILE='{{ master_log_file }}',
+            MASTER_LOG_POS={{ master_log_pos }},
+            GET_MASTER_PUBLIC_KEY = 1;
+          START SLAVE;"
+      changed_when: true
+
+    - name: Check slave status
+      community.docker.docker_container_exec:
+        container: mysql_replica
         command: "mysql -u root -p{{ wordpress_db_root_password }} -e 'SHOW SLAVE STATUS\\G'"
-        register: slave_status_output
-        changed_when: false
+      register: slave_status_output
+      changed_when: false
