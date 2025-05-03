@@ -1,13 +1,39 @@
----
-- name: Home work 2
+- name: Playbook 2 - Configure Master-Slave Replication
   hosts: carrier
+  become: true
+  vars:
+    # Директория, куда был развернут compose-файл WordPress + БД в playbook1
+    wordpress_install_dir: /opt/wordpress
+
   tasks:
-    - name: Display Configuration Variables
+    - name: Start DB slave service
+      community.docker.docker_compose_v2:
+        project_src: "{{ wordpress_install_dir }}"
+        services:
+          - "{{ db_replica }}"
+        pull: missing
+        recreate: never
+        remove_orphans: true
+
+    - name: Wait until slave MySQL is ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3307
+        state: started
+        delay: 5
+        timeout: 120
+
+    - name: Configure MySQL master-slave replication
+      ansible.builtin.include_role:
+        name: wordpress
+        tasks_from: replication.yml
+
+    - name: Show replication configuration info
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_master: {{ db_master }}" # container name
-          - "db_replica: {{ db_replica }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for master and replica
+          - "wordpress: {{ is_wordpress }}"
+          - "wordpress_port: {{ wordpress_port }}"
+          - "wordpress_db_name: {{ wordpress_db_name }}"
+          - "db_master: {{ db_master }}"
+          - "db_replica: {{ db_replica }}"
+          - "db_pass: {{ wordpress_db_root_password }}"

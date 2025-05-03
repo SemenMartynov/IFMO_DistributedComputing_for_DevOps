@@ -1,0 +1,45 @@
+---
+- name: Create WordPress directory
+  ansible.builtin.file:
+    path: "{{ wordpress_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose template
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ wordpress_install_dir }}/docker-compose.yml"
+    mode: '0644'
+
+# 1. Запускаем master‑БД
+- name: Start DB master service
+  community.docker.docker_compose_v2:
+    project_src: "{{ wordpress_install_dir }}"
+    state: present
+    services:
+      - "{{ db_master }}"
+    pull: missing
+    recreate: never
+    remove_orphans: true
+
+- name: Install PyMySQL for Ansible modules
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+    update_cache: true
+
+- name: Wait for MySQL master on 3306
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 3306
+    state: started
+    delay: 5
+    timeout: 120
+
+# 2. Запускаем WordPress
+- name: Start WordPress service
+  community.docker.docker_compose_v2:
+    project_src: "{{ wordpress_install_dir }}"
+    services: [wordpress]
+    pull: missing
+    recreate: never
