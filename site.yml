@@ -1,0 +1,9 @@
+- name: Deploy a Fully Containerized WordPress with Nginx and MySQL
+  hosts: wordpress_server
+  become: yes
+
+  roles:
+    - docker_setup
+    - db_setup
+    - wordpress_setup
+

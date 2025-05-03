@@ -1,0 +1,17 @@
+database_name: wordpress_db
+database_user: wordpress_user
+database_password: wordpress_password
+mysql_root_password: root_password
+
+replication_user: repl
+replication_password: replication_password
+
+wordpress_admin_user: admin
+wordpress_admin_password: admin_password
+wordpress_admin_email: admin@example.com
+wordpress_site_url: "http://{{ inventory_hostname }}:8080"
+
+docker_network: wordpress-network
+docker_compose_version: '3.8'
+
+project_root: "/opt/wordpress"

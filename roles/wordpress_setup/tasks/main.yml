@@ -1,0 +1,4 @@
+- name: Display final WordPress setup message
+  debug:
+    msg: "WordPress setup role completed. Nginx + PHP-FPM environment is ready."
+  changed_when: false
