@@ -9,27 +9,42 @@
       file:
         path: wordpress/
         state: directory
-      tags: create
 
-    - name: Скопировать docker-compose.yml на сервер
-      template:
-        src: docker-compose.yml.j2
-        dest: wordpress/docker-compose.yml
-      tags: copy1
-
-    - name: Скопировать master_create_tes.sql
+    - name: Скопировать master_create_test.sql
       copy:
         src: master_create_test.sql
         dest: wordpress/master_create_test.sql
+      tags: change0
 
-    - name: Запустить Wordpress и Mysql
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
+    - name: Создать volume db_data
+      community.docker.docker_volume:
+        name: db_data
+      tags: change1
+
+    - name: Создать сеть Docker
+      community.docker.docker_network:
+        name: wpnet
         state: present
-      # command: docker-compose up -d
-      # args:
-      #   chdir: wordpress/
-      # tags: play
+      tags: change1.5
+
+    - name: Запустить контейнер MySQL
+      community.docker.docker_container:
+        name: wordpress_db
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        volumes:
+          - "db_data:/var/lib/mysql"
+          - "./master_create_test.sql:/docker-entrypoint-initdb.d/master_create_test.sql"
+        published_ports:
+          - "3306:3306"
+        networks:
+          - name: wpnet
+      tags: change2
 
     - name: Проверка доступности MySQL
       community.mysql.mysql_info:
@@ -41,9 +56,44 @@
       delay: 3
       until: mysql_check is succeeded
 
-    # - name: Подтвердить продолжение
-    #   pause:
-    #     prompt: "Продолжить? Нажми Enter"
+    - name: Запустить контейнер Wordpress
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: wordpress_db:3306
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+        published_ports:
+          - "80:80"
+        networks:
+          - name: wpnet
+      tags: change3
+
+    - name: Выполнить master_create_test.sql
+      community.mysql.mysql_db:
+        state: import
+        name:
+          - all
+        target: "{{ project_dir }}/master_create_test.sql"
+        login_host: "127.0.0.1"
+        login_port: "{{ mysql_master_port }}"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Проверка доступности MySQL
+      community.mysql.mysql_info:
+        login_port: "{{ mysql_master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: mysql_check
+      retries: 10
+      delay: 3
+      until: mysql_check is succeeded
+
+    # =======ДЗ2=======
 
     - name: Создать дамп базы данных и сохранить на хосте
       community.mysql.mysql_db:
@@ -56,28 +106,76 @@
         login_user: "{{ mysql_root_login }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Остановить и удалить контейнеры из ДЗ1
-      community.docker.docker_compose:
-        project_src: wordpress/
+    - name: Остановить и удалить оба контенйера
+      community.docker.docker_container:
+        name: "{{ item }}"
         state: absent
-      # command: docker-compose down
-      # args:
-      #   chdir: wordpress/
-
-    - name: Скопировать docker-compose_dz2.yml.j2 на сервер
-      template:
-        src: docker-compose_dz2.yml.j2
-        dest: wordpress/docker-compose.yml
+        force_kill: true
+        cleanup: true
+      loop:
+        - wordpress
+        - wordpress_db
+    
+    - name: Удалить том db_data
+      community.docker.docker_volume:
+        name: db_data
+        state: absent
 
     - name: Скопировать master_init.sql
       copy:
         src: master_init.sql
         dest: wordpress/master_init.sql
 
-    - name: Запустить инстанс Wordpress, mysql-master, mysql-slave
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        state: present
+    - name: Создать тома для мастера и слейва
+      community.docker.docker_volume:
+        name: "{{ item }}"
+      loop:
+        - mysql_master_data
+        - mysql_slave_data
+
+    - name: Запустить mysql-master
+      community.docker.docker_container:
+        name: mysql-master
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        command: 
+          - --log-bin=mysql-bin 
+          - --server-id=1 
+          - --binlog-do-db={{ mysql_database }}
+          - --default-authentication-plugin=mysql_native_password
+        volumes:
+          - mysql_master_data:/var/lib/mysql
+          # - ./master_init.sql:/docker-entrypoint-initdb.d/master_init.sql
+        published_ports:
+          - "3306:3306"
+        networks:
+          - name: wpnet
+
+    - name: Запустить mysql-slave
+      community.docker.docker_container:
+        name: mysql-slave
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MYSQL_USER: "{{ mysql_user }}"
+          MYSQL_PASSWORD: "{{ mysql_password }}"
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        command: 
+          - --server-id=2 
+          - --relay-log=slave-relay-bin 
+          - --read-only=1
+        volumes:
+          - mysql_slave_data:/var/lib/mysql
+        published_ports:
+          - "3307:3306"
+        networks:
+          - name: wpnet
 
     - name: Проверка доступности MySQL_2
       community.mysql.mysql_info:
@@ -88,6 +186,32 @@
       retries: 10
       delay: 3
       until: mysql_check is succeeded
+
+    - name: Запустить контейнер Wordpress
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: mysql-master:3306
+          WORDPRESS_DB_USER: "{{ mysql_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+          WORDPRESS_DB_NAME: "{{ mysql_database }}"
+        published_ports:
+          - "80:80"
+        networks:
+          - name: wpnet  
+
+    - name: Выполнить master_init.sql
+      community.mysql.mysql_db:
+        state: import
+        name:
+          - all
+        target: "{{ project_dir }}/master_init.sql"
+        login_host: "127.0.0.1"
+        login_port: "{{ mysql_master_port }}"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Выполнить дамп на мастере
       community.mysql.mysql_db:

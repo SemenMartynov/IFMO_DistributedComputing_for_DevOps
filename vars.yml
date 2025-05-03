@@ -1,5 +1,5 @@
 mysql_user: wp_user
-mysql_password: 123456
+mysql_password: password
 mysql_root_login: root
 mysql_root_password: root
 mysql_database: wordpress
