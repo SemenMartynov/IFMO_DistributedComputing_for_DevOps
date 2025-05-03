@@ -1,10 +1,4 @@
 ---
-- name: Создание .my.cnf на хосте
-  template:
-    src: my.cnf.j2
-    dest: "/root/.my.cnf"
-    mode: 0600
-
 - name: Создание контейнера для мастера
   community.docker.docker_container:
     name: "{{ master_mysql_container_name }}"
@@ -22,10 +16,10 @@
     restart_policy: always
     state: started
     env:
-      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
-      MYSQL_DATABASE: "{{ vault_mysql_database }}"
-      MYSQL_USER: "{{ vault_mysql_user }}"
-      MYSQL_PASSWORD: "{{ vault_mysql_password }}"
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
 
 - name: Ожидание готовности MySQL
   ansible.builtin.wait_for:
@@ -38,16 +32,17 @@
   community.mysql.mysql_user:
     login_host: localhost
     login_user: root
-    name: "{{ vault_mysql_replication_user }}"
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ mysql_replication_user }}"
     host: "%"
-    password: "{{ vault_mysql_replication_password }}"
+    password: "{{ mysql_replication_password }}"
     priv: "*.*:REPLICATION SLAVE"
     state: present
     append_privs: true
 
 - name: Проверка наличия дампа
   ansible.builtin.stat:
-    path: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+    path: /tmp/mysql_dumps/{{ mysql_database }}_dump.sql
   register: dump_result
   delegate_to: localhost
   become: false
@@ -56,6 +51,7 @@
   community.mysql.mysql_replication:
     login_host: localhost
     login_user: root
+    login_password: "{{ mysql_root_password }}"
     mode: getprimary
   register: master_binlog_info_before_dump
   when: dump_result.stat.exists
@@ -73,8 +69,8 @@
 
 - name: Копирование дампа на master
   ansible.builtin.copy:
-    src: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
-    dest: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    src: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
+    dest: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
     mode: "0644"
   when: dump_result.stat.exists
 
@@ -83,15 +79,16 @@
     login_host: 127.0.0.1
     login_port: 3306
     login_user: root
-    name: "{{ vault_mysql_database }}"
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ mysql_database }}"
     state: import
-    target: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    target: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
   when: dump_result.stat.exists
   register: load_dump_result
 
 - name: Удаление дампа
   ansible.builtin.file:
-    path: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+    path: /tmp/mysql_dumps/{{ mysql_database }}_dump.sql
     state: absent
   when: load_dump_result is changed
   become: false

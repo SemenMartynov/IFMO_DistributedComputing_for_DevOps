@@ -4,10 +4,10 @@
 #     name: "{{ mysql_container_name }}"
 #     image: "{{ mysql_image }}"
 #     env:
-#       MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
-#       MYSQL_DATABASE: "{{ vault_mysql_database }}"
-#       MYSQL_USER: "{{ vault_mysql_user }}"
-#       MYSQL_PASSWORD: "{{ vault_mysql_password }}"
+#       MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+#       MYSQL_DATABASE: "{{ mysql_database }}"
+#       MYSQL_USER: "{{ mysql_user }}"
+#       MYSQL_PASSWORD: "{{ mysql_password }}"
 #     networks:
 #       - name: "{{ docker_network }}"
 #     state: started
@@ -30,16 +30,16 @@
 
 - name: Проверка существования дампа базы данных
   ansible.builtin.stat:
-    path: /tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql
+    path: /tmp/mysql_dumps/{{ mysql_database }}_dump.sql
   register: dump_file
 
 - name: Создание дампа базы данных, если он не существует
   community.mysql.mysql_db:
     login_user: root
     login_host: 127.0.0.1
-    login_password: "{{ vault_mysql_root_password }}"
-    name: "{{ vault_mysql_database }}"
-    target: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ mysql_database }}"
+    target: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
     state: dump
   when: not dump_file.stat.exists and mysql_container_info.exists
   register: dump_created
@@ -48,14 +48,14 @@
 
 - name: Скачивание дампа на локальную машину
   ansible.builtin.fetch:
-    src: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    src: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
     dest: "/tmp/mysql_dumps/"
     flat: true
   when: not dump_file.stat.exists
 
 - name: Установка прав на локальный дамп
   ansible.builtin.file:
-    path: "/tmp/mysql_dumps/{{ vault_mysql_database }}_dump.sql"
+    path: "/tmp/mysql_dumps/{{ mysql_database }}_dump.sql"
     mode: "0644"
   delegate_to: localhost
   become: false

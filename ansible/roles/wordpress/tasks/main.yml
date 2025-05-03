@@ -11,6 +11,6 @@
       - "{{ wordpress_volume }}:/var/www/html"
     env:
       WORDPRESS_DB_HOST: '{{ hostvars["mysql-master"]["ansible_host"] }}:3306'
-      WORDPRESS_DB_NAME: "{{ vault_mysql_database }}"
-      WORDPRESS_DB_USER: "{{ vault_mysql_user }}"
-      WORDPRESS_DB_PASSWORD: "{{ vault_mysql_password }}"
+      WORDPRESS_DB_NAME: "{{ mysql_database }}"
+      WORDPRESS_DB_USER: "{{ mysql_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"

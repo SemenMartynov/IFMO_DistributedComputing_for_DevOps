@@ -1,10 +1,4 @@
 ---
-- name: Создание .my.cnf на хосте
-  template:
-    src: my.cnf.j2
-    dest: "/root/.my.cnf"
-    mode: 0600
-  
 - name: Создание контейнера для слейва
   community.docker.docker_container:
     name: "{{ slave_mysql_container_name }}"
@@ -21,8 +15,8 @@
     restart_policy: always
     state: started
     env:
-      MYSQL_DATABASE: "{{ vault_mysql_database }}"
-      MYSQL_ROOT_PASSWORD: "{{ vault_mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
 
 - name: Ожидание готовности MySQL
   ansible.builtin.wait_for:
@@ -35,6 +29,8 @@
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
     login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
     mode: getreplica
   register: slave_status
 
@@ -45,10 +41,12 @@
 - name: Настройка слейва
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
     primary_host: "{{ hostvars['mysql-master']['ansible_host'] }}"
     primary_port: 3306
-    primary_user: "{{ vault_mysql_replication_user }}"
-    primary_password: "{{ vault_mysql_replication_password }}"
+    primary_user: "{{ mysql_replication_user }}"
+    primary_password: "{{ mysql_replication_password }}"
     primary_log_file: "{{ hostvars['mysql-master']['binlog_info_for_slave'].file }}"
     primary_log_pos: "{{ hostvars['mysql-master']['binlog_info_for_slave'].position }}"
     mode: changeprimary
@@ -58,13 +56,15 @@
 - name: Запуск репликации
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
-    login_password: "{{ vault_mysql_root_password }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
     mode: startreplica
 
 - name: Проверка финального статуса репликации
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
-    login_password: "{{ vault_mysql_root_password }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
     mode: getreplica
   register: final_slave_status
 

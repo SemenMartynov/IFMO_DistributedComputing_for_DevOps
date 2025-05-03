@@ -71,7 +71,7 @@
 
 - name: Установка Python модуля для Docker
   ansible.builtin.apt:
-    name: docker
+    name: python3-docker
     state: present
 
 - name: Создание группы docker (если её нет)
