@@ -35,7 +35,7 @@
     - name: Nothing to do
       ansible.builtin.meta: end_host
       when:
-        - is_mysql_slave.exists == true
+        - is_mysql_slave.exists
 
     - name: Stop WP container
       community.docker.docker_container:
