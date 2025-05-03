@@ -101,7 +101,7 @@
       community.docker.docker_container_exec:
         container: mysql_master
         command: "mysql -u root {{ wordpress_db_name }} < /wordpress.sql"
-        environment:
+        env:
           MYSQL_PWD: "{{ wordpress_db_root_password }}"
       changed_when: true
 
