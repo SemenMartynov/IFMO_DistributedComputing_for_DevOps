@@ -1,0 +1,78 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    container_name: wordpress
+    ports:
+      - 80:80
+    environment:
+      WORDPRESS_DB_HOST: db-master
+      WORDPRESS_DB_USER: {{ master_db_user }}
+      WORDPRESS_DB_PASSWORD: {{ master_db_password }}
+      WORDPRESS_DB_NAME: {{ wordpress_db_name }}
+    depends_on:
+      - db-master
+      - db-replica
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - wordpress-network
+
+  db-master:
+    image: mysql:8.0
+    restart: always
+    container_name: {{ master_container_name }}
+    environment:
+      MYSQL_DATABASE: {{ wordpress_db_name }}
+      MYSQL_USER: {{ master_db_user }}
+      MYSQL_PASSWORD: {{ master_db_password }}
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+    command: >
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --default-authentication-plugin=mysql_native_password
+    volumes:
+      - db_data_master:/var/lib/mysql
+    networks:
+      - wordpress-network
+    ports:
+      - "{{ db_master_port }}:3306"
+
+  db-replica:
+    image: mysql:8.0
+    restart: always
+    container_name: {{ replica_container_name }}
+    environment:
+      MYSQL_DATABASE: {{ wordpress_db_name }}
+      MYSQL_USER: {{ replica_db_user }}
+      MYSQL_PASSWORD: {{ replica_db_password }}
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+    command: >
+      --server-id=2
+      --relay-log=relay-log
+      --log-bin=mysql-bin
+      --read-only=1
+      --binlog-format=ROW
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+      --default-authentication-plugin=mysql_native_password
+      --skip-replica-start
+    depends_on:
+      - db-master
+    volumes:
+      - db_data_replica:/var/lib/mysql
+    networks:
+      - wordpress-network
+    ports:
+      - "{{ db_replica_port }}:3306"
+
+volumes:
+  wordpress:
+  db_data_master:
+  db_data_replica:
+
+networks:
+  wordpress-network:

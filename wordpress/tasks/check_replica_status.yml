@@ -1,0 +1,16 @@
+- name: Check replica status
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_replica_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW SLAVE STATUS"
+  register: replica_status
+
+- name: Ensure replication is running
+  ansible.builtin.assert:
+    that:
+      - replica_status.query_result[0][0]['Slave_IO_Running'] == 'Yes'
+      - replica_status.query_result[0][0]['Slave_SQL_Running'] == 'Yes'
+    fail_msg: "Replication is NOT working {{replica_status.query_result[0][0]}}"
+    success_msg: "Replication is working correctly"

@@ -1,0 +1,20 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+- name: Prepare a server environment
+  ansible.builtin.import_tasks: prepare_environment.yml
+
+- name: Restart Docker
+  ansible.builtin.import_tasks: restart_docker.yml
+
+- name: Prepare a database (Master)
+  ansible.builtin.import_tasks: prepare_master_db.yml
+
+- name: Prepare a database (Replica)
+  ansible.builtin.import_tasks: prepare_replica_db.yml
+
+- name: Check if the database is ready
+  ansible.builtin.import_tasks: check_replica_status.yml
+
+- name: Test replication
+  ansible.builtin.import_tasks: test_replication.yml
