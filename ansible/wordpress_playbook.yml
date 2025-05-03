@@ -95,7 +95,7 @@
     - name: Copy dump file into mysql_master container using docker cp (on host)
       community.docker.docker_container_exec:
         container: mysql_master
-        command: "cat /wordpress.sql | mysql -u root -p {{ wordpress_db_root_password }} {{ wordpress_db_name }}"
+        command: "cat /wordpress.sql | mysql -u root -p{{ wordpress_db_root_password }} {{ wordpress_db_name }}"
       changed_when: true
 
     - name: Create replication user on master
@@ -112,7 +112,7 @@
     - name: Get master status
       community.docker.docker_container_exec:
         container: mysql_master
-        command: mysql -u root -p {{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\G"
+        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\G"
       register: master_status_output
       changed_when: false
 
@@ -127,6 +127,6 @@
     - name: Wait for replica to be ready
       community.docker.docker_container_exec:
         container: mysql_replica
-        command: "mysql -u root -p {{ wordpress_db_root_password }} -e 'SHOW SLAVE STATUS\\G'"
+        command: "mysql -u root -p{{ wordpress_db_root_password }} -e 'SHOW SLAVE STATUS\\G'"
         register: slave_status_output
         changed_when: false
