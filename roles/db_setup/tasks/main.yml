@@ -10,17 +10,20 @@
   set_fact:
     master_ip: "{{ master_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
 
-- name: Ensure replication user exists (explicit caching_sha2_password)
+- name: Ensure replication user exists with appropriate settings
   community.mysql.mysql_query:
     login_host: "{{ master_ip }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
     query:
       - |
-        CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
-        IDENTIFIED WITH caching_sha2_password BY '{{ replication_password }}';
+        DROP USER IF EXISTS '{{ replication_user }}'@'%';
+      - |
+        CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}';
       - |
         GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+      - |
+        ALTER USER '{{ replication_user }}'@'%' REQUIRE SSL;
       - FLUSH PRIVILEGES;
   changed_when: false
 
@@ -119,6 +122,15 @@
     login_password: "{{ mysql_root_password }}"
   ignore_errors: true
 
+- name: Reset replica on slave1
+  community.mysql.mysql_query:
+    login_host: "{{ slave1_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "RESET REPLICA ALL;"
+  changed_when: false
+  ignore_errors: true
+
 - name: Configure replication on slave1
   community.mysql.mysql_replication:
     mode: changeprimary
@@ -129,6 +141,7 @@
     primary_user: "{{ replication_user }}"
     primary_password: "{{ replication_password }}"
     primary_auto_position: yes
+    primary_ssl: yes
 
 - name: Start replication on slave1
   community.mysql.mysql_replication:
@@ -145,6 +158,15 @@
     login_password: "{{ mysql_root_password }}"
   ignore_errors: true
 
+- name: Reset replica on slave2
+  community.mysql.mysql_query:
+    login_host: "{{ slave2_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "RESET REPLICA ALL;"
+  changed_when: false
+  ignore_errors: true
+
 - name: Configure replication on slave2
   community.mysql.mysql_replication:
     mode: changeprimary
@@ -155,6 +177,7 @@
     primary_user: "{{ replication_user }}"
     primary_password: "{{ replication_password }}"
     primary_auto_position: yes
+    primary_ssl: yes
 
 - name: Start replication on slave2
   community.mysql.mysql_replication:
@@ -163,7 +186,90 @@
     login_user: root
     login_password: "{{ mysql_root_password }}"
 
+- name: Wait for data to replicate (10 seconds)
+  pause:
+    seconds: 10
+  when: (ansible_check_mode|bool) == false
+
+- name: Check replication status on slave1
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: "{{ slave1_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: repl1_status
+
+- name: Check replication status on slave2
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: "{{ slave2_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: repl2_status
+
+- name: Check if replica IO thread is running on slave1
+  fail:
+    msg: "Replica IO thread is not running on slave1. Status: {{ repl1_status.Replica_IO_Running }}"
+  when: repl1_status.Replica_IO_Running != 'Yes'
+
+- name: Check if replica SQL thread is running on slave1
+  fail:
+    msg: "Replica SQL thread is not running on slave1. Status: {{ repl1_status.Replica_SQL_Running }}"
+  when: repl1_status.Replica_SQL_Running != 'Yes'
+
+- name: Check if replica IO thread is running on slave2
+  fail:
+    msg: "Replica IO thread is not running on slave2. Status: {{ repl2_status.Replica_IO_Running }}"
+  when: repl2_status.Replica_IO_Running != 'Yes'
+
+- name: Check if replica SQL thread is running on slave2
+  fail:
+    msg: "Replica SQL thread is not running on slave2. Status: {{ repl2_status.Replica_SQL_Running }}"
+  when: repl2_status.Replica_SQL_Running != 'Yes'
+
+- name: Display replication delay on slave1
+  debug:
+    msg: "Replica delay on slave1: {{ repl1_status.Seconds_Behind_Source | default('N/A') }} seconds"
+
+- name: Display replication delay on slave2
+  debug:
+    msg: "Replica delay on slave2: {{ repl2_status.Seconds_Behind_Source | default('N/A') }} seconds"
+
+- name: Check for wordpress_db on master
+  community.mysql.mysql_query:
+    login_host: "{{ master_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW DATABASES LIKE 'wordpress_db'"
+  register: master_db
+
+- name: Check for wordpress_db on slave1
+  community.mysql.mysql_query:
+    login_host: "{{ slave1_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW DATABASES LIKE 'wordpress_db'"
+  register: slave1_db
+
+- name: Check for wordpress_db on slave2
+  community.mysql.mysql_query:
+    login_host: "{{ slave2_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW DATABASES LIKE 'wordpress_db'"
+  register: slave2_db
+
+- name: Verify wordpress_db exists on slave1
+  fail:
+    msg: "wordpress_db does not exist on slave1"
+  when: slave1_db.rowcount == 0
+
+- name: Verify wordpress_db exists on slave2
+  fail:
+    msg: "wordpress_db does not exist on slave2"
+  when: slave2_db.rowcount == 0
+
 - name: Display DB cluster ready message
   debug:
-    msg: "Master-Replica-Replica replication configured successfully."
+    msg: "Master-Replica-Replica replication configured successfully with verified data replication."
   changed_when: false
