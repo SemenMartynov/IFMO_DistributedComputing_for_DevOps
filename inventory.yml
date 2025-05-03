@@ -6,15 +6,15 @@ all:
       ansible_ssh_pass: your_ssh_password  # Пароль пользователя  
       ansible_become: yes                  # Использовать привилегии root  
       ansible_become_method: sudo
-      ansible_become_pass: "ansible_become_pass"     # Пароль для sudo  
+      ansible_become_pass: ansible_become_pass # Пароль для sudo  
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 
       # Параметры развертывания  
       is_wordpress: true                   # Флаг для вывода  
-      wp_install_dir: /opt/wordpress       # Директория установки WordPress
+      wordpress_install_dir: /opt/wordpress       # Директория установки WordPress
       wordpress_port: 80                   # Порт WordPress
-      mysql_root_password: somewordpress   # Пароль root для MySQL
-      db_name: wordpress                   # Имя базы данных WordPress
+      wordpress_db_root_password: somewordpress   # Пароль root для MySQL
+      wordpress_db_name: wordpress         # Имя базы данных WordPress
       db_master: "db-master"               # Имя контейнера MySQL Master
       db_replica: "db-slave"               # Имя контейнера MySQL Slave
-      replication_password: somewordpress  # Пароль пользователя репликации
+      wordpress_replication_password: somewordpress  # Пароль пользователя репликации

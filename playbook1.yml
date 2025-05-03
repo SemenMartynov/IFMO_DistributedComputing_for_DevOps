@@ -1,7 +1,7 @@
 ---
 - name: Home work 1 - Deploy WordPress and Database
   hosts: carrier
-  become: yes  # повышаем права для установки пакетов и управления Docker
+  become: true  # повышаем права для установки пакетов и управления Docker
   roles:
     - docker_install      # Установить Docker Engine и Docker Compose
     - wordpress           # Развернуть WordPress и БД в docker
@@ -11,6 +11,6 @@
         msg:
           - "wordpress: {{ is_wordpress }}"                     # True, если WordPress установлен
           - "wordpress_port: {{ wordpress_port }}"              # Порт WordPress (например, 80)
-          - "wordpress_db_name: {{ db_name }}"                  # Имя базы данных WordPress
+          - "wordpress_db_name: {{ wordpress_db_name }}"                  # Имя базы данных WordPress
           - "db_host: {{ db_master }}"                          # Имя контейнера основной БД
-          - "db_pass: {{ mysql_root_password }}"                # Пароль root для БД
+          - "db_pass: {{ wordpress_db_root_password }}"                # Пароль root для БД

@@ -1,18 +1,18 @@
 ---
 wordpress_image: "wordpress:latest"
-mysql_image: "mysql:5.7"
+wordpress_mysql_image: "mysql:5.7"
 wordpress_port: 80
 
 # Параметры WordPress DB
-db_name: "wordpress"
-db_user: "wordpress"
-db_password: "wordpress"
-mysql_root_password: "somewordpress"
+wordpress_db_name: "wordpress"
+wordpress_db_user: "wordpress"
+wordpress_db_password: "wordpress"
+wordpress_db_root_password: "somewordpress"
 
 # Репликация
-master_server_id: 1
-slave_server_id: 2
-replication_password: "repl_pass"
+wordpress_master_server_id: 1
+wordpress_slave_server_id: 2
+wordpress_replication_password: "repl_pass"
 
 # Директория для docker-compose
-wp_install_dir: "/opt/wordpress"
+wordpress_install_dir: "/opt/wordpress"

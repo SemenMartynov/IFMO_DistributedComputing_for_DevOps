@@ -44,7 +44,7 @@
         
     - Пароль для повышения привилегий (`ansible_become_pass`), если требуется.
         
-    - При необходимости, измените порт WordPress (`wordpress_port`), пароль MySQL (`mysql_root_password`) или другие переменные. По умолчанию WordPress будет на 80 порту, пароль root MySQL – "somewordpress".
+    - При необходимости, измените порт WordPress (`wordpress_port`), пароль MySQL (`wordpress_db_root_password`) или другие переменные. По умолчанию WordPress будет на 80 порту, пароль root MySQL – "somewordpress".
         
 
 ## Запуск

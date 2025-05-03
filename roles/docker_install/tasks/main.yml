@@ -26,7 +26,7 @@
     repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
     filename: docker
     state: present
-    update_cache: yes
+    update_cache: true
 
 # Устанавливаем Docker CE + Compose plugin
 - name: Install Docker CE and Compose plugin
@@ -36,18 +36,18 @@
       - docker-ce-cli
       - containerd.io
       - docker-compose-plugin
-    state: latest 
+    state: present
 
 # Запускаем и включаем сервис Docker
 - name: Ensure Docker daemon is running
   ansible.builtin.service:
     name: docker
     state: started
-    enabled: yes
+    enabled: true
 
 # Добавляем ansible_user в группу docker
 - name: Add user to docker group
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
-    append: yes
+    append: true
