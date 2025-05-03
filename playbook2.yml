@@ -86,9 +86,6 @@
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.4
             aliases: '{{ db_replica }}'
-        exposed_ports:
-          - 3306
-          - 33060
         volumes:
           - 'db2:/var/lib/mysql'
         env:

@@ -31,8 +31,6 @@
         networks:
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.5
-#        exposed_ports:
-#          - 9104
         env:
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
     - name: Create Prometheus config dir
@@ -60,8 +58,6 @@
         networks:
           - name: '{{ wp_int_network }}'
             ipv4_address: 10.16.1.6
-#        exposed_ports:
-#          - 9090
         volumes:
           - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
           - prometheus-data:/prometheus
