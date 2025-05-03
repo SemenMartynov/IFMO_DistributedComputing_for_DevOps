@@ -25,6 +25,9 @@ jobs:
       - name: Install Ansible
         run: sudo apt update && sudo apt install -y ansible
 
+      - name: Install Ansible
+        run: pip install pymysql
+
       - name: Run Ansible Playbook
         run: |
           ansible-playbook -i "${{ secrets.SSH_HOST }}," --user "${{ secrets.SSH_USER }}" ansible/wordpress_playbook.yml
