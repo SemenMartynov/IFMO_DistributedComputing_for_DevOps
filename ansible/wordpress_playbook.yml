@@ -93,11 +93,8 @@
         dest: "{{ docker_compose_path }}/wordpress.sql"
         mode: '0644'
 
-    - name: Copy dump file into mysql_master container using Ansible
-      community.docker.docker_container_copy:
-        src: "{{ docker_compose_path }}/wordpress.sql"
-        dest: "/wordpress.sql"
-        container: mysql_master
+    - name: Copy dump file into mysql_master container using docker cp (on host)
+      command: docker cp "{{ docker_compose_path }}/wordpress.sql" mysql_master:/wordpress.sql
       changed_when: true
 
     - name: Import dump into mysql_master
