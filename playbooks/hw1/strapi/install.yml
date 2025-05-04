@@ -1,0 +1,4 @@
+- hosts: carrier
+
+  roles:
+    - strapi

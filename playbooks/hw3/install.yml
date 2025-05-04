@@ -1,0 +1,6 @@
+- hosts: carrier
+
+  roles:
+    - cadvisor
+    - prometheus
+    - grafana

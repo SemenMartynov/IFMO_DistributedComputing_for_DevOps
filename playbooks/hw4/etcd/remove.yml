@@ -1,0 +1,17 @@
+- hosts: carrier
+
+  tasks:
+    - name: Remove etcd container
+      community.docker.docker_container:
+        name: etcd
+        state: absent
+        force_kill: true
+
+    - name: Remove etcd data directory
+      ansible.builtin.file:
+        path: /opt/etcd/data
+        state: absent
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "ETCD and all related resources successfully removed."

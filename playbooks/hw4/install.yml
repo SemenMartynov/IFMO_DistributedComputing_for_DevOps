@@ -1,0 +1,7 @@
+- hosts: carrier
+
+  roles:
+    - etcd
+    - patroni
+    - haproxy
+    #- monitoring-restart
