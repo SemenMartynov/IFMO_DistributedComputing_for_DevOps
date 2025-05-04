@@ -1,0 +1,55 @@
+- name: WordPress container stop
+  docker_container:
+    name: wordpress
+    state: stopped
+
+- name: pip install
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+
+- name: PyMySQL install
+  ansible.builtin.pip:
+    name: PyMySQL
+    executable: pip3
+    extra_args: --break-system-packages
+
+- name: MysSQL client install
+  ansible.builtin.package:
+    name: default-mysql-client
+    state: present
+
+- name: Dump WordPress DB
+  community.mysql.mysql_db:
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: mysql_root_password
+    name: mysql_db
+    state: dump
+    target: /tmp/dump.sql
+    dump_extra_args: --set-gtid-purged=OFF
+
+- name: Drop WordPress DB
+  community.mysql.mysql_db:
+    login_user: root
+    login_password: mysql_root_password
+    name: mysql_db
+    state: absent
+
+- name: Create WordPress DB
+  community.mysql.mysql_db:
+    login_user: root
+    login_password: mysql_root_password
+    name: mysql_db
+    state: present
+
+- name: Create replica user
+  community.mysql.mysql_user:
+    login_user: root
+    login_password: mysql_root_password
+    name: replica
+    host: "%"
+    password: replica_pass
+    priv: "*.*:REPLICATION SLAVE"
+    state: present

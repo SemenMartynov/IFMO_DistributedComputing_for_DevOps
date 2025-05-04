@@ -1,0 +1,30 @@
+- name: Import dump WordPress DB
+  community.mysql.mysql_db:
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: mysql_root_password
+    name: mysql_db
+    state: import
+    target: /tmp/dump.sql
+
+- name: WordPress container start
+  docker_container:
+    name: wordpress
+    state: started
+
+- name: Get replication status
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: 3307
+    login_user: root
+    login_password: rootpassword
+    query: "SHOW SLAVE STATUS"
+  register: slave_status  
+
+- name: Show replication status
+  debug:
+    msg: |
+      Slave_IO_Running: {{ slave_status.query_result[0][0].Slave_IO_Running }}
+      Slave_SQL_Running: {{ slave_status.query_result[0][0].Slave_SQL_Running }}
+      Seconds_Behind_Master: {{ slave_status.query_result[0][0].Seconds_Behind_Master }}
