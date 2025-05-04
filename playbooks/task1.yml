@@ -1,0 +1,14 @@
+---
+- name: Install docker
+  hosts: all
+  become: true
+  roles:
+    - docker
+  vars:
+    docker_users: [ "{{ ansible_ssh_user }}" ]
+
+- name: Run wordpress and db containers in docker
+  hosts: blog
+  become: false
+  roles:
+    - wordpress
