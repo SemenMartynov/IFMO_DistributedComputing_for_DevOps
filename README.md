@@ -28,7 +28,7 @@ IFMO_DistributedComputing_for_DevOps
 │   │   ├── tasks
 │   │   │   └── main.yml
 │   │   └── templates
-│   │       └── compose-grafana-prometheus.yml.j2
+│   │       └── compose-monitoring.yml.j2
 │   │       └── grafana-dashboard.yml.j2
 │   │       └── grafana-datasource.yml.j2
 │   │       └── prometheus.yml.j2
@@ -59,27 +59,23 @@ IFMO_DistributedComputing_for_DevOps
 - **Сети Docker**: 
   - `my_app_wordpress-network`: Сеть для WordPress
   - `db_cluster_network`: Сеть для кластера базы данных
-- **Система мониторинга**: 
-  - ы
+- **Система мониторинга**: Grafana с Prometheus в отдельных контейнерах и скраппингом в контейнере mysqld-exporter
 
 # Инструкции по настройке
-1. Клонируйте этот репозиторий на ваш локальный компьютер:
+0. Убедитесь, что выполнены все требования (см выше)
+1. Обновите файлы `inventory/hosts.ini` и `group_vars/all.yml` используя свои IP и учетные данные.
+2. Клонируйте этот репозиторий на ваш локальный компьютер:
    ```bash
    git clone https://github.com/AlexeyKuzko/IFMO_DistributedComputing_for_DevOps.git
    ```
-
-2. Перейдите в каталог проекта:
+3. Перейдите в каталог проекта:
    ```bash
    cd IFMO_DistributedComputing_for_DevOps
    ```
-
-3. Убедитесь, что у вас есть SSH-ключ для доступа к удаленному серверу:
+4. Убедитесь, что у вас есть SSH-ключ для доступа к удаленному серверу:
    ```bash
    ls ~/.ssh/distributed_computing/private_key
    ```
-
-4. Обновите файл `group_vars/all.yml` с вашими учетными данными базы данных и настройками WordPress.
-
 5. Запустите плейбук для развертывания на удаленном сервере:
    ```bash
    ansible-playbook -i inventory/hosts.ini playbook.yml
@@ -87,12 +83,11 @@ IFMO_DistributedComputing_for_DevOps
 
 ## Использование
 После запуска плейбука, будет развернуто и запущено WordPress веб-приложение, доступное по URI, указанному в inventory/hosts.ini (например, http://158.160.46.212:8080).
-Мониторинг будет доступен по порту, указанному в inventory/hosts.ini (например, http://158.160.46.212:3000).
+Мониторинг будет доступен по порту, указанному в inventory/hosts.ini (например, http://158.160.46.212:3000 / http://158.160.46.212:9090 / http://158.160.46.212:9104).
 
 ### Проверка состояния кластера
 Вы можете управлять контейнерами с помощью команд Docker на удаленном сервере.
 Для проверки состояния кластера MySQL вы можете выполнить следующие команды на удаленном сервере:
-
 ```bash
 # Подключение ко вторичному узлу
 docker exec -it mysql_secondary mysql -uroot -proot_password
@@ -100,16 +95,18 @@ docker exec -it mysql_secondary mysql -uroot -proot_password
 # Внутри MySQL выполните:
 SHOW REPLICA STATUS;
 ```
+
 ## Завершение работы
 Для остановки веб-приложения, выполните:
 ```bash
-sudo docker rm -f $(sudo docker ps -aq) ; sudo docker system prune -a ; sudo docker volume prune
+sudo docker rm -f $(sudo docker ps -aq) ; sudo docker system prune -a -f; sudo docker volume prune -f
 ```
 Для очистки вольюмов контейнеров, выполните:
 ```bash
-sudo docker volume rm my_app_db_data my_app_wordpress_data my_app_mysql_primary_data my_app_mysql_secondary_data my_app_grafana my_app_prometheus
+sudo docker docker volume ls -q | xargs -r docker volume rm
+
 ```
 Для очистки конфигурационных файлов, выполните:
 ```bash
-sudo rm -r /opt/my_app
+sudo rm -rf /opt/my_app/
 ```

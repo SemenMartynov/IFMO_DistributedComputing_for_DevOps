@@ -14,7 +14,7 @@ mysql_replication_password: repl_password
 wordpress_port: 8080
 
 # Docker configuration
-docker_network: wordpress-network
+docker_network: network
 docker_compose_version: '3.8'
 
 # Monitoring configuration

@@ -1,4 +1,4 @@
-- name: Prepare grafana files
+- name: Prepare Grafana files
   become: true
   block:
     - name: Create dirs for grafana config files
@@ -29,7 +29,7 @@
         dest: "{{ project_src }}{{ provisioning_dashboards }}/dashboards.yaml"
         mode: '0644'
 
-- name: Prepare prometheus files
+- name: Prepare Prometheus files
   become: true
   block:
     - name: Create a dir for prometheus
@@ -44,12 +44,21 @@
         dest: "{{ project_src }}prometheus/prometheus.yml"
         mode: '0644'
 
+- name: Prepare MySQL Exporter config
+  become: true
+  block:
+    - name: Deploy my.cnf
+      ansible.builtin.template:
+        src: files/my.cnf.j2
+        dest: "{{ project_src }}my.cnf"
+        mode: '0644'
+
 - name: Start monitoring
   become: true
   block:
     - name: Copy compose-grafana-prometheus yaml template
       ansible.builtin.template:
-        src: compose-grafana-prometheus.yml.j2
+        src: compose-monitoring.yml.j2
         dest: "{{ project_src }}compose-monitoring.yml"
         mode: '0644'
 
