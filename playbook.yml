@@ -15,6 +15,7 @@
           - software-properties-common
           - python3-docker
           - docker-compose-plugin
+          - python3-pymysql
         state: present
         update_cache: yes
 
@@ -27,16 +28,7 @@
       apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
-
-    - name: Install Docker packages
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
-        state: present
-
+ 
     - name: Start and enable Docker service
       systemd:
         name: docker
@@ -48,55 +40,167 @@
         name: "{{ ansible_user }}"
         groups: docker
         append: yes
-      notify: restart sshd
 
-    - name: Create application directory
+    - name: Create MySQL config directory
       file:
-        path: /opt/wordpress
+        path: "{{ DB_CONFIG_DIR }}"
         state: directory
         mode: 0755
 
     - name: Deploy MySQL master configuration
       copy:
         src: files/master.cnf
-        dest: /opt/wordpress/master.cnf
+        dest: "{{ DB_CONFIG_DIR }}/master.cnf"
         mode: 0644
 
     - name: Deploy MySQL replica configuration
       copy:
         src: files/replica.cnf
-        dest: /opt/wordpress/replica.cnf
+        dest: "{{ DB_CONFIG_DIR }}/replica.cnf"
         mode: 0644
 
-    - name: Deploy Docker Compose file with replication
-      template:
-        src: templates/docker-compose.yml.j2
-        dest: /opt/wordpress/docker-compose.yml
-        mode: 0644
+    - name: Create network for containers
+      community.docker.docker_network:
+        name: wp_network
+        driver: bridge
 
-    - name: Start WordPress containers with replication
-      command: docker compose -f /opt/wordpress/docker-compose.yml up -d
-      args:
-        chdir: /opt/wordpress
-      environment:
-        DB_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
-        DB_NAME: "{{ DB_NAME }}"
-        DB_USER: "{{ DB_USER }}"
-        DB_PASSWORD: "{{ DB_PASSWORD }}"
-        DB_REPLICATION_USER: "{{ DB_REPLICATION_USER }}"
-        DB_REPLICATION_PASSWORD: "{{ DB_REPLICATION_PASSWORD }}"
+    - name: Start Master
+      community.docker.docker_container:
+        name: db_master
+        image: mysql:8.0.33
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
+          MYSQL_DATABASE: "{{ DB_NAME }}"
+          MYSQL_USER: "{{ DB_USER }}"
+          MYSQL_PASSWORD: "{{ DB_PASSWORD }}"
+          MYSQL_REPLICATION_USER: "{{ DB_REPLICATION_USER }}"
+          MYSQL_REPLICATION_PASSWORD: "{{ DB_REPLICATION_PASSWORD }}"
+        volumes:
+          - db_master_data:/var/lib/mysql
+          - "{{ DB_CONFIG_DIR }}/master.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3306:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
 
-    - name: Verify containers are running
-      command: docker ps --filter name=wordpress
-      register: container_status
-      changed_when: false
+    - name: Wait for Master to be ready
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3306
+        timeout: 30
+        delay: 10
 
-    - name: Show containers status
+    - name: Start MySQL Slave
+      community.docker.docker_container:
+        name: db_slave
+        image: mysql:8.0.33
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
+        volumes:
+          - db_slave_data:/var/lib/mysql
+          - "{{ DB_CONFIG_DIR }}/replica.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3307:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
+
+    - name: Wait for Slave to be ready
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 3307
+        timeout: 120
+        delay: 10
+
+    - name: Create replication user
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_host: "localhost"
+        login_port: 3306
+        name: "{{ DB_REPLICATION_USER }}"
+        password: "{{ DB_REPLICATION_PASSWORD }}"
+        host: "%"
+        priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+        state: present
+
+    - name: Configure replica
+      community.mysql.mysql_replication:
+        mode: changereplication
+        primary_host: "db_master"
+        primary_port: 3306
+        primary_user: "{{ DB_REPLICATION_USER }}"
+        primary_password: "{{ DB_REPLICATION_PASSWORD }}"
+        primary_auto_position: 1
+        login_user: root
+        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_host: "localhost"
+        login_port: 3307
+      register: replication_setup
+      until: replication_setup is succeeded
+      retries: 10
+      delay: 5
+
+    - name: Start replication
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_user: root
+        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_host: "localhost"
+        login_port: 3307
+
+    - name: Verify replication status
+      community.mysql.mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_host: "localhost"
+        login_port: 3307
+      register: replication_status
+      until:
+        - replication_status.Replica_IO_Running == "Yes"
+        - replication_status.Replica_SQL_Running == "Yes"
+      retries: 5
+      delay: 5
+
+    - name: Show replication status
       debug:
-        var: container_status.stdout_lines
+        var: replication_status
 
-  handlers:
-    - name: restart sshd
-      service:
-        name: sshd
-        state: restarted
+    - name: Start WordPress
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:latest
+        networks:
+          - name: wp_network
+        restart_policy: always
+        published_ports:
+          - "80:80"
+        env:
+          WORDPRESS_DB_HOST: "db_master:3306"
+          WORDPRESS_DB_NAME: "{{ DB_NAME }}"
+          WORDPRESS_DB_USER: "{{ DB_USER }}"
+          WORDPRESS_DB_PASSWORD: "{{ DB_PASSWORD }}"
+
+    - name: Verify WordPress is working
+      uri:
+        url: "http://{{ ansible_host }}:80"
+        status_code: 200
+        timeout: 10
+      register: wordpress_status
+      until: wordpress_status.status == 200
+      retries: 15
+      delay: 5
+
+ 

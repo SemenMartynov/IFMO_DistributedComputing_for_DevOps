@@ -2,4 +2,11 @@
 server-id = 1
 log_bin = mysql-bin
 binlog_format = ROW
-binlog_do_db = {{ DB_NAME }}
+binlog_row_image = FULL   
+expire_logs_days = 3      
+sync_binlog = 1           
+gtid_mode = ON
+enforce_gtid_consistency = ON
+log_slave_updates = ON    
+binlog_group_commit_sync_delay = 100
+binlog_group_commit_sync_no_delay_count = 10
