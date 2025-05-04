@@ -112,16 +112,19 @@ services:
     image: prom/mysqld-exporter:latest
     container_name: mysql-exporter
     restart: unless-stopped
-    environment:
-      - DATA_SOURCE_NAME={{ monitoring_mysql_user }}:{{ monitoring_mysql_password }}@({{ monitoring_mysql_master_host }}:{{ monitoring_mysql_master_port }})/
+    volumes:
+      - ./my.cnf:/etc/my.cnf:ro
     command:
       - '--web.listen-address=:9104'
       - '--web.telemetry-path=/metrics'
+      - '--config.my-cnf=/etc/my.cnf'
     networks:
       - monitoring_network
       - wp_network
     depends_on:
       - node-exporter
+    external_links:
+      - wordpress-db_master-1:db_master
     mem_limit: 512M
     mem_reservation: 128M
 

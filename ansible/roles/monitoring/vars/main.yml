@@ -8,7 +8,7 @@ monitoring_server_ip: "{{ ansible_host }}"
 # Сервисы для мониторинга
 monitoring_wordpress_host: "localhost"
 monitoring_wordpress_port: 8080
-monitoring_mysql_master_host: "db_master"
+monitoring_mysql_master_host: "wordpress-db_master-1"
 monitoring_mysql_master_port: 3306
-monitoring_mysql_user: "exporter"
-monitoring_mysql_password: "exporter_password"
+monitoring_mysql_user: "root"
+monitoring_mysql_password: "root_pass"

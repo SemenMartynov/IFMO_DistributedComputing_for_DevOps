@@ -23,6 +23,13 @@
     mode: '0644'
   become: true
 
+- name: Скопировать конфигурацию MySQL для mysql-exporter
+  template:
+    src: my.cnf.j2
+    dest: "{{ monitoring_dir }}/my.cnf"
+    mode: '0644'
+  become: true
+
 - name: Скопировать настройку источника данных Grafana для Prometheus
   template:
     src: grafana/provisioning/datasources/prometheus.yml.j2
@@ -54,6 +61,7 @@
   become: true
   register: compose_template
 
+
 - name: Установить Python MySQL библиотеку
   apt:
     name: python3-pymysql
@@ -70,6 +78,7 @@
     password: "{{ monitoring_mysql_password }}"
     priv: '*.*:SELECT,PROCESS,REPLICATION CLIENT'
     state: present
+    host: '%'
   become: true
 
 - name: Установить UFW
