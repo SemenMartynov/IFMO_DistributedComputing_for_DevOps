@@ -1,0 +1,41 @@
+---
+- name: Create config directories
+  file:
+    path: "/opt/wordpress_with_cluster"
+    state: directory
+    owner: user
+    group: user
+    mode: '0644'
+
+- name: Generate MySQL configs
+  template:
+    src: "{{ item }}"
+    dest: "/opt/wordpress_with_cluster/{{ (item | basename).split('.j2')[0] }}"
+    owner: user
+    group: user
+    mode: '0644'
+  loop:
+    - master_database.cnf.j2
+    - master_init.sql.j2
+    - replica_database.cnf.j2
+    - replica_init.sql.j2
+
+- name: Generate docker-compose
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/wordpress_with_cluster/docker-compose.yml
+    owner: user
+    group: user
+    mode: '0644'
+
+- name: Start containers
+  community.docker.docker_compose_v2:
+    project_src: /opt/wordpress_with_cluster/
+    state: present
+    recreate: auto
+    pull: missing
+  register: output
+
+#- name: Show results
+#  debug:
+#    var: output

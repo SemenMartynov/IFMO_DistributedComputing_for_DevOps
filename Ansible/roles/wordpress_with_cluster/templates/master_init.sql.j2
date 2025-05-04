@@ -1,0 +1,11 @@
+CREATE DATABASE IF NOT EXISTS {{ db_name }};
+
+-- Создание пользователей без SSL
+CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}' REQUIRE NONE;
+CREATE USER IF NOT EXISTS '{{ db_user }}'@'%' IDENTIFIED BY '{{ db_password }}' REQUIRE NONE;
+
+-- Выдаём права на репликацию
+GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+
+-- Применяем изменения
+FLUSH PRIVILEGES;

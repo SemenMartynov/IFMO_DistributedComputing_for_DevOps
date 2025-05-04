@@ -1,0 +1,2 @@
+[my_group]
+wordpress_vm ansible_connection=local # ansible_host=localhost

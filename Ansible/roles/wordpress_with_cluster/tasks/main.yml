@@ -1,0 +1,6 @@
+---
+- name: Install Docker and dependencies
+  include_tasks: install_docker.yml
+
+- name: Setup and start containers
+  include_tasks: setup_containers.yml
