@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: Stop and remove Patroni container for node01
@@ -73,5 +72,5 @@
         var: etcd_delete_output.stdout_lines
 
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "Patroni and all related resources successfully removed."

@@ -35,5 +35,5 @@
       - name: "{{ pg_network }}"
 
 - name: Confirm Grafana is live
-  debug:
+  ansible.builtin.debug:
     msg: "Grafana is live at http://{{ hostvars[inventory_hostname].ansible_host }}:3000"

@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: Stop and remove HAProxy container
@@ -19,5 +18,5 @@
         state: absent
 
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "HAProxy and all related resources successfully removed."

@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   roles:
     - docker
@@ -18,5 +17,5 @@
       until: strapi_check.status == 200
 
     - name: Confirm Strapi is live
-      debug:
+      ansible.builtin.debug:
         msg: "Strapi is live at http://{{ hostvars[inventory_hostname].ansible_host }}:1337"

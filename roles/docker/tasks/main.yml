@@ -55,5 +55,5 @@
     name: "{{ pg_network }}"
 
 - name: Show installed Docker version
-  debug:
+  ansible.builtin.debug:
     msg: "Installed Docker version: {{ docker_version_check.stdout }}"

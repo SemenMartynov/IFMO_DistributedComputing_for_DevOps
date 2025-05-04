@@ -1,9 +1,5 @@
 # General
-vm1_host_ip: 192.168.64.4
-vm1_ssh_user: b10nicle
-vm1_ssh_password: 1
-vm1_ssh_key_path: ~/.ssh/id_ed25519
-
+is_wordpress: False
 folder_state: directory
 folder_mode: '0755'
 

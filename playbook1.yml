@@ -1,5 +1,16 @@
-- hosts: vm1
-  become: true
+---
+- name: Home work 1
+  hosts: carrier
+
+  tasks:
+    - name: Display Configuration Variables
+      ansible.builtin.debug:
+        msg:
+          - "wordpress: {{ is_wordpress }}" # True or False
+          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatever
+          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
+          - "db_host: {{ db_host }}" # container name
+          - "db_pass: {{ db_pass }}" # root password
 
   roles:
     - docker
@@ -18,5 +29,5 @@
       until: strapi_check.status == 200
 
     - name: Confirm Strapi is live
-      debug:
+      ansible.builtin.debug:
         msg: "Strapi is live at http://{{ hostvars[inventory_hostname].ansible_host }}:1337"

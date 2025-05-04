@@ -1,9 +1,9 @@
 all:
   hosts:
-    vm1:
-      ansible_host: "{{ vm1_host_ip }}"
-      ansible_user: "{{ vm1_ssh_user }}"
-      ansible_become_password: "{{ vm1_ssh_password }}"
-      ansible_ssh_private_key_file: "{{ vm1_ssh_key_path }}"
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
+    carrier:
+      ansible_host: 192.168.64.4
+      ansible_user: b10nicle
+      ansible_password: 1
+      ansible_become_method: sudo
+      ansible_become_pass: 1
+      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'

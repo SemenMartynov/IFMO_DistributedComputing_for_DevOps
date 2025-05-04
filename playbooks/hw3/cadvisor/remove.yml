@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: Stop and remove cAdvisor container
@@ -9,5 +8,5 @@
         force_kill: true
 
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "cAdvisor and all related resources successfully removed."

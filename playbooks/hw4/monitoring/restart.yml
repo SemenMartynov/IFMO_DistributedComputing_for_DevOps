@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   roles:
     - monitoring-restart
@@ -16,5 +15,5 @@
       until: grafana_check.status == 200
 
     - name: Confirm Grafana is live
-      debug:
+      ansible.builtin.debug:
         msg: "Grafana is live at http://{{ hostvars[inventory_hostname].ansible_host }}:3000"

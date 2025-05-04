@@ -1,8 +1,0 @@
-- hosts: vm1
-  become: true
-
-  roles:
-    - etcd
-    - patroni
-    - haproxy
-    - monitoring-restart

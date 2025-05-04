@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: 🧪 [Master] Create test table and insert test row
@@ -22,7 +21,7 @@
       register: replica_read_check
 
     - name: 🧾 Output data seen on replica
-      debug:
+      ansible.builtin.debug:
         msg: |
           Data from replica:
           {{ replica_read_check.stdout_lines | join("\n") }}
@@ -38,6 +37,6 @@
       ignore_errors: true
 
     - name: 🧠 Evaluate replica write protection
-      debug:
+      ansible.builtin.debug:
         msg: >
           {{ 'Replica is read-only (write attempt failed).' if 'cannot execute INSERT' in replica_insert_check.stderr else 'Replica allowed INSERT — something is wrong!' }}

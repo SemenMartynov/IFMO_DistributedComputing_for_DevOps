@@ -42,5 +42,5 @@
   changed_when: false
 
 - name: Show etcd health check result
-  debug:
+  ansible.builtin.debug:
     msg: "{{ etcd_health.stdout }}"

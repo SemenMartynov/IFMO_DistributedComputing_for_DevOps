@@ -24,5 +24,5 @@
       - name: "{{ pg_network }}"
 
 - name: Confirm Prometheus is live
-  debug:
+  ansible.builtin.debug:
     msg: "Prometheus is live at http://{{ hostvars[inventory_hostname].ansible_host }}:9090"

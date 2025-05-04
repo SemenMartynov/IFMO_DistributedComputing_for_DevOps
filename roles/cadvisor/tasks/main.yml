@@ -13,5 +13,5 @@
       - name: "{{ pg_network }}"
 
 - name: Confirm cAdvisor is live
-  debug:
+  ansible.builtin.debug:
     msg: "cAdvisor is live at http://{{ hostvars[inventory_hostname].ansible_host }}:8080"

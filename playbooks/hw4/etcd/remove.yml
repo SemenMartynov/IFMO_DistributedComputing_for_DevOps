@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: Remove etcd container
@@ -14,5 +13,5 @@
         state: absent
 
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "ETCD and all related resources successfully removed."

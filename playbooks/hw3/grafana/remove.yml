@@ -1,5 +1,4 @@
-- hosts: vm1
-  become: true
+- hosts: carrier
 
   tasks:
     - name: Stop and remove Grafana container
@@ -21,5 +20,5 @@
         state: absent
 
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "Grafana and all related resources successfully removed."
