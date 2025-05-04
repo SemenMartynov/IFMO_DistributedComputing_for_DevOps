@@ -1,0 +1,13 @@
+- hosts: vm1
+  become: true
+
+  tasks:
+    - name: Stop and remove cAdvisor container
+      community.docker.docker_container:
+        name: cadvisor
+        state: absent
+        force_kill: true
+
+    - name: Status
+      debug:
+        msg: "cAdvisor and all related resources successfully removed."

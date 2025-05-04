@@ -14,7 +14,7 @@
 
     - name: Remove Docker apt repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch={{ docker_architecture }}] https://download.docker.com/linux/ubuntu {{ docker_ubuntu_codename }} stable"
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
         state: absent
       ignore_errors: true
 

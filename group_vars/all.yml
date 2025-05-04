@@ -1,71 +1,74 @@
-pg_replication_user: "{{ lookup('env', 'PG_REPLICATION_USER') }}"
-pg_replication_password: "{{ lookup('env', 'PG_REPLICATION_PASSWORD') }}"
-pg_username: "{{ lookup('env', 'PG_USERNAME') }}"
-pg_password: "{{ lookup('env', 'PG_PASSWORD') }}"
-pg_database: "{{ lookup('env', 'PG_DATABASE') }}"
-pg_postgres_password: "{{ lookup('env', 'PG_POSTGRES_PASSWORD') }}"
-pg_network: "{{ lookup('env', 'PG_NETWORK') }}"
-pg_port: "{{ lookup('env', 'PG_PORT') }}"
-pg_replica_volume: "{{ lookup('env', 'PG_REPLICA_VOLUME') }}"
-pg_replica_volume_path: "{{ lookup('env', 'PG_REPLICA_VOLUME_PATH') }}"
-pg_replica_container_name: "{{ lookup('env', 'PG_REPLICA_CONTAINER_NAME') }}"
-pg_replica_image: "{{ lookup('env', 'PG_REPLICA_IMAGE') }}"
-pg_master_volume: "{{ lookup('env', 'PG_MASTER_VOLUME') }}"
-pg_master_volume_path: "{{ lookup('env', 'PG_MASTER_VOLUME_PATH') }}"
-pg_master_container_name: "{{ lookup('env', 'PG_MASTER_CONTAINER_NAME') }}"
-pg_master_image: "{{ lookup('env', 'PG_MASTER_IMAGE') }}"
+# General
+vm1_host_ip: 192.168.64.4
+vm1_ssh_user: b10nicle
+vm1_ssh_password: 1
+vm1_ssh_key_path: ~/.ssh/id_ed25519
 
-strapi_container_name: "{{ lookup('env', 'STRAPI_CONTAINER_NAME') }}"
-strapi_check_delay: "{{ lookup('env', 'STRAPI_CHECK_DELAY') }}"
-strapi_check_retries: "{{ lookup('env', 'STRAPI_CHECK_RETRIES') }}"
-strapi_image: "{{ lookup('env', 'STRAPI_IMAGE') }}"
-strapi_ports: "{{ lookup('env', 'STRAPI_PORTS') }}"
-strapi_database_host: "{{ lookup('env', 'STRAPI_DATABASE_HOST') }}"
-strapi_database_client: "{{ lookup('env', 'STRAPI_DATABASE_CLIENT') }}"
-strapi_restart_policy: "{{ lookup('env', 'STRAPI_RESTART_POLICY') }}"
+folder_state: directory
+folder_mode: '0755'
 
-vm1_host_ip: "{{ lookup('env', 'VM1_HOST_IP') }}"
-vm1_ssh_user: "{{ lookup('env', 'VM1_SSH_USER') }}"
-vm1_ssh_password: "{{ lookup('env', 'VM1_SSH_PASSWORD') }}"
-vm1_ssh_key_path: "{{ lookup('env', 'VM1_SSH_KEY_PATH') }}"
+# PostgreSQL
+pg_replication_user: replicator
+pg_replication_password: replica_pass
+pg_username: strapi
+pg_password: strapi
+pg_database: strapi
+pg_postgres_password: postgres
+pg_network: pg_cluster_net
+pg_port: 5432
+pg_replica_volume: pg_replica_data
+pg_replica_volume_path: pg_replica_data:/bitnami/postgresql
+pg_replica_container_name: postgres_replica
+pg_replica_image: bitnami/postgresql:15
+pg_master_volume: pg_master_data
+pg_master_volume_path: pg_master_data:/bitnami/postgresql
+pg_master_container_name: postgres_master
+pg_master_image: bitnami/postgresql:15
 
-docker_ubuntu_codename: "{{ lookup('env', 'DOCKER_UBUNTU_CODENAME') }}"
-docker_architecture: "{{ lookup('env', 'DOCKER_ARCHITECTURE') }}"
-docker_monitoring_net: "{{ lookup('env', 'DOCKER_MONITORING_NET') }}"
+# Strapi
+strapi_container_name: strapi
+strapi_check_delay: 30
+strapi_check_retries: 10
+strapi_image: strapi/strapi
+strapi_ports: 1337:1337
+strapi_database_host: postgres_master
+strapi_database_client: postgres
+strapi_restart_policy: always
 
-prometheus_config_path: "{{ lookup('env', 'PROMETHEUS_CONFIG_PATH') }}"
-prometheus_data_path: "{{ lookup('env', 'PROMETHEUS_DATA_PATH') }}"
-prometheus_ports: "{{ lookup('env', 'PROMETHEUS_PORTS') }}"
-prometheus_container_name: "{{ lookup('env', 'PROMETHEUS_CONTAINER_NAME') }}"
-prometheus_image: "{{ lookup('env', 'PROMETHEUS_IMAGE') }}"
-prometheus_restart_policy: "{{ lookup('env', 'PROMETHEUS_RESTART_POLICY') }}"
-prometheus_volume: "{{ lookup('env', 'PROMETHEUS_VOLUME') }}"
-folder_state: "{{ lookup('env', 'FOLDER_STATE') }}"
-folder_mode: "{{ lookup('env', 'FOLDER_MODE') }}"
-prometheus_copy_src: "{{ lookup('env', 'PROMETHEUS_COPY_SRC') }}"
-prometheus_copy_dest: "{{ lookup('env', 'PROMETHEUS_COPY_DEST') }}"
+# Prometheus
+prometheus_config_path: /etc/prometheus
+prometheus_data_path: /opt/prometheus
+prometheus_ports: 9090:9090
+prometheus_container_name: prometheus
+prometheus_image: prom/prometheus:latest
+prometheus_restart_policy: always
+prometheus_volume: /opt/prometheus:/etc/prometheus
+prometheus_copy_src: ../files/prometheus.yml
+prometheus_copy_dest: /opt/prometheus/prometheus.yml
 
-cadvisor_image: "{{ lookup('env', 'CADVISOR_IMAGE') }}"
-cadvisor_ports: "{{ lookup('env', 'CADVISOR_PORTS') }}"
-cadvisor_container_name: "{{ lookup('env', 'CADVISOR_CONTAINER_NAME') }}"
-cadvisor_volume_path_root: "{{ lookup('env', 'CADVISOR_VOLUME_PATH_ROOT') }}"
-cadvisor_volume_path_var: "{{ lookup('env', 'CADVISOR_VOLUME_PATH_VAR') }}"
-cadvisor_volume_path_sys: "{{ lookup('env', 'CADVISOR_VOLUME_PATH_SYS') }}"
+# Cadvisor
+cadvisor_image: gcr.io/cadvisor/cadvisor:latest
+cadvisor_ports: 8080:8080
+cadvisor_container_name: cadvisor
+cadvisor_volume_path_root: /:/rootfs:ro
+cadvisor_volume_path_var: /var/run:/var/run:ro
+cadvisor_volume_path_sys: /sys:/sys:ro
 
-grafana_config_path: "{{ lookup('env', 'GRAFANA_CONFIG_PATH') }}"
-grafana_data_path: "{{ lookup('env', 'GRAFANA_DATA_PATH') }}"
-grafana_copy_config_src: "{{ lookup('env', 'GRAFANA_COPY_CONFIG_SRC') }}"
-grafana_copy_config_dest: "{{ lookup('env', 'GRAFANA_COPY_CONFIG_DEST') }}"
-grafana_copy_dashboard_src: "{{ lookup('env', 'GRAFANA_COPY_DASHBOARD_SRC') }}"
-grafana_copy_dashboard_dest: "{{ lookup('env', 'GRAFANA_COPY_DASHBOARD_DEST') }}"
-grafana_ports: "{{ lookup('env', 'GRAFANA_PORTS') }}"
-grafana_container_name: "{{ lookup('env', 'GRAFANA_CONTAINER_NAME') }}"
-grafana_image: "{{ lookup('env', 'GRAFANA_IMAGE') }}"
-grafana_restart_policy: "{{ lookup('env', 'GRAFANA_RESTART_POLICY') }}"
-grafana_admin_user: "{{ lookup('env', 'GRAFANA_ADMIN_USER') }}"
-grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') }}"
-grafana_users_allow_sign_up: "{{ lookup('env', 'GRAFANA_USERS_ALLOW_SIGN_UP') }}"
-grafana_dashboards_default_home_dashboard_path: "{{ lookup('env', 'GRAFANA_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH') }}"
-grafana_volume_path_data: "{{ lookup('env', 'GRAFANA_VOLUME_PATH_DATA') }}"
-grafana_volume_path_datasource: "{{ lookup('env', 'GRAFANA_VOLUME_PATH_DATASOURCE') }}"
-grafana_volume_path_dashboard: "{{ lookup('env', 'GRAFANA_VOLUME_PATH_DASHBOARD') }}"
+# Grafana
+grafana_config_path: /etc/grafana
+grafana_data_path: /opt/grafana
+grafana_copy_config_src: ../files/datasource.yml
+grafana_copy_config_dest: /opt/grafana/datasource.yml
+grafana_copy_dashboard_src: ../files/dashboard.json
+grafana_copy_dashboard_dest: /opt/grafana/dashboard.json
+grafana_ports: 3000:3000
+grafana_container_name: grafana
+grafana_image: grafana/grafana:latest
+grafana_restart_policy: always
+grafana_admin_user: admin
+grafana_admin_password: admin
+grafana_users_allow_sign_up: 'false'
+grafana_dashboards_default_home_dashboard_path: /etc/grafana/provisioning/dashboards/dashboard.json
+grafana_volume_path_data: grafana_data:/var/lib/grafana
+grafana_volume_path_datasource: /opt/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+grafana_volume_path_dashboard: /opt/grafana/dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json

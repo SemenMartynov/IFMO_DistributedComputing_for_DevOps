@@ -21,7 +21,7 @@
     volumes:
       - "{{ prometheus_volume }}"
     networks:
-      - name: "{{ docker_monitoring_net }}"
+      - name: "{{ pg_network }}"
 
 - name: Confirm Prometheus is live
   debug:

@@ -1,0 +1,13 @@
+- hosts: vm1
+  become: true
+
+  tasks:
+    - name: Stop and remove Strapi container
+      community.docker.docker_container:
+        name: "{{ strapi_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Strapi and all related resources successfully removed."

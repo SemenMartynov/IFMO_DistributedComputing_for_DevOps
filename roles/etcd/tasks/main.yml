@@ -1,0 +1,46 @@
+- name: Ensure etcd data directory exists with correct permissions
+  ansible.builtin.file:
+    path: /opt/etcd/data
+    state: directory
+    owner: 1001
+    group: 1001
+    mode: "0775"
+
+- name: Pull Bitnami etcd Docker image
+  community.docker.docker_image:
+    name: bitnami/etcd:latest
+    source: pull
+
+- name: Run etcd container using Bitnami image
+  community.docker.docker_container:
+    name: etcd
+    image: bitnami/etcd:latest
+    restart_policy: always
+    env:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: etcd=http://etcd:2380
+      ETCD_NAME: etcd
+      ETCD_DATA_DIR: /bitnami/etcd/data
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    volumes:
+      - /opt/etcd/data:/bitnami/etcd/data
+    networks:
+      - name: "{{ pg_network }}"
+
+- name: Wait for etcd container to become healthy
+  ansible.builtin.command: docker exec etcd etcdctl --endpoints=http://etcd:2379 endpoint health
+  environment:
+    ETCDCTL_API: "3"
+  register: etcd_health
+  failed_when: "'unhealthy' in etcd_health.stdout or etcd_health.rc != 0"
+  changed_when: false
+
+- name: Show etcd health check result
+  debug:
+    msg: "{{ etcd_health.stdout }}"

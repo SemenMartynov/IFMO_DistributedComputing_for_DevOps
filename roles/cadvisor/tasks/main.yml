@@ -10,7 +10,7 @@
       - "{{ cadvisor_volume_path_var }}"
       - "{{ cadvisor_volume_path_sys }}"
     networks:
-      - name: "{{ docker_monitoring_net }}"
+      - name: "{{ pg_network }}"
 
 - name: Confirm cAdvisor is live
   debug:

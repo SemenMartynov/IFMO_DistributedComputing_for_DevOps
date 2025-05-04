@@ -1,0 +1,48 @@
+- name: ⚙️ NODE_01 Ensure Patroni config directory exists
+  ansible.builtin.file:
+    path: /opt/patroni
+    state: directory
+    mode: '0755'
+
+- name: ⚙️ NODE_01 Ensure Patroni data directory exists with correct permissions
+  ansible.builtin.file:
+    path: /opt/postgres-data-node01
+    state: directory
+    owner: 1000
+    group: 1000
+    mode: "0700"
+
+- name: ⚙️ NODE_01 Ensure /run/postgresql exists
+  ansible.builtin.file:
+    path: /run/postgresql
+    state: directory
+    owner: 1000
+    group: 1000
+    mode: '0755'
+
+- name: ⚙️ NODE_01 Copy Patroni config file
+  ansible.builtin.copy:
+    src: files/patroni_node01.yml
+    dest: /opt/patroni/patroni01.yml
+    mode: '0644'
+
+- name: ⚙️ NODE_01 Copy init.sql file
+  ansible.builtin.copy:
+    src: files/init.sql
+    dest: /opt/patroni/init.sql
+    mode: '0644'
+
+- name: ⚙️ NODE_01 Run Patroni container
+  community.docker.docker_container:
+    name: patroni_node01
+    image: ongres/patroni:latest
+    state: started
+    restart_policy: always
+    command: ["patroni", "/config/patroni.yml"]
+    volumes:
+      - /opt/patroni/patroni01.yml:/config/patroni.yml
+      - /opt/postgres-data-node01:/var/lib/postgresql/data
+      - /run/postgresql:/run/postgresql
+      - /opt/patroni/init.sql:/opt/patroni/init.sql
+    networks:
+      - name: "{{ pg_network }}"

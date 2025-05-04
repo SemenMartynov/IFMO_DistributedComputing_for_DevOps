@@ -20,4 +20,4 @@
 
     - name: Status
       ansible.builtin.debug:
-        msg: "Cleanup for HW2 completed."
+        msg: "PG cluster replica and all related resources successfully removed."

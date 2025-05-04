@@ -1,0 +1,41 @@
+docker exec etcd etcdctl endpoint status -w table
+
+docker exec patroni_node01 patronictl -c /config/patroni.yml list patroni_cluster
+
+docker exec patroni_node01 patronictl -c /config/patroni.yml switchover
+
+docker exec patroni_node01 patronictl -c /config/patroni.yml failover
+
+docker exec -i patroni_node01 patronictl -c /config/patroni.yml switchover --force --candidate patroni_node02
+
+docker exec -it patroni_node01 psql -U postgres
+
+docker exec -it patroni_node01 /bin/bash
+
+docker exec etcd etcdctl get --prefix /patroni/
+
+On master:
+SELECT * FROM pg_stat_replication;
+
+On replica:
+SELECT * FROM pg_stat_wal_receiver;
+
+docker inspect patroni_node02 | grep -A 20 Mounts
+
+alias pn1='docker logs patroni_node01'
+alias pn2='docker logs patroni_node02'
+alias pn3='docker logs patroni_node03'
+alias pn4='docker logs patroni_node04'
+alias pn5='docker logs patroni_node05'lis
+
+alias list1='docker exec patroni_node01 patronictl -c /config/patroni.yml list'
+alias list2='docker exec patroni_node02 patronictl -c /config/patroni.yml list'
+alias list3='docker exec patroni_node03 patronictl -c /config/patroni.yml list'
+alias list4='docker exec patroni_node04 patronictl -c /config/patroni.yml list'
+alias list5='docker exec patroni_node05 patronictl -c /config/patroni.yml list'
+
+5432:5432 = host_port:container_port
+
+PGPASSWORD=postgres psql -h 192.168.64.4 -p 5432 -U postgres
+
+stats http://192.168.64.4:8404/stats

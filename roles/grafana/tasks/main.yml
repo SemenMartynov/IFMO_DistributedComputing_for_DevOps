@@ -32,7 +32,7 @@
       - "{{ grafana_volume_path_datasource }}"
       - "{{ grafana_volume_path_dashboard }}"
     networks:
-      - name: "{{ docker_monitoring_net }}"
+      - name: "{{ pg_network }}"
 
 - name: Confirm Grafana is live
   debug:

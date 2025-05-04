@@ -1,0 +1,14 @@
+- name: Restart Grafana container
+  community.docker.docker_container:
+    name: grafana
+    restart: true
+
+- name: Restart Prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    restart: true
+
+- name: Restart cAdvisor container
+  community.docker.docker_container:
+    name: cadvisor
+    restart: true

@@ -44,11 +44,6 @@
         path: "{{ prometheus_data_path }}"
         state: absent
 
-    - name: Remove monitoring network
-      community.docker.docker_network:
-        name: "{{ docker_monitoring_net }}"
-        state: absent
-
     - name: Status
-      debug:
+      ansible.builtin.debug:
         msg: "Cleanup for HW3 completed."

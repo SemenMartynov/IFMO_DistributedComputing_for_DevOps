@@ -1,0 +1,23 @@
+- hosts: vm1
+  become: true
+
+  tasks:
+    - name: Stop and remove HAProxy container
+      community.docker.docker_container:
+        name: haproxy
+        state: absent
+        force_kill: true
+
+    - name: Remove HAProxy config file
+      ansible.builtin.file:
+        path: /opt/haproxy/haproxy.cfg
+        state: absent
+
+    - name: Remove HAProxy config directory if empty
+      ansible.builtin.file:
+        path: /opt/haproxy
+        state: absent
+
+    - name: Status
+      debug:
+        msg: "HAProxy and all related resources successfully removed."

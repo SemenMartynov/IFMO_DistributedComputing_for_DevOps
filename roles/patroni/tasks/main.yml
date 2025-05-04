@@ -1,0 +1,19 @@
+- name: Pull Patroni image
+  community.docker.docker_image:
+    name: ongres/patroni:latest
+    source: pull
+
+- name: Add node01
+  include_tasks: add_node01.yml
+
+- name: Add node02
+  include_tasks: add_node02.yml
+
+- name: Add node03
+  include_tasks: add_node03.yml
+
+- name: Add node04
+  include_tasks: add_node04.yml
+
+- name: Add node05
+  include_tasks: add_node05.yml

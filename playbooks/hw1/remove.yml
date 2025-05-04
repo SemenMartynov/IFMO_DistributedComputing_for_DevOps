@@ -19,6 +19,56 @@
         name: "{{ pg_master_volume }}"
         state: absent
 
+    - name: Remove Docker CE packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: absent
+        purge: true
+        autoremove: true
+
+    - name: Remove Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+        state: absent
+      ignore_errors: true
+
+    - name: Remove Docker GPG apt Key
+      ansible.builtin.apt_key:
+        id: 0EBFCD88
+        state: absent
+      ignore_errors: true
+
+    - name: Remove docker group
+      ansible.builtin.group:
+        name: docker
+        state: absent
+      ignore_errors: true
+
+    - name: Remove /var/lib/docker directory if exists
+      ansible.builtin.file:
+        path: /var/lib/docker
+        state: absent
+      ignore_errors: true
+
+    - name: Remove /etc/docker directory if exists
+      ansible.builtin.file:
+        path: /etc/docker
+        state: absent
+      ignore_errors: true
+
+    - name: Verify Docker binary is removed
+      ansible.builtin.command: which docker
+      register: docker_bin_check
+      ignore_errors: true
+      changed_when: false
+
     - name: Status
-      debug:
+      ansible.builtin.debug:
+        msg: "Docker and all related resources successfully removed."
+
+    - name: Status
+      ansible.builtin.debug:
         msg: "Cleanup for HW1 completed."
