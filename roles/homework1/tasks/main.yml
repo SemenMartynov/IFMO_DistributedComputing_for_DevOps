@@ -74,7 +74,7 @@
         mode: '0644'
 
     - name: Start db and wordpress containers via compose
-      community.docker.docker_compose_v2:
+      community.docker.docker_compose:
         project_src: /opt/wordpress
         state: present
 
