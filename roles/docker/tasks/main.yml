@@ -17,7 +17,7 @@
 
 - name: Add the repository to apt sources
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+    repo: "deb [arch={{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
     state: present
 
 - name: Update apt cahce & install Docker

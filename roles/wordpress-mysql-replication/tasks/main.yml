@@ -1,18 +1,25 @@
 ---
+- name: Install pymysql
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+    state: present
+    pkg: 
+      - python3-pymysql
 
 # Создание и восстановление дампа будет выполнено только в том случае, если бинарный лог не включен ранее.
 # Это позволит избежать потери данных при повторном запуске плейбука.
 - name: Check if binlog is already enabled
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db
-    command: >
-      sh -c "mariadb -uroot -p$MYSQL_ROOT_PASSWORD -s -N --execute='SELECT @@log_bin';"
-  register: binlog_status
+  community.mysql.mysql_info:
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: master_status
+  register: my_status
 
 - name: Show binlog status
   ansible.builtin.debug:
-    var: binlog_status
+    var: my_status.master_status
 
 - name: Dump all databases
   community.docker.docker_compose_v2_exec:
@@ -20,7 +27,7 @@
     service: db
     command: >
       sh -c 'mariadb-dump --add-drop-database -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE > /var/lib/mysql/dump.sql'
-  when: binlog_status.stdout == "0"
+  when: my_status.master_status | length == 0
 
 - name: Create directories
   ansible.builtin.file:
@@ -113,26 +120,26 @@
       {{ output.containers | selectattr("Service", "equalto", "db-replica") | first }}
 
 - name: Wait until master database is up
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db
-    command: >
-      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='select 1;' --skip-column-names -s;"
+  community.mysql.mysql_query:
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    query: "SELECT 1;"
   register: result
   retries: 5
   delay: 30
   until:   
-    - result.rc == 0 
-    - result.stdout == "1"
+    - result.failed == false
 
 - name: Set up replication user
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db
-    command: >
-      sh -c "mariadb -uroot -p$MYSQL_ROOT_PASSWORD --execute=\"CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}'; \
-        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%'; \
-        FLUSH PRIVILEGES;\""
+  community.mysql.mysql_user:
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    name: "{{ replication_user }}"
+    host: "%"
+    password: "{{ replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    state: present
 
 - name: Restore master databases
   community.docker.docker_compose_v2_exec:
@@ -140,29 +147,21 @@
     service: db
     command: >
       sh -c 'mariadb -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
-  when: binlog_status.stdout == "0"
+  when: my_status.master_status | length == 0
 
-- name: Wait until replication starts
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db-replica
-    command: >
-      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;' | grep -E 'Slave_IO_Running:|Slave_SQL_Running:' | tr -d '[:space:]'"
-  register: result
+- name: Wait for replication and check replica status
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_port: 3308
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+  register: replica_status
   retries: 5
   delay: 30
   until:
-    - result.rc == 0 
-    - result.stdout == "Slave_IO_Running:YesSlave_SQL_Running:Yes"
+    - replica_status.Slave_IO_Running == "Yes"
+    - replica_status.Slave_SQL_Running == "Yes"
 
-- name: Get replication status
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db-replica
-    command: >
-      sh -c "mariadb -uroot -D$MYSQL_DATABASE -p$MYSQL_ROOT_PASSWORD --execute='show replica status\G;'"
-  register: result
-
-- name: Show replication status
+- name: Show replica status
   ansible.builtin.debug:
-    var: result.stdout_lines
+    var: replica_status
