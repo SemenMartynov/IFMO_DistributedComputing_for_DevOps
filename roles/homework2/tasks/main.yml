@@ -1,0 +1,105 @@
+---
+- name: Migrate from homework1 to homework2
+  become: true
+  block:
+    - name: Execute mysqldump in container
+      community.docker.docker_container_exec:
+        container: my_app-db-1
+        command: >
+          mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }}
+          --all-databases --source-data=2
+      register: dump
+      until: dump.rc == 0
+      retries: 6
+      delay: 5
+
+    - name: Save dump to file
+      ansible.builtin.copy:
+        dest: /tmp/dmp.sql
+        content: "{{ dump.stdout }}"
+        mode: "0644"
+
+    - name: Gracefully shutdown containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_src }}"
+        state: absent
+
+- name: Deploy WP and DB in db-cluster mode
+  become: true
+  block:
+    - name: Copy docker-compose.yml template for homework2
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ project_src }}docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy query to bootstrap primary node at startup
+      ansible.builtin.copy:
+        src: primary_bootstrap.sql
+        dest: "{{ project_src }}primary_bootstrap.sql"
+        mode: '0644'
+
+    - name: Start db and wordpress containers via compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_src }}"
+        state: present
+      tags: play
+
+- name: Migrate dumped data from homework1
+  become: true
+  block:
+    - name: Copy SQL dump into container
+      community.docker.docker_container_copy_into:
+        container: mysql_primary
+        path: /tmp/dmp.sql
+        container_path: /tmp/dmp.sql
+
+    - name: Recover SQL dump inside container
+      community.docker.docker_container_exec:
+        container: mysql_primary
+        command: bash -c "mysql -uroot -p{{ mysql_root_password }} < /tmp/dmp.sql"
+      register: dump_recovery
+      until: dump_recovery.rc == 0
+      retries: 6
+      delay: 10
+
+    - name: Extract primary log file and position
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3306
+        query: "SHOW MASTER STATUS"
+      register: primary_query
+
+    - name: Debug master_query
+      ansible.builtin.debug:
+        var: primary_query
+
+    - name: Set replication params
+      ansible.builtin.set_fact:
+        primary_log_file: "{{ primary_query.query_result[0][0].File }}"
+        primary_log_pos: "{{ primary_query.query_result[0][0].Position }}"
+
+    - name: Configure replication on secondary server
+      community.docker.docker_container_exec:
+        container: mysql_secondary
+        command: >
+          mysql -uroot -p{{ mysql_root_password }} -e "
+          CHANGE MASTER TO
+            MASTER_HOST='mysql_primary',
+            MASTER_USER='repl_user',
+            MASTER_PASSWORD='{{ mysql_replication_password }}',
+            MASTER_LOG_FILE='{{ primary_log_file }}',
+            MASTER_LOG_POS={{ primary_log_pos }};
+          START SLAVE;"
+
+    - name: Check secondary replication status
+      community.docker.docker_container_exec:
+        container: mysql_secondary
+        command: mysql -uroot -p{{ mysql_root_password }} -e "SHOW REPLICA STATUS\G"
+      register: secondary_status
+
+    - name: Display replication status
+      ansible.builtin.debug:
+        msg: "{{ secondary_status.stdout_lines }}"
