@@ -1,5 +1,5 @@
 ---
-- name: WordPress и MySQL Master-Slave кластер (MySQL 8.0)
+- name: WordPress и MySQL Master-Slave кластер (MySQL 8.0) с мониторингом Prometheus и Grafana
   hosts: all
   gather_facts: yes
   become: yes
@@ -11,10 +11,12 @@
     mysql_user: "wordpress_user"
     mysql_password: "wordpress_password"
     mysql_config_dir: "/opt/mysql_cluster"
+    prometheus_config_dir: "/opt/prometheus"
     ansible_python_mysql_driver: pymysql
+    exporter_user: "exporter"
+    exporter_password: "exporter_password"
 
   tasks:
-    # Установка базовых компонентов
     - name: Установка необходимых пакетов
       apt:
         name:
@@ -37,7 +39,6 @@
         groups: docker
         append: yes
 
-    # Подготовка конфигурации
     - name: Создание директории для конфигов
       file:
         path: "{{ mysql_config_dir }}"
@@ -56,12 +57,29 @@
         dest: "{{ mysql_config_dir }}/my-slave.cnf"
         mode: 0644
 
+    - name: Создание директории для конфигурации mysqld_exporter
+      file:
+        path: /opt/mysql_exporter
+        state: directory
+        mode: "0755"
+
+    - name: Копирование файла .my.cnf для mysqld_exporter
+      copy:
+        dest: /opt/mysql_exporter/.my.cnf
+        content: |
+          [client]
+          user=exporter
+          password=exporter_password
+          host=localhost
+        owner: root
+        group: root
+        mode: "0644"
+
     - name: Создание сети для контейнеров
       community.docker.docker_network:
         name: wp_network
         driver: bridge
 
-    # MySQL Master
     - name: Запуск MySQL Master
       community.docker.docker_container:
         name: mysql_master
@@ -94,7 +112,6 @@
         timeout: 120
         delay: 10
 
-    # MySQL Slave
     - name: Запуск MySQL Slave
       community.docker.docker_container:
         name: mysql_slave
@@ -122,7 +139,6 @@
         timeout: 120
         delay: 10
 
-    # Настройка репликации
     - name: Создаем пользователя репликации на Master
       community.mysql.mysql_user:
         login_user: root
@@ -174,7 +190,6 @@
       retries: 15
       delay: 5
 
-    # WordPress
     - name: Запуск WordPress
       community.docker.docker_container:
         name: wordpress
@@ -199,3 +214,87 @@
       until: wordpress_status.status == 200
       retries: 15
       delay: 5
+
+    - name: Создание пользователя для MySQL Exporter (на Master)
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3306
+        name: "{{ exporter_user }}"
+        password: "{{ exporter_password }}"
+        host: "%"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        state: present
+
+    - name: Создание пользователя для MySQL Exporter (на Slave)
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ ansible_host }}"
+        login_port: 3307
+        name: "{{ exporter_user }}"
+        password: "{{ exporter_password }}"
+        host: "%"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        state: present
+
+    - name: Создание директории для конфигурации Prometheus
+      file:
+        path: "{{ prometheus_config_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: Копирование шаблона конфигурации Prometheus
+      template:
+        src: prometheus.yml.j2
+        dest: "{{ prometheus_config_dir }}/prometheus.yml"
+        mode: 0644
+
+    - name: Запуск MySQL Exporter для Master
+      community.docker.docker_container:
+        name: mysql_exporter_master
+        image: prom/mysqld-exporter
+        networks:
+          - name: wp_network
+        volumes:
+          - /opt/mysql_exporter/.my.cnf:/etc/.my.cnf:ro
+        command: ["--config.my-cnf=/etc/.my.cnf"]
+        ports:
+          - "9104:9104"
+        restart_policy: always
+
+    - name: Запуск MySQL Exporter для Slave
+      community.docker.docker_container:
+        name: mysql_exporter_slave
+        image: prom/mysqld-exporter
+        networks:
+          - name: wp_network
+        volumes:
+          - /opt/mysql_exporter/.my.cnf:/etc/.my.cnf:ro
+        command: ["--config.my-cnf=/etc/.my.cnf"]
+        ports:
+          - "9105:9104"
+        restart_policy: always
+
+    - name: Запуск Prometheus
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus
+        networks:
+          - name: wp_network
+        ports:
+          - "9090:9090"
+        volumes:
+          - /opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        restart_policy: always
+
+    - name: Запуск Grafana
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana
+        networks:
+          - name: wp_network
+        ports:
+          - "3000:3000"
+        restart_policy: always
