@@ -1,0 +1,23 @@
+- name: Prepare for homework 3
+  become: true
+  block:
+    - name: Create dirs for monitoring utils
+      ansible.builtin.file:
+        path: /opt/wordpress
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml template
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: /opt/wordpress/docker-compose.yml
+        mode: '0644'
+
+    - name: Start db and wordpress containers via compose
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress
+        state: present
+
+    - name: Wait for wp become fully operational
+      ansible.builtin.wait_for:
+        timeout: 10
