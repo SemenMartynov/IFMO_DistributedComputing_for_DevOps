@@ -1,0 +1,18 @@
+---
+- name: Install Docker and manage docker-compose
+  hosts: slave
+  become: yes
+  tasks:
+    - name: Copy docker-compose.yml_slave to the remote host
+      copy:
+        src: ./netbox/
+        dest: /home/{{ ansible_user }}/netbox/
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        directory_mode: '0644'
+
+    - name: Run docker-compose in detached mode
+      command: >
+        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_slave.yml up -d
+      args:
+        chdir: /home/{{ ansible_user }}
