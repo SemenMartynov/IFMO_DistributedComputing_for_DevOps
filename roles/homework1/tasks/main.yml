@@ -63,21 +63,21 @@
   block:
     - name: Create web application directory
       ansible.builtin.file:
-        path: /opt/wordpress
+        path: "{{ project_src }}"
         state: directory
         mode: '0755'
 
-    - name: Copy docker-compose.yml template
+    - name: Copy docker-compose yaml template
       ansible.builtin.template:
         src: docker-compose.yml.j2
-        dest: /opt/wordpress/docker-compose.yml
+        dest: "{{ project_src }}docker-compose.yml"
         mode: '0644'
 
     - name: Start db and wordpress containers via compose
-      community.docker.docker_compose:
-        project_src: /opt/wordpress
-        state: present
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_src }}"
+        wait: true
 
-    - name: Wait for wp become fully operational
+    - name: Wait for app become fully operational
       ansible.builtin.wait_for:
         timeout: 10

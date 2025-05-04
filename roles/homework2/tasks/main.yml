@@ -4,7 +4,7 @@
   block:
     - name: Execute mysqldump in container
       community.docker.docker_container_exec:
-        container: wordpress-db-1
+        container: my_app-db-1
         command: >
           mysqldump -h127.0.0.1 -uroot -p{{ mysql_root_password }}
           --all-databases --source-data=2
@@ -20,8 +20,8 @@
         mode: "0644"
 
     - name: Gracefully shutdown containers
-      community.docker.docker_compose:
-        project_src: /opt/wordpress
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_src }}"
         state: absent
 
 - name: Deploy WP and DB in db-cluster mode
@@ -30,18 +30,18 @@
     - name: Copy docker-compose.yml template for homework2
       ansible.builtin.template:
         src: docker-compose.yml.j2
-        dest: /opt/wordpress/docker-compose.yml
+        dest: "{{ project_src }}docker-compose.yml"
         mode: '0644'
 
     - name: Copy query to bootstrap primary node at startup
       ansible.builtin.copy:
         src: primary_bootstrap.sql
-        dest: /opt/wordpress/primary_bootstrap.sql
+        dest: "{{ project_src }}primary_bootstrap.sql"
         mode: '0644'
 
     - name: Start db and wordpress containers via compose
-      community.docker.docker_compose:
-        project_src: /opt/wordpress
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_src }}"
         state: present
       tags: play
 
