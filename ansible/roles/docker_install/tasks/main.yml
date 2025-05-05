@@ -1,3 +1,8 @@
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
 - name: Install required packages
   ansible.builtin.apt:
     name: "{{ item }}"
@@ -10,6 +15,10 @@
     - python3-pip
     - software-properties-common
     - acl
+  register: result
+  until: result is succeeded
+  retries: 5  # 5 попыток
+  delay: 10   # Интервал 10 секунд
 
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
@@ -20,6 +29,10 @@
   ansible.builtin.apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
     state: present
+  register: result
+  until: result is succeeded
+  retries: 5  # 5 попыток
+  delay: 10   # Интервал 10 секунд
 
 - name: Install Docker, Docker-compose, containerd.io
   ansible.builtin.apt:
@@ -30,6 +43,10 @@
     - docker-ce
     - docker-compose
     - containerd.io
+  register: result
+  until: result is succeeded
+  retries: 5  # 5 попыток
+  delay: 10   # Интервал 10 секунд
 
 - name: Add current user to docker group
   ansible.builtin.user:
