@@ -12,8 +12,8 @@
 
 1. Предполагается, что в системе уже установлен ansible. Если нет - требуется его установить.
 2. Создать файл inventory/host по примеру в [hosts.dist](inventory/hosts.dist)
-3. Создать файл .env по примеру в [.env.dist](.env.dist)
-4. В Makefile запустить target ```up-all``` . Команда в терминале: ```make up-all```
+3. Создать файл inventory/group_vars/all.yaml по примеру в [all.dist.yaml](inventory/group_vars/all.dist.yaml)
+4. В Makefile запустить target ```up-all``` . Команда в терминале: ```make up-all``` (первый раз поднимается долго!)
 
 ## Проверка результата
 

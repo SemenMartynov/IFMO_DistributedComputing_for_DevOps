@@ -2,10 +2,6 @@
 - name: Запуск Wordpress с базой данных с использованием docker-compose
   hosts: all
   vars:
-    mysql_root_password: "test_db_root_password"
-    slave_mysql_port: "3307"
-    replication_user: "test_db_replication_user"
-    replication_password: "test_db_replication_password"
     mysql_connect_timeout: "3"
 
   tasks:
@@ -20,14 +16,9 @@
         src: ../config
         dest: ~/app
 
-    - name: Доставить файл с переменными окружения на сервер
-      ansible.builtin.copy:
-        src: ../.env
-        dest: ~/app/.env
-
     - name: Доставить docker-compose файл на сервер
-      ansible.builtin.copy:
-        src: ../docker-compose.yaml
+      ansible.builtin.template:
+        src: ../templates/docker-compose.yaml.j2
         dest: ~/app/docker-compose.yaml
 
     - name: Запустить docker-compose конфигурацию
