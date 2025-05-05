@@ -1,0 +1,12 @@
+- name: Monitor agents
+  hosts: default
+  gather_facts: true
+  become: true
+  roles:
+    - roles/monitor-agents
+- name: Grafana with Prom
+  hosts: default
+  gather_facts: true
+  become: true
+  roles:
+    - roles/monitoring

@@ -1,0 +1,27 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Create backup directory on host if doesn't exist
+  file:
+    path: "{{ backup_dest }}"
+    state: directory
+    mode: '0755'
+
+- name: Install MariaDB client
+  ansible.builtin.apt:
+    name: mysql-client
+    state: present
+
+- name: Install PyMySQL
+  ansible.builtin.apt:
+    pkg: 
+      - python3-pymysql
+      - mariadb-client
+
+- name: Dump databases using mysql_db module
+  community.mysql.mysql_db:
+    name: all
+    login_user: "{{ old_db.user }}"
+    login_password: "{{ old_db.passwd }}"
+    state: dump
+    target: "{{ backup_dest }}/db.sql"
+    single_transaction: yes

@@ -1,0 +1,22 @@
+services:
+  master-exporter:
+    image: bitnami/mysqld-exporter
+    container_name: master-exporter
+    networks:
+      - mysql-cluster
+    volumes:
+      - ./master_my.cnf:/.my.cnf
+    command: --config.my-cnf=/.my.cnf --mysqld.address=master:3306 --mysqld.username=exporter
+
+  slave-exporter:
+    image: bitnami/mysqld-exporter
+    container_name: slave-exporter
+    networks:
+      - mysql-cluster
+    volumes:
+      - ./slave_my.cnf:/.my.cnf
+    command: --config.my-cnf=/.my.cnf --mysqld.address=slave:3306 --mysqld.username=exporter
+
+networks:
+  mysql-cluster:
+    external: true

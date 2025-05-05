@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  master:
+    image: bitnami/mariadb-galera:latest
+    hostname: master
+    container_name: master
+    networks:
+      - mysql-cluster
+    volumes:
+      - "mysql_master:/var/lib/mysql"
+      - "{{ backup_dest }}/db.sql:/docker-entrypoint-initdb.d/db.sql"
+    environment:
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ cluster_vars.backup_password }}"
+      MARIADB_AUTHENTICATION_PLUGIN: "plugin_auth_string"
+      MARIADB_ROOT_PASSWORD: "{{ cluster_vars.root_password }}"
+      MARIADB_DATABASE: "{{ wordpress_db.name }}"
+      MARIADB_USER: "{{ wordpress_db.user }}"
+      MARIADB_PASSWORD: "{{ wordpress_db.password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ cluster_vars.cluster_name }}"
+      MARIADB_REPLICATION_USER: "{{ cluster_vars.replication_user }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ cluster_vars.replication_password }}"
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+    ports:
+      - 3306:3306
+
+  slave:
+    image: bitnami/mariadb-galera:latest
+    hostname: slave
+    container_name: slave
+    depends_on:
+      - master
+    networks:
+      - mysql-cluster
+    volumes:
+      - "mysql_slave:/var/lib/mysql"
+    environment:
+      MARIADB_AUTHENTICATION_PLUGIN: "plugin_auth_string"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ cluster_vars.backup_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ cluster_vars.root_password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ cluster_vars.cluster_name }}"
+      MARIADB_REPLICATION_USER: "{{ cluster_vars.replication_user }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ cluster_vars.replication_password }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://master"
+  
+  nginx:
+    image: nginx:1.27.4
+    hostname: nginx
+    container_name: nginx
+    networks:
+      - mysql-cluster
+    depends_on:
+      - master
+      - slave
+      - apache
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/wordpress.conf
+      - ./localhost.crt:/etc/nginx/ssl/localhost.crt
+      - ./localhost.key:/etc/nginx/ssl/localhost.key
+    ports:
+      - 80:80
+      - 443:443
+  
+  apache:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: apache
+    hostname: apache
+    networks:
+      - mysql-cluster
+    depends_on:
+      - master
+      - slave
+
+volumes:
+  mysql_master:
+    external: true
+  mysql_slave:
+    external: true
+
+networks:
+  mysql-cluster:
+    external: true

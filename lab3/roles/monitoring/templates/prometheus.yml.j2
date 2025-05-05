@@ -1,0 +1,18 @@
+# my global config
+global:
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          app: "prometheus"
+  - job_name: "master-exporter"
+    static_configs:
+      - targets: ["master-exporter:9104"]
+        labels:
+            app: mariadb-master
+  - job_name: "slave-exporter"
+    static_configs:
+      - targets: ["slave-exporter:9104"]
+        labels:
+            app: mariadb-slave

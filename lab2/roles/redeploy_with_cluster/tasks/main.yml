@@ -1,0 +1,94 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Install packages
+  ansible.builtin.apt:
+    pkg:
+      - python3-docker
+  ignore_errors: true
+
+- name: Create volumes
+  community.docker.docker_volume:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - mysql_master
+    - mysql_slave
+
+- name: Create a Docker network
+  community.docker.docker_network:
+    name: "mysql-cluster"
+    driver: bridge
+
+- name: Stop Wordpress and single DB
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - mysql
+    - apache
+    - nginx
+
+- name: Delete Wordpress
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - apache
+    - nginx
+    
+- name: Create a lab directory if it does not exist
+  ansible.builtin.file:
+    path: ~/lab2
+    state: directory
+    mode: '0755'
+
+- name: Copy nginx config
+  ansible.builtin.copy:
+    src: nginx.conf
+    dest: ~/lab2/nginx.conf
+
+- name: Copy crt
+  ansible.builtin.copy:
+    src: localhost.crt
+    dest: ~/lab2/localhost.crt
+
+- name: Copy key
+  ansible.builtin.copy:
+    src: localhost.key
+    dest: ~/lab2/localhost.key
+
+- name: Copy apache config
+  ansible.builtin.copy:
+    src: apache.conf
+    dest: ~/lab2/apache.conf
+
+- name: Copy wp.conf
+  ansible.builtin.template:
+    src: wp.conf.j2
+    dest: ~/lab2/wp.conf
+
+- name: Copy Dockerfile
+  ansible.builtin.copy:
+    src: Dockerfile
+    dest: ~/lab2/Dockerfile
+
+- name: Copy docker-compose template
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: ~/lab2/docker-compose.yaml
+
+- name: start project
+  community.docker.docker_compose_v2:
+    project_src: ~/lab2/
+    services:
+      - master
+    state: present
+
+- name: Pause for 1 minutes to up master
+  ansible.builtin.pause:
+    minutes: 1
+
+- name: start project
+  community.docker.docker_compose_v2:
+    project_src: ~/lab2/
+    state: present

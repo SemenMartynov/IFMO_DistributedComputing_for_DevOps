@@ -1,0 +1,43 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Create a lab directory if it does not exist
+  ansible.builtin.file:
+    path: ~/lab3
+    state: directory
+    mode: '0755'
+
+- name: Create database user for master_exporter
+  community.mysql.mysql_user:
+    login_user: "{{ mariadb_root_user  }}"
+    login_password: "{{ mariadb_root_password }}"
+    name: "exporter"
+    priv: '*.*:ALL'
+    host: "%"
+    password: "{{ monitoring_password }}"
+    state: present
+
+- name: Run mariadb exporter_master
+  community.docker.docker_container:
+    name: master-exporter
+    image: bitnami/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    command: --mysqld.address=master:3306 --mysqld.username=exporter
+    env:
+      MYSQLD_EXPORTER_PASSWORD: "{{ monitoring_password }}"
+    ports:
+      - "9104:9104"
+    networks:
+      - name: mysql-cluster
+
+- name: Run mariadb exporter_slave
+  community.docker.docker_container:
+    name: slave-exporter
+    image: bitnami/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    command: --mysqld.address=slave:3306 --mysqld.username=exporter
+    env:
+      MYSQLD_EXPORTER_PASSWORD: "{{ monitoring_password }}"
+    networks:
+      - name: mysql-cluster
