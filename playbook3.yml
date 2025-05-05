@@ -5,7 +5,7 @@
   vars_files:
     - defaults/main.yml
   vars:
-    mysql_hosts: [ {{ db_master }}, {{ db_replica }} ]
+    mysql_hosts: [ '{{ db_master }}', '{{ db_replica }}' ]
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:

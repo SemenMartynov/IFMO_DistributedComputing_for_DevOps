@@ -29,7 +29,7 @@ grafana_server_root_url: "{{ lookup('env', 'GF_SERVER_ROOT_URL') or inventory_ho
 grafana_server_port: 3000
 monitoring_url: 'http://{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}:{{ grafana_server_port }}'
 
-galera_cluster_name:  "{{ lookup('env', 'GALERA_CLUSTER_NAME') or 'galera' }}"
+galera_cluster_name: "{{ lookup('env', 'GALERA_CLUSTER_NAME') or 'galera' }}"
 db1_host: db1
 db2_host: db2
 db3_host: db3

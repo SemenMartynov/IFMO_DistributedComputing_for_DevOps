@@ -6,11 +6,11 @@
     - defaults/main.yml
   vars:
     mysql_hosts:
-      - {{ db1_host }}
-      - {{ db2_host }}
-      - {{ db3_host }}
-      - {{ db4_host }}
-      - {{ db5_host }}
+      - '{{ db1_host }}'
+      - '{{ db2_host }}'
+      - '{{ db3_host }}'
+      - '{{ db4_host }}'
+      - '{{ db5_host }}'
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
