@@ -102,7 +102,7 @@
         published_ports:
           - "9104:9104"
         volumes:
-          - /home/server_artur/monitoring/my.cnf:/cfg/.my.cnf
+          - "./monitoring/my.cnf:/cfg/.my.cnf"
         networks:
           - name: wpnet
     
@@ -118,7 +118,7 @@
         published_ports:
           - "9105:9104"
         volumes:
-          - /home/server_artur/monitoring/my.cnf:/cfg/.my.cnf
+          - "./monitoring/my.cnf:/cfg/.my.cnf"
         networks:
           - name: wpnet
           

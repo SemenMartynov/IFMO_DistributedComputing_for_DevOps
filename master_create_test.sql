@@ -1,3 +1,0 @@
-USE wordpress
-CREATE TABLE test(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50) NOT NULL);
-INSERT INTO test(name) VALUES("artur");

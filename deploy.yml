@@ -10,28 +10,14 @@
         path: wordpress/
         state: directory
 
-    # - name: Скопировать master_create_test.sql
-    #   copy:
-    #     src: master_create_test.sql
-    #     dest: wordpress/master_create_test.sql
-    #   tags: change0
-
-    # - name: Скопировать my_custom.cnf
-    #   copy:
-    #     src: my_custom.cnf
-    #     dest: wordpress/my_custom.cnf
-    #   tags: change0  
-
     - name: Создать volume db_data
       community.docker.docker_volume:
         name: db_data
-      tags: change1
 
     - name: Создать сеть Docker
       community.docker.docker_network:
         name: wpnet
         state: present
-      tags: change1.5
 
     - name: Запустить контейнер MySQL
       community.docker.docker_container:
@@ -45,12 +31,10 @@
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
         volumes:
           - "db_data:/var/lib/mysql"
-          # - "./master_create_test.sql:/docker-entrypoint-initdb.d/master_create_test.sql"
         published_ports:
           - "3306:3306"
         networks:
           - name: wpnet
-      tags: change2
 
     - name: Проверка доступности MySQL
       community.mysql.mysql_info:
@@ -76,18 +60,6 @@
           - "80:80"
         networks:
           - name: wpnet
-      tags: change3
-
-    # - name: Выполнить master_create_test.sql
-    #   community.mysql.mysql_db:
-    #     state: import
-    #     name:
-    #       - all
-    #     target: "{{ project_dir }}/master_create_test.sql"
-    #     login_host: "127.0.0.1"
-    #     login_port: "{{ mysql_master_port }}"
-    #     login_user: "{{ mysql_root_login }}"
-    #     login_password: "{{ mysql_root_password }}"
 
     - name: Проверка доступности MySQL
       community.mysql.mysql_info:
@@ -156,7 +128,6 @@
           - --default-authentication-plugin=mysql_native_password
         volumes:
           - mysql_master_data:/var/lib/mysql
-          # - ./my_custom.cnf:/etc/mysql/conf.d/my_custom.cnf
         published_ports:
           - "3306:3306"
         networks:
