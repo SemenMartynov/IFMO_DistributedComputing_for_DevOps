@@ -9,6 +9,7 @@
       ansible.builtin.debug:
         msg:
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+
     - name: Create Prometheus export user on MASTER and SLAVE
       community.mysql.mysql_user:
         login_host: '10.16.1.3'
@@ -20,6 +21,7 @@
         plugin: caching_sha2_password
         priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
         state: present
+
     - name: Create Prometheus MySQL export container
       community.docker.docker_container:
         name: 'mysqld-exporter'
@@ -33,6 +35,7 @@
             ipv4_address: 10.16.1.5
         env:
           MYSQLD_EXPORTER_PASSWORD: '{{ mysql_passwd }}'
+
     - name: Create Prometheus config dir
       ansible.builtin.file:
         path: /prometheus
@@ -41,6 +44,7 @@
         mode: '0755'
         owner: 0
         group: 0
+
     - name: Generate Prometheus config
       ansible.builtin.template:
         src: templates/prometheus.yaml.j2
@@ -48,6 +52,7 @@
         mode: '0644'
         owner: 0
         group: 0
+
     - name: Create Prometheus container
       community.docker.docker_container:
         name: 'prometheus'
@@ -61,6 +66,7 @@
         volumes:
           - /prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
           - prometheus-data:/prometheus
+
     - name: Create Graphana container
       community.docker.docker_container:
         name: 'grafana'
@@ -81,11 +87,13 @@
           GF_PLUGINS_PREINSTALL: 'grafana-clock-panel'
           GF_SECURITY_ADMIN_USER: '{{ grafana_admin_username }}'
           GF_SECURITY_ADMIN_PASSWORD: '{{ grafana_admin_password }}'
+
     - name: Wait for Graphana to start
       ansible.builtin.wait_for:
         host: '10.16.1.7'
         port: '{{ grafana_server_port }}'
         delay: 10
+
     - name: Create prometheus datasource
       community.grafana.grafana_datasource:
         grafana_url: 'http://10.16.1.7:3000'
@@ -95,6 +103,7 @@
         ds_type: "prometheus"
         ds_url: 'http://prometheus:9090'
         is_default: true
+
     - name: Import Grafana dashboard for MySQL
       community.grafana.grafana_dashboard:
         grafana_url: 'http://10.16.1.7:3000'

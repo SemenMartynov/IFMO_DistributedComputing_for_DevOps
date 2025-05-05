@@ -60,9 +60,9 @@
         name: '{{ wp_int_network }}'
         internal: true
         ipam_config:
-          - subnet: 10.16.1.0/28
+          - subnet: 10.16.1.0/27
             gateway: 10.16.1.1
-            iprange: 10.16.1.0/29
+            iprange: 10.16.1.16/28
     - name: Create WP docker network
       community.docker.docker_network:
         name: '{{ wp_ext_network }}'

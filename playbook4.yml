@@ -1,6 +1,9 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
+  vars_files:
+    - defaults/main.yml
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -16,11 +19,232 @@
           - "db_pass: {{ db_pass }}" # root password for DBs
           - "loadbalancer: {{ loadbalancer }}" # container name
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
-    - name: Backup current WP databases just for sake of safety
+
+    - name: Check if Galera cluster already exists
+      community.docker.docker_container_info:
+        name: '{{ db5_host }}'
+      register: is_done
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_done.exists
+
+    - name: Install packages required by Ansible modules
+      ansible.builtin.apt:
+        pkg:
+          - mariadb-client
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Stop WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        state: stopped
+
+    - name: Backup current WP databases
       community.mysql.mysql_db:
         state: dump
-        name: all
+        name: '{{ wp_dbname }}'
         target: '{{ wp_mysql_dump }}'
         login_host: 10.16.1.3
         login_port: 3306
         login_password: '{{ mysql_root_pw }}'
+
+    - name: Bootstraping Galera cluster on the first node
+      community.docker.docker_container:
+        name: '{{ db1_host }}'
+        image: '{{ galera_container_image }}'
+        state: started
+        restart: true
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          interval: 15s
+          timeout: 5s
+          retries: 6
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: '10.16.1.11'
+        volumes:
+          - 'galera_db1:/bitnami/mariadb'
+        capabilities:
+          - SYS_NICE
+        env:
+          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
+          MARIADB_GALERA_CLUSTER_BOOTSTRAP: 'yes'
+          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://'
+          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.11'
+          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_REPLICATION_USER: 'replicant'
+          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_DATABASE: '{{ wp_dbname }}'
+          MARIADB_USER: '{{ wp_dbuser }}'
+          MARIADB_PASSWORD: '{{ mysql_passwd }}'
+          MARIADB_SKIP_TEST_DB: 'yes'
+          MARIADB_INIT_SLEEP_TIME: '5'
+
+    - name: Wait for bootstaping the first Galera node
+      ansible.builtin.wait_for:
+        host: '10.16.1.11'
+        port: 3306
+        delay: 15
+
+    - name: Remove bootstrap option and restart the first node
+      community.docker.docker_container:
+        name: '{{ db1_host }}'
+        image: '{{ galera_container_image }}'
+        state: started
+#        restart: true
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          interval: 15s
+          timeout: 5s
+          retries: 6
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: '10.16.1.11'
+        volumes:
+          - 'galera_db1:/bitnami/mariadb'
+        capabilities:
+          - SYS_NICE
+        env:
+          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
+          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}'
+          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.11'
+          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_REPLICATION_USER: 'replicant'
+          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_DATABASE: '{{ wp_dbname }}'
+          MARIADB_USER: '{{ wp_dbuser }}'
+          MARIADB_PASSWORD: '{{ mysql_passwd }}'
+          MARIADB_SKIP_TEST_DB: 'yes'
+          MARIADB_INIT_SLEEP_TIME: '5'
+
+    - name: Wait for the first instance to restart
+      ansible.builtin.wait_for:
+        host: '10.16.1.11'
+        port: 3306
+        delay: 15
+
+    - name: Restore WP databases
+      community.mysql.mysql_db:
+        state: import
+        name: '{{ wp_dbname }}'
+        target: '{{ wp_mysql_dump }}'
+        login_host: 10.16.1.11
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        force: true
+
+    - name: Create HAProxy user with empty password
+      community.mysql.mysql_user:
+        login_host: '10.16.1.11'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: 'haproxy'
+        host: '10.16.1.3'
+        priv: '*.*:USAGE'
+        state: present
+
+    - name: Create Prometheus user
+      community.mysql.mysql_user:
+        login_host: '10.16.1.11'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: export
+        host: '%'
+        password: '{{ mysql_passwd }}'
+        priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
+        state: present
+
+    - name: Adding nodes to the Galera cluster
+      community.docker.docker_container:
+        name: 'db{{ item }}'
+        image: '{{ galera_container_image }}'
+        state: started
+        restart: true
+        recreate: true
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          interval: 15s
+          timeout: 5s
+          retries: 6
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: '10.16.1.1{{ item }}'
+        volumes:
+          - 'galera_db_{{ item }}:/bitnami/mariadb'
+        capabilities:
+          - SYS_NICE
+        env:
+          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
+          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}'
+          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.1{{ item }}'
+          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_REPLICATION_USER: 'replicant'
+          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
+          MARIADB_USER: '{{ wp_dbuser }}'
+          MARIADB_PASSWORD: '{{ mysql_passwd }}'
+          MARIADB_SKIP_TEST_DB: 'yes'
+          MARIADB_INIT_SLEEP_TIME: '5'
+      with_sequence: start=2 end=5
+      loop_control:
+        pause: 5
+
+    - name: Wait for the last instance to restart
+      ansible.builtin.wait_for:
+        host: '10.16.1.15'
+        port: 3306
+        delay: 15
+
+    - name: Create haproxy config dir
+      ansible.builtin.file:
+        path: /haproxy
+        state: directory
+        recurse: true
+        mode: '0755'
+        owner: 0
+        group: 0
+
+    - name: Generate HAProxy config
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /haproxy/haproxy.cfg
+        mode: '0644'
+        owner: 0
+        group: 0
+
+    - name: Remove MySQL replication instances
+      community.docker.docker_container:
+        name: '{{ item }}'
+        state: absent
+        force_kill: true
+      loop:
+        - '{{ db_master }}'
+        - '{{ db_replica }}'
+
+    - name: Create haproxy container
+      community.docker.docker_container:
+        name: '{{ db_container_name }}'
+        image: 'haproxy'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: '10.16.1.3'
+        volumes:
+          - /haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+        capabilities:
+        env:
+
+    - name: Start WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        state: started
