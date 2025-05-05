@@ -1,32 +1,47 @@
-- name: Deploy
+
+#- name: Remove old containers and volumes
+#  hosts: db_master,db_slave
+#  become: yes
+#  tasks:
+#    - name: Stop and remove containers
+#      docker_container:
+#        name: "{{ item }}"
+#        state: absent
+#        volumes: yes
+#      loop:
+#        - mariadb-master
+#        - mariadb-slave
+#
+#    - name: Force remove explicit volumes
+#      docker_volume:
+#        name: "{{ item }}"
+#        state: absent
+#      loop:
+#        - mariadb_master_data
+#        - mariadb_slave_data
+#      ignore_errors: yes
+#
+#    - name: Pause after cleanup
+#      pause:
+#        seconds: 20  # Увеличено время для гарантии удаления
+#
+- name: Prep
   hosts: all
   become: yes
-  vars:
-    mariadb_root_password: "rootpass"
-    mariadb_database: "wordpress"
-    mariadb_user: "wpuser"
-    mariadb_password: "wpuserpass"
-    mariadb_repl_password: "replpass"
-
-  handlers:
-    - name: RestartMaster
-      community.docker.docker_container:
-        name: mariadb_master
-        state: restarted
-
-    - name: RestartSlave
-      community.docker.docker_container:
-        name: mariadb_slave
-        state: restarted
-
   tasks:
-    - name: Install dependencies
+    - name: Update facts
+      setup:
+
+- name: Docker
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Docker
       apt:
         name:
           - docker.io
-          - docker-compose
+#          - docker-compose пришел из первой ДЗ, впрочем я так понял он и там был не нужен
           - python3-docker
-          - python3-pymysql
         state: present
         update_cache: yes
 
@@ -36,25 +51,53 @@
         state: started
         enabled: yes
 
-    - name: Create networks
-      community.docker.docker_network:
-        name: "{{ item.name }}"
-        driver: bridge
-        internal: "{{ item.internal }}"
-      loop:
-        - { name: frontend, internal: no }
-        - { name: backend, internal: yes }
+- name: Conf DBs
+  hosts: db_master,db_slave
+  become: yes
+  tasks:
+    - name: Install MySQL deps
+      apt:
+        name:
+          - python3-pymysql
+          - python3-mysqldb
+        state: present
+        update_cache: yes
 
-    - name: Create db volumes
-      community.docker.docker_volume:
+#    - name: Clean networks
+#      docker_network:
+#        name: "{{ item }}"
+#        state: absent
+#      loop: [backend, frontend]
+#      ignore_errors: yes
+
+    - name: Networks
+      docker_network:
         name: "{{ item }}"
-      loop:
-        - mariadb_master_data
-        - mariadb_slave_data
+        driver: bridge
+        state: present
+      loop: [backend, frontend]
 
-    - name: StartMaster
-      community.docker.docker_container:
-        name: mariadb_master
+- name: Master
+  hosts: db_master
+  become: yes
+  tasks:
+    - name: Config master
+      copy:
+        content: |
+          [mysqld]
+          server_id=1
+          log_bin=mysql-bin
+          binlog_format=row
+          innodb_flush_log_at_trx_commit=1
+          sync_binlog=1
+        dest: /etc/mysql/master.cnf
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Start master
+      docker_container:
+        name: mariadb-master
         image: mariadb:10.5
         state: started
         restart_policy: unless-stopped
@@ -65,41 +108,49 @@
           MYSQL_PASSWORD: "{{ mariadb_password }}"
         volumes:
           - mariadb_master_data:/var/lib/mysql
-          - master_conf:/etc/mysql/conf.d
+          - /etc/mysql/master.cnf:/etc/mysql/conf.d/server_id.cnf
         networks:
           - name: backend
+        ports:
+          - "3306:3306"
+        force_kill: yes
 
-    - name: SetupMaster
-      community.docker.docker_container_file:
-        container: mariadb_master
-        path: /etc/mysql/conf.d/replication.cnf
-        content: |
-          [mysqld]
-          server-id = 1
-          log-bin = mysql-bin
-          binlog-format = ROW
-          bind-address = 0.0.0.0
-        state: present
-      notify: Restart Master DB
+    - name: Wait
+      pause:
+        seconds: 30
 
-    - name: just wait
-      ansible.builtin.pause:
-        seconds: 90
-
-    - name: RepSetup
+    - name: Replica user
       community.mysql.mysql_user:
-        login_host: mariadb_master
         login_user: root
         login_password: "{{ mariadb_root_password }}"
-        name: repl
-        host: "%"
+        name: "{{ mariadb_repl_user }}"
         password: "{{ mariadb_repl_password }}"
+        host: "%"
         priv: "*.*:REPLICATION SLAVE"
         state: present
+      run_once: yes
 
-    - name: StartSlave
-      community.docker.docker_container:
-        name: mariadb_slave
+- name: Slave
+  hosts: db_slave
+  become: yes
+  tasks:
+    - name: Config slave
+      copy:
+        content: |
+          [mysqld]
+          server_id=2
+          log_bin=mysql-bin
+          binlog_format=row
+          relay_log=mysql-relay-bin
+          read_only=1
+        dest: /etc/mysql/slave.cnf
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Start slave
+      docker_container:
+        name: mariadb-slave
         image: mariadb:10.5
         state: started
         restart_policy: unless-stopped
@@ -107,40 +158,55 @@
           MYSQL_ROOT_PASSWORD: "{{ mariadb_root_password }}"
         volumes:
           - mariadb_slave_data:/var/lib/mysql
-          - slave_conf:/etc/mysql/conf.d
+          - /etc/mysql/slave.cnf:/etc/mysql/conf.d/server_id.cnf
         networks:
           - name: backend
+        ports:
+          - "3306:3306"
 
-    - name: SlaveSetup
-      community.docker.docker_container_file:
-        container: mariadb_slave
-        path: /etc/mysql/conf.d/replication.cnf
-        content: |
-          [mysqld]
-          server-id = 2
-          relay-log = slave-relay-bin
-          bind-address = 0.0.0.0
-        state: present
-      notify: Restart Slave DB
+    - name: Wait slave
+      pause:
+        seconds: 30
 
-    - name: wait again
-      ansible.builtin.pause:
-        seconds: 90
+    - name: Replica
+      block:
+        - name: Stop slave
+          community.mysql.mysql_query:
+            login_user: root
+            login_password: "{{ mariadb_root_password }}"
+            query: "STOP SLAVE"
+          ignore_errors: yes
 
-    - name: SalveRepSetup
-      community.mysql.mysql_replication:
-        mode: changemaster
-        login_host: mariadb_slave
-        login_user: root
-        login_password: "{{ mariadb_root_password }}"
-        master_host: mariadb_master
-        master_user: repl
-        master_password: "{{ mariadb_repl_password }}"
-        master_log_file: mysql-bin.000001
-        master_log_pos: 4
+        - name: Reset slave
+          community.mysql.mysql_query:
+            login_user: root
+            login_password: "{{ mariadb_root_password }}"
+            query: "RESET SLAVE ALL"
 
-    - name: StartWP
-      community.docker.docker_container:
+        - name: Set master
+          community.mysql.mysql_query:
+            login_user: root
+            login_password: "{{ mariadb_root_password }}"
+            query: |
+              CHANGE MASTER TO
+              MASTER_HOST='{{ hostvars[groups['db_master'][0]].inventory_hostname }}',
+              MASTER_USER='{{ mariadb_repl_user }}',
+              MASTER_PASSWORD='{{ mariadb_repl_password }}',
+              MASTER_PORT=3306,
+              MASTER_USE_GTID = slave_pos
+
+        - name: Start slave
+          community.mysql.mysql_query:
+            login_user: root
+            login_password: "{{ mariadb_root_password }}"
+            query: "START SLAVE"
+
+- name: Deploy WP
+  hosts: wordpress_server
+  become: yes
+  tasks:
+    - name: Start WP
+      docker_container:
         name: wordpress
         image: wordpress:5.9-php7.4-apache
         state: started
@@ -148,11 +214,10 @@
         ports:
           - "8081:80"
         env:
-          WORDPRESS_DB_HOST: "mariadb_master:3306"
+          WORDPRESS_DB_HOST: "{{ hostvars[groups['db_master'][0]].inventory_hostname }}:3306"
           WORDPRESS_DB_USER: "{{ mariadb_user }}"
           WORDPRESS_DB_PASSWORD: "{{ mariadb_password }}"
           WORDPRESS_DB_NAME: "{{ mariadb_database }}"
         networks:
           - name: frontend
           - name: backend
-        force_kill: yes
