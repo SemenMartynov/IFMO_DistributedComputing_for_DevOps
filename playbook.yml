@@ -1,0 +1,206 @@
+---
+- name: Wordpress splitted to containers (web + db)
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
+  # roles:
+  #   - docker_install
+
+  tasks:
+    - name: Print detected OS
+      ansible.builtin.debug:
+        msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+
+    - name: Install dependencies (Debian family)
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - python3-pip
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Install dependencies (RHEL family)
+      ansible.builtin.dnf:
+        name:
+          - dnf-plugins-core
+          - curl
+          - python3-pip
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Install pymysql via apt (Debian-based systems)
+      ansible.builtin.apt:
+        name: python3-pymysql
+        state: present
+      when: ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_version'] is version('22.04', '>='))
+
+    - name: Install Docker on Debian-based systems
+      when: ansible_facts['os_family'] == "Debian"
+      block:
+        - name: Ensure /etc/apt/keyrings directory exists
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+
+        - name: Add Docker GPG apt Key
+          ansible.builtin.apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            state: present
+
+        - name: Add Docker Repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+            state: present
+            update_cache: true
+
+        - name: Install Docker packages
+          ansible.builtin.apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            state: present
+            update_cache: true
+
+    - name: Install Docker on RHEL-based systems
+      when: ansible_facts['os_family'] == "RedHat"
+      block:
+        - name: Add Docker YUM repository
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/centos/docker-ce.repo
+            dest: /etc/yum.repos.d/docker-ce.repo
+            mode: '0644'
+
+        - name: Install Docker packages
+          ansible.builtin.dnf:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-compose-plugin
+            state: present
+            update_cache: true
+
+    - name: Checking status for docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create docker group if it does not exist
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Docker restart
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+
+    - name: Project dir creation
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Docker compose from template
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ docker_compose_dest }}"
+        mode: '0644'
+
+    - name: Run docker compose (v2)
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
+
+    - name: Wait for db-master healthy
+      community.docker.docker_container_info:
+        name: db-master
+      register: master_info
+      until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Check if db-slave container exists
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      failed_when: not slave_info.exists
+
+    - name: Wait for db-slave healthy
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      until: slave_info.container.State.Health is defined and slave_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Check galera status on db-master
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: supersecure
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_master
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_master is defined and
+            galera_check_master.query_result is defined and
+            galera_check_master.query_result[0][0].Value is defined and
+            galera_check_master.query_result[1][0].Value is defined and
+            (galera_check_master.query_result[0][0].Value | int) >= 2 and
+            galera_check_master.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-master staus
+      ansible.builtin.debug:
+        var: galera_check_master
+      when: galera_check_master is defined
+
+    - name: Check galera status on db-slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_slave
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_slave is defined and
+            galera_check_slave.query_result is defined and
+            galera_check_slave.query_result[0][0].Value is defined and
+            galera_check_slave.query_result[1][0].Value is defined and
+            (galera_check_slave.query_result[0][0].Value | int) >= 2 and
+            galera_check_slave.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-slave staus
+      ansible.builtin.debug:
+        var: galera_check_slave
+      when: galera_check_slave is defined
