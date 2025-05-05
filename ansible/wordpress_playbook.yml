@@ -118,6 +118,7 @@
         command: >
           mysql -u root -p{{ wordpress_db_root_password }} -e "
           STOP REPLICA;
+          RESET REPLICA ALL;
           CHANGE REPLICATION SOURCE TO
             SOURCE_HOST='mysql_master',
             SOURCE_USER='{{ repl_user }}',
