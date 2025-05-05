@@ -1,0 +1,55 @@
+---
+- name: Развертывание WordPress с использованием Docker
+  hosts: wordpress
+  become: yes
+  tasks:
+    - name: Установка необходимых пакетов
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Создать каталог для WordPress
+      file:
+        path: /home/{{ ansible_ssh_user }}/wordpress
+        state: directory
+
+    - name: Копирование docker-compose.yml
+      copy:
+        dest: /home/{{ ansible_ssh_user }}/wordpress/docker-compose.yml
+        content: |
+          version: '3.1'
+          services:
+            db:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: wordpress
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: wordpress
+                MYSQL_PASSWORD: wordpress
+              volumes:
+                - db_data:/var/lib/mysql
+
+            wordpress:
+              image: wordpress:latest
+              restart: always
+              ports:
+                - "8080:80"
+              environment:
+                WORDPRESS_DB_HOST: db
+                WORDPRESS_DB_USER: wordpress
+                WORDPRESS_DB_PASSWORD: wordpress
+                WORDPRESS_DB_NAME: wordpress
+              depends_on:
+                - db
+
+          volumes:
+            db_data:
+              
+    - name: Запустить контейнеры
+      command: docker-compose up -d
+      args:
+        chdir: /home/{{ ansible_ssh_user }}/wordpress
