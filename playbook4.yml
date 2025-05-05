@@ -4,6 +4,13 @@
   become: true
   vars_files:
     - defaults/main.yml
+  vars:
+    mysql_hosts:
+      - {{ db1_host }}
+      - {{ db2_host }}
+      - {{ db3_host }}
+      - {{ db4_host }}
+      - {{ db5_host }}
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -23,12 +30,12 @@
     - name: Check if Galera cluster already exists
       community.docker.docker_container_info:
         name: '{{ db5_host }}'
-      register: is_done
+      register: is_galera
 
     - name: Nothing to do
       ansible.builtin.meta: end_host
       when:
-        - is_done.exists
+        - is_galera.exists
 
     - name: Install packages required by Ansible modules
       ansible.builtin.apt:
@@ -96,7 +103,8 @@
         name: '{{ db1_host }}'
         image: '{{ galera_container_image }}'
         state: started
-#        restart: true
+        restart: true
+#        recreate: true
         healthcheck:
           test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
           interval: 15s
@@ -146,7 +154,7 @@
         login_port: 3306
         login_password: '{{ mysql_root_pw }}'
         name: 'haproxy'
-        host: '10.16.1.3'
+        host: '10.16.1.%'
         priv: '*.*:USAGE'
         state: present
 
@@ -156,7 +164,7 @@
         login_port: 3306
         login_password: '{{ mysql_root_pw }}'
         name: export
-        host: '%'
+        host: '10.16.1.%'
         password: '{{ mysql_passwd }}'
         priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
         state: present
@@ -167,7 +175,6 @@
         image: '{{ galera_container_image }}'
         state: started
         restart: true
-        recreate: true
         healthcheck:
           test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
           interval: 15s
@@ -220,34 +227,27 @@
         owner: 0
         group: 0
 
-    - name: Remove MySQL replication instances
+    - name: Stop MySQL replication instances
       community.docker.docker_container:
         name: '{{ item }}'
-        state: absent
-        force_kill: true
+        state: stopped
       loop:
         - '{{ db_master }}'
         - '{{ db_replica }}'
 
-    - name: Create haproxy container
+    - name: Create and start haproxy container
       community.docker.docker_container:
-        name: '{{ db_container_name }}'
+        name: 'haproxy'
         image: 'haproxy'
         state: started
         restart: true
         restart_policy: on-failure
         networks:
           - name: '{{ wp_int_network }}'
-            ipv4_address: '10.16.1.3'
+            ipv4_address: '10.16.1.10'
         volumes:
           - /haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
         capabilities:
-        env:
-
-    - name: Start WP container
-      community.docker.docker_container:
-        name: '{{ wp_container_name }}'
-        state: started
 
     - name: Regenerate Prometheus config
       ansible.builtin.template:
@@ -262,3 +262,27 @@
         name: 'prometheus'
         state: started
         restart: true
+
+    - name: Recreate WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        image: '{{ wp_container_image }}'
+        state: started
+        recreate: true
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            aliases: wpint
+            ipv4_address: 10.16.1.2
+          - name: '{{ wp_ext_network }}'
+            aliases: wp
+        ports:
+          - '80:80'
+        volumes:
+          - 'wordpress:/var/www/html'
+        env:
+          WORDPRESS_DB_HOST: 'haproxy'
+          WORDPRESS_DB_USER: '{{ wp_dbuser }}'
+          WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
+          WORDPRESS_DB_NAME: '{{ wp_dbname }}'

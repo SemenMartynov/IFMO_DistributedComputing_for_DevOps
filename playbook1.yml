@@ -13,11 +13,23 @@
           - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
           - "db_host: {{ db_host }}" # container name
           - "db_pass: {{ db_pass }}" # root password
+
+    - name: Check if Wordpress container already exists
+      community.docker.docker_container_info:
+        name: '{{ wp_container_name }}'
+      register: is_wordpress
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_wordpress.exists
+
     - name: Install aptitude
       ansible.builtin.apt:
         name: aptitude
         state: latest # noqa package-latest
         update_cache: true
+
     - name: Install required system packages
       ansible.builtin.apt:
         pkg:
@@ -30,16 +42,19 @@
           - python3-setuptools
         state: latest # noqa package-latest
         update_cache: true
+
     - name: Add Docker GPG apt Key
       ansible.builtin.apt_key:
         url: 'https://download.docker.com/linux/ubuntu/gpg'
         state: present
+
     - name: Add Docker Repository
       ansible.builtin.apt_repository:
         repo: >-
           deb https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename
           }} stable
         state: present
+
     - name: Update apt and install docker-ce
       ansible.builtin.apt:
         pkg:
@@ -50,11 +65,13 @@
           - docker-compose-plugin
         state: latest # noqa package-latest
         update_cache: true
+
     - name: Автозапуск сервиса docker
       ansible.builtin.service:
         name: docker
         state: started
         enabled: true
+
     - name: Create int docker network
       community.docker.docker_network:
         name: '{{ wp_int_network }}'
@@ -63,17 +80,11 @@
           - subnet: 10.16.1.0/27
             gateway: 10.16.1.1
             iprange: 10.16.1.16/28
+
     - name: Create WP docker network
       community.docker.docker_network:
         name: '{{ wp_ext_network }}'
-    - name: Pull Docker MySQL image
-      community.docker.docker_image:
-        name: '{{ db_container_image }}'
-        source: pull
-    - name: Pull Docker Wordpress image
-      community.docker.docker_image:
-        name: '{{ wp_container_image }}'
-        source: pull
+
     - name: Create MySQL container
       community.docker.docker_container:
         name: '{{ db_container_name }}'
@@ -93,6 +104,7 @@
           MYSQL_DATABASE: '{{ wp_dbname }}'
           MYSQL_USER: '{{ wp_dbuser }}'
           MYSQL_PASSWORD: '{{ mysql_passwd }}'
+
     - name: Create WP container
       community.docker.docker_container:
         name: '{{ wp_container_name }}'

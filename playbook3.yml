@@ -4,11 +4,23 @@
   become: true
   vars_files:
     - defaults/main.yml
+  vars:
+    mysql_hosts: [ {{ db_master }}, {{ db_replica }} ]
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+
+    - name: Check if Grafana container already exists
+      community.docker.docker_container_info:
+        name: 'grafana'
+      register: is_grafana
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_grafana.exists
 
     - name: Create Prometheus export user on MASTER and SLAVE
       community.mysql.mysql_user:

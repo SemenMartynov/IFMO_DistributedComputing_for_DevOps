@@ -14,6 +14,17 @@
           - "db_master: {{ db_master }}" # container name
           - "db_replica: {{ db_replica }}" # container name
           - "db_pass: {{ db_pass }}" # root password for master and replica
+
+    - name: Check if MySQL SLAVE container already exists
+      community.docker.docker_container_info:
+        name: '{{ db_replica }}'
+      register: is_mysql_slave
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_mysql_slave.exists
+
     - name: Install aptitude
       ansible.builtin.apt:
         name: aptitude
@@ -26,16 +37,6 @@
           - mysql-client
         state: latest # noqa package-latest
         update_cache: true
-
-    - name: Check if MySQL SLAVE container already exists
-      community.docker.docker_container_info:
-        name: '{{ db_replica }}'
-      register: is_mysql_slave
-
-    - name: Nothing to do
-      ansible.builtin.meta: end_host
-      when:
-        - is_mysql_slave.exists
 
     - name: Stop WP container
       community.docker.docker_container:
