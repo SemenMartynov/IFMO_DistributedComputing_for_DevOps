@@ -130,6 +130,6 @@
     - name: Check slave status
       community.docker.docker_container_exec:
         container: mysql_replica
-        command: "mysql -u root -p{{ wordpress_db_root_password }} -e 'SHOW SLAVE STATUS\\G'"
+        command: "mysql -u root -p{{ wordpress_db_root_password }} -e 'SHOW REPLICA STATUS;'"
       register: slave_status_output
       changed_when: false
