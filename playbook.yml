@@ -2,12 +2,16 @@
 - name: Deploy WordPress with Docker and MySQL Replication
   hosts: wordpress
   become: yes
+  collections:
+    - community.docker
+    - community.mysql
+
   vars_files:
     - vars/main.yml
 
   tasks:
     - name: Install system prerequisites
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -20,67 +24,67 @@
         update_cache: yes
 
     - name: Add Docker GPG key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
     - name: Add Docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
- 
-    - name: Start and enable Docker service
-      systemd:
+
+    - name: Ensure Docker service is running
+      ansible.builtin.systemd:
         name: docker
         state: started
         enabled: yes
 
     - name: Add user to docker group
-      user:
+      ansible.builtin.user:
         name: "{{ ansible_user }}"
         groups: docker
         append: yes
 
     - name: Create MySQL config directory
-      file:
-        path: "{{ DB_CONFIG_DIR }}"
+      ansible.builtin.file:
+        path: "{{ db_config_dir }}"
         state: directory
-        mode: 0755
+        mode: '0755'
 
     - name: Deploy MySQL master configuration
-      copy:
+      ansible.builtin.copy:
         src: files/master.cnf
-        dest: "{{ DB_CONFIG_DIR }}/master.cnf"
-        mode: 0644
+        dest: "{{ db_config_dir }}/master.cnf"
+        mode: '0644'
 
     - name: Deploy MySQL replica configuration
-      copy:
+      ansible.builtin.copy:
         src: files/replica.cnf
-        dest: "{{ DB_CONFIG_DIR }}/replica.cnf"
-        mode: 0644
+        dest: "{{ db_config_dir }}/replica.cnf"
+        mode: '0644'
 
     - name: Create network for containers
-      community.docker.docker_network:
+      docker_network:
         name: wp_network
         driver: bridge
 
     - name: Start Master
-      community.docker.docker_container:
+      docker_container:
         name: db_master
         image: mysql:8.0.33
         networks:
           - name: wp_network
         restart_policy: always
         env:
-          MYSQL_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
-          MYSQL_DATABASE: "{{ DB_NAME }}"
-          MYSQL_USER: "{{ DB_USER }}"
-          MYSQL_PASSWORD: "{{ DB_PASSWORD }}"
-          MYSQL_REPLICATION_USER: "{{ DB_REPLICATION_USER }}"
-          MYSQL_REPLICATION_PASSWORD: "{{ DB_REPLICATION_PASSWORD }}"
+          MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
+          MYSQL_DATABASE: "{{ db_name }}"
+          MYSQL_USER: "{{ db_user }}"
+          MYSQL_PASSWORD: "{{ db_password }}"
+          MYSQL_REPLICATION_USER: "{{ db_replication_user }}"
+          MYSQL_REPLICATION_PASSWORD: "{{ db_replication_password }}"
         volumes:
           - db_master_data:/var/lib/mysql
-          - "{{ DB_CONFIG_DIR }}/master.cnf:/etc/mysql/conf.d/replication.cnf"
+          - "{{ db_config_dir }}/master.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3306:3306"
         healthcheck:
@@ -90,24 +94,24 @@
           retries: 5
 
     - name: Wait for Master to be ready
-      wait_for:
+      ansible.builtin.wait_for:
         host: "{{ ansible_host }}"
         port: 3306
         timeout: 30
         delay: 10
 
     - name: Start MySQL Slave
-      community.docker.docker_container:
+      docker_container:
         name: db_slave
         image: mysql:8.0.33
         networks:
           - name: wp_network
         restart_policy: always
         env:
-          MYSQL_ROOT_PASSWORD: "{{ DB_ROOT_PASSWORD }}"
+          MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
         volumes:
           - db_slave_data:/var/lib/mysql
-          - "{{ DB_CONFIG_DIR }}/replica.cnf:/etc/mysql/conf.d/replication.cnf"
+          - "{{ db_config_dir }}/replica.cnf:/etc/mysql/conf.d/replication.cnf"
         ports:
           - "3307:3306"
         healthcheck:
@@ -117,34 +121,34 @@
           retries: 5
 
     - name: Wait for Slave to be ready
-      wait_for:
+      ansible.builtin.wait_for:
         host: "{{ ansible_host }}"
         port: 3307
         timeout: 120
         delay: 10
 
-    - name: Create replication user
-      community.mysql.mysql_user:
+    - name: Create replication user on Master
+      mysql_user:
         login_user: root
-        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3306
-        name: "{{ DB_REPLICATION_USER }}"
-        password: "{{ DB_REPLICATION_PASSWORD }}"
+        name: "{{ db_replication_user }}"
+        password: "{{ db_replication_password }}"
         host: "%"
         priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
         state: present
 
     - name: Configure replica
-      community.mysql.mysql_replication:
+      mysql_replication:
         mode: changereplication
         primary_host: "db_master"
         primary_port: 3306
-        primary_user: "{{ DB_REPLICATION_USER }}"
-        primary_password: "{{ DB_REPLICATION_PASSWORD }}"
+        primary_user: "{{ db_replication_user }}"
+        primary_password: "{{ db_replication_password }}"
         primary_auto_position: 1
         login_user: root
-        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
       register: replication_setup
@@ -153,18 +157,18 @@
       delay: 5
 
     - name: Start replication
-      community.mysql.mysql_replication:
+      mysql_replication:
         mode: startreplica
         login_user: root
-        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
 
     - name: Verify replication status
-      community.mysql.mysql_replication:
+      mysql_replication:
         mode: getreplica
         login_user: root
-        login_password: "{{ DB_ROOT_PASSWORD }}"
+        login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
       register: replication_status
@@ -175,11 +179,11 @@
       delay: 5
 
     - name: Show replication status
-      debug:
+      ansible.builtin.debug:
         var: replication_status
 
     - name: Start WordPress
-      community.docker.docker_container:
+      docker_container:
         name: wordpress
         image: wordpress:latest
         networks:
@@ -189,12 +193,12 @@
           - "80:80"
         env:
           WORDPRESS_DB_HOST: "db_master:3306"
-          WORDPRESS_DB_NAME: "{{ DB_NAME }}"
-          WORDPRESS_DB_USER: "{{ DB_USER }}"
-          WORDPRESS_DB_PASSWORD: "{{ DB_PASSWORD }}"
+          WORDPRESS_DB_NAME: "{{ db_name }}"
+          WORDPRESS_DB_USER: "{{ db_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_password }}"
 
     - name: Verify WordPress is working
-      uri:
+      ansible.builtin.uri:
         url: "http://{{ ansible_host }}:80"
         status_code: 200
         timeout: 10
@@ -202,5 +206,4 @@
       until: wordpress_status.status == 200
       retries: 15
       delay: 5
-
  
