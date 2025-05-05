@@ -59,7 +59,7 @@ touch inventory.ini
 
 ```ini
 [wordpress]
-<IP-адрес вашего сервера> ansible_user=your_user ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3.12
+<IP-адрес вашего сервера> ansible_user=your_user ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
 ```
 
 3. Создайте `.env` файл в котором укажите требуемый набор секретов, пример файла есть в репозитории '_.env'
@@ -87,6 +87,6 @@ http://<IP-адрес вашего сервера>
 
 Проект подготовлен в рамках курса **"Распределённые вычисления в DevOps"**
 **Денис Булгаков**
-Апрель 2025
+Май 2025
 
 ---

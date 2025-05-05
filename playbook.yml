@@ -62,7 +62,7 @@
           ansible.builtin.apt_repository:
             repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
             state: present
-            update_cache: yes
+            update_cache: true
 
         - name: Install Docker packages
           ansible.builtin.apt:
