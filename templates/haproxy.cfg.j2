@@ -1,0 +1,31 @@
+global
+    log stdout len 4096 format local syslog info
+    maxconn 4096
+
+defaults
+    log global
+    mode tcp
+    timeout connect 5s
+    timeout client 1m
+    timeout server 1m
+
+listen galera_cluster
+    bind *:3306
+    mode tcp
+    balance source # Алгоритм балансировки
+    stick-table type ip size 8k expire 30m
+    stick on src # Привязка по IP клиента
+    option mysql-check user haproxy
+
+{% for index in range(1, 6) %}
+    server galera{{ index }} db{{ index }}:3306 check weight 1
+{% endfor %}
+
+listen stats
+    bind *:8080
+    mode http
+    stats enable
+    stats hide-version
+    stats uri /haproxystats
+    stats realm "Haproxy Statistics"
+    stats auth admin:{{ mysql_root_pw }}
