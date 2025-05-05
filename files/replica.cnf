@@ -1,5 +1,5 @@
 [mysqld]
-server-id = 2  # Должен отличаться от мастера
+server-id = 2  
 log_bin = mysql-bin
 binlog_format = ROW
 binlog_row_image = FULL   
