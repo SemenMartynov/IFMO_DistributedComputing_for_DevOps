@@ -41,6 +41,9 @@ scrape_configs:
         # All mysql hostnames or unix sockets to monitor.
         - {{ db_master }}:3306
         - {{ db_replica }}:3306
+{% for index in range(1, 6) %}
+        - db{{ index }}:3306
+{% endfor %}
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
