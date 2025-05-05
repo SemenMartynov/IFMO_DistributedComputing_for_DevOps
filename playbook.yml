@@ -6,6 +6,9 @@
   vars_files:
     - vars.yml
 
+  # roles:
+  #   - docker_install
+
   tasks:
     - name: Print detected OS
       ansible.builtin.debug:
@@ -17,13 +20,15 @@
           - apt-transport-https
           - ca-certificates
           - curl
+          - gnupg
+          - lsb-release
           - software-properties-common
           - python3-pip
         state: present
         update_cache: true
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Install dependencies (RHEL familн)
+    - name: Install dependencies (RHEL family)
       ansible.builtin.dnf:
         name:
           - dnf-plugins-core
@@ -33,66 +38,83 @@
         update_cache: true
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: Install pymysql for ansible mariadb modules
-      ansible.builtin.pip:
-        name: PyMySQL
-      delegate_to: localhost
-      become: false
-
-    - name: Add docker gpg on debian-based systems
-      ansible.builtin.apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-        mode: '0644'
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Set docker repo based on distribution
-      ansible.builtin.set_fact:
-        docker_repo: >-
-          {{ 'deb https://download.docker.com/linux/ubuntu focal stable'
-            if ansible_facts['distribution'] == 'Ubuntu'
-            else 'deb [arch=amd64] https://download.docker.com/linux/debian bullseye stable' }}
-
-    - name: Add docker apt repository
-      ansible.builtin.apt_repository:
-        repo: "{{ docker_repo }}"
-        state: present
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Install docker on debian-based systems
+    - name: Install pymysql via apt (Debian-based systems)
       ansible.builtin.apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
+        name: python3-pymysql
         state: present
-        update_cache: true
+      when: ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_version'] is version('22.04', '>='))
+
+    - name: Install Docker on Debian-based systems
       when: ansible_facts['os_family'] == "Debian"
+      block:
+        - name: Ensure /etc/apt/keyrings directory exists
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
 
-    - name: Add docker repo on RHEL-based systems
-      ansible.builtin.get_url:
-        url: https://download.docker.com/linux/centos/docker-ce.repo
-        dest: /etc/yum.repos.d/docker-ce.repo
-        mode: '0644'
-      when: ansible_facts['os_family'] == "RedHat"
+        - name: Add Docker GPG apt Key
+          ansible.builtin.apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            state: present
 
-    - name: Install docker on RHEL-based systems
-      ansible.builtin.dnf:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
-        state: present
-        update_cache: true
+        - name: Add Docker Repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+            state: present
+            update_cache: yes
+
+        - name: Install Docker packages
+          ansible.builtin.apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            state: present
+            update_cache: true
+
+    - name: Install Docker on RHEL-based systems
       when: ansible_facts['os_family'] == "RedHat"
+      block:
+        - name: Add Docker YUM repository
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/centos/docker-ce.repo
+            dest: /etc/yum.repos.d/docker-ce.repo
+            mode: '0644'
+
+        - name: Install Docker packages
+          ansible.builtin.dnf:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-compose-plugin
+            state: present
+            update_cache: true
 
     - name: Checking status for docker service
       ansible.builtin.service:
         name: docker
         state: started
         enabled: true
+
+    - name: Create docker group if it does not exist
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Docker restart
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
 
     - name: Project dir creation
       ansible.builtin.file:
