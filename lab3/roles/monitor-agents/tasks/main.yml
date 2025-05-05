@@ -10,7 +10,6 @@
   community.mysql.mysql_user:
     login_user: "{{ mariadb_root_user  }}"
     login_password: "{{ mariadb_root_password }}"
-    login_host: "master"
     name: "exporter"
     priv: '*.*:ALL'
     host: "%"
