@@ -1,3 +1,5 @@
+ansible_python_interpreter: /usr/bin/python3
+
 mysql_root_password: "test_db_root_password"
 slave_mysql_port: "3307"
 replication_user: "test_db_replication_user"

@@ -34,9 +34,12 @@
         connect_timeout: "{{ mysql_connect_timeout }}"
         query: "SELECT 1;"
       register: mysql_check
-      until: mysql_check is succeeded
+      until: >
+        mysql_check is succeeded or
+        ("unable to connect to database" not in (mysql_check.msg | default("")))
       retries: 40
       delay: 3
+      ignore_errors: yes
 
     - name: Ожидание готовности Master (проверка результата)
       ansible.builtin.assert:
@@ -54,7 +57,9 @@
         connect_timeout: "{{ mysql_connect_timeout }}"
         query: "SELECT 1;"
       register: mysql_check
-      until: mysql_check is succeeded
+      until: >
+        mysql_check is succeeded or
+        ("unable to connect to database" not in (mysql_check.msg | default("")))
       retries: 40
       delay: 3
 
