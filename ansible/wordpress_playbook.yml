@@ -18,12 +18,6 @@
         state: present
         update_cache: true
 
-    - name: Install PyMySQL for MySQL module support (on localhost)
-      pip:
-        name: pymysql
-        executable: pip3
-      delegate_to: localhost
-
     - name: Enable and start Docker service
       systemd:
         name: docker
@@ -78,16 +72,20 @@
       until: result.rc == 0
       changed_when: false
 
-    - name: Create replication user on master
-      community.mysql.mysql_user:
-        login_user: root
-        login_password: "{{ wordpress_db_root_password }}"
-        name: "{{ repl_user }}"
-        host: "%"
-        password: "{{ repl_password }}"
-        priv: '*.*:REPLICATION SLAVE'
-        state: present
-      delegate_to: localhost
+    - name: Create replication user inside mysql_master container
+      community.docker.docker_container_exec:
+        container: mysql_master
+        command:
+          - mysql
+          - -uroot
+          - -p{{ wordpress_db_root_password }}
+          - -e
+          - >
+            CREATE USER IF NOT EXISTS '{{ repl_user }}'@'%' IDENTIFIED WITH mysql_native_password BY '{{ repl_password }}';
+            GRANT REPLICATION SLAVE ON *.* TO '{{ repl_user }}'@'%';
+            FLUSH PRIVILEGES;
+      register: create_replication_user_result
+      failed_when: create_replication_user_result.rc != 0
 
     - name: Get master status
       community.docker.docker_container_exec:
