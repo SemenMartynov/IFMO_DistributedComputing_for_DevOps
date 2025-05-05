@@ -80,6 +80,7 @@
         host: "%"
         password: "{{ replication_password }}"
         state: present
+        column_case_sensitive: true
 
     - name: Выдать права репликации
       community.mysql.mysql_query:
