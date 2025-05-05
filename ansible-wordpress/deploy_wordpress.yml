@@ -1,7 +1,16 @@
----
 - name: Развертывание WordPress с использованием Docker
   hosts: wordpress
   become: yes
+  vars:
+    ansible_user: "{{ ansible_ssh_user }}"
+    wordpress_dir: "/home/{{ ansible_user }}/wordpress"
+    db_image: "mysql:5.7"
+    wordpress_image: "wordpress:latest"
+    db_root_password: "wordpress"
+    db_name: "wordpress"
+    db_user: "wordpress"
+    db_password: "wordpress"
+  
   tasks:
     - name: Установка необходимых пакетов
       apt:
@@ -10,46 +19,64 @@
           - docker-compose
         state: present
         update_cache: yes
-
+   
     - name: Создать каталог для WordPress
       file:
-        path: /home/{{ ansible_ssh_user }}/wordpress
+        path: "{{ wordpress_dir }}"
         state: directory
-
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+  
     - name: Копирование docker-compose.yml
       copy:
-        dest: /home/{{ ansible_ssh_user }}/wordpress/docker-compose.yml
+        dest: "{{ wordpress_dir }}/docker-compose.yml"
         content: |
           version: '3.1'
           services:
-            db:
-              image: mysql:5.7
+            db_master:
+              image: {{ mysql:5.7 }}
               restart: always
               environment:
-                MYSQL_ROOT_PASSWORD: wordpress
-                MYSQL_DATABASE: wordpress
-                MYSQL_USER: wordpress
-                MYSQL_PASSWORD: wordpress
+                MYSQL_ROOT_PASSWORD: {{ wordpress-master }}
+                MYSQL_DATABASE: {{ wordpress-master }}
+                MYSQL_USER: {{ wordpress-master }}
+                MYSQL_PASSWORD: {{ wordpress-master }}
               volumes:
-                - db_data:/var/lib/mysql
+                - db_data_master:/var/lib/mysql
+
+            db_slave:
+              image: {{ mysql:5.7 }}
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: {{ wordpress-slave }}
+                MYSQL_DATABASE: {{ wordpress-slave }}
+                MYSQL_USER: {{ wordpress-slave }}
+                MYSQL_PASSWORD: {{ wordpress-slave }}
+              depends_on:
+                - db_master
+              command: --server-id=2 --replicate-do-db={{ wordpress-slave }} --relay-log=slave_relay-bin --log-bin=slave-bin
+              volumes:
+                - db_data_slave:/var/lib/mysql
 
             wordpress:
-              image: wordpress:latest
+              image: {{ wordpress_image }}
               restart: always
               ports:
                 - "8080:80"
               environment:
-                WORDPRESS_DB_HOST: db
-                WORDPRESS_DB_USER: wordpress
-                WORDPRESS_DB_PASSWORD: wordpress
-                WORDPRESS_DB_NAME: wordpress
+                WORDPRESS_DB_HOST: db_master
+                WORDPRESS_DB_USER: {{ db_user }}
+                WORDPRESS_DB_PASSWORD: {{ db_password }}
+                WORDPRESS_DB_NAME: {{ db_name }}
               depends_on:
-                - db
-
+                - db_master
+  
           volumes:
-            db_data:
-              
+            db_data_master:
+            db_data_slave:
+  
     - name: Запустить контейнеры
       command: docker-compose up -d
       args:
-        chdir: /home/{{ ansible_ssh_user }}/wordpress
+        chdir: "{{ wordpress_dir }}"
