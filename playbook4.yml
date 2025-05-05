@@ -238,7 +238,7 @@
 
     - name: Create and start HAProxy container
       community.docker.docker_container:
-        name: 'haproxy'
+        name: '{{ loadbalancer }}'
         image: 'haproxy'
         state: started
         restart: true
@@ -283,7 +283,7 @@
         volumes:
           - 'wordpress:/var/www/html'
         env:
-          WORDPRESS_DB_HOST: 'haproxy'
+          WORDPRESS_DB_HOST: '{{ loadbalancer }}'
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
           WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
           WORDPRESS_DB_NAME: '{{ wp_dbname }}'

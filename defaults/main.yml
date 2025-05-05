@@ -35,5 +35,5 @@ db2_host: db2
 db3_host: db3
 db4_host: db4
 db5_host: db5
-loadbalancer: lb
+loadbalancer: haproxy
 galera_container_image: "bitnami/mariadb-galera" # now there is the only one
