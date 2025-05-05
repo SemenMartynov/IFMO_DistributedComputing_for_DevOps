@@ -75,7 +75,7 @@
     - name: Create replication user inside mysql_master container
       community.docker.docker_container_exec:
         container: mysql_master
-        command:
+        argv:
           - mysql
           - -uroot
           - -p{{ wordpress_db_root_password }}
