@@ -6,22 +6,25 @@
     - ../vars.yml
   tasks:
     - name: Создать директорию мониторинга
-      file:
+      ansible.builtin.file:
         path: monitoring/
         state: directory
+        mode: '0755'
 
     - name: Скопировать конфигурацию Prometheus
-      copy:
+      ansible.builtin.copy:
         src: prometheus.yml
         dest: monitoring/prometheus.yml
+        mode: '0755'
 
     - name: Скопировать my.cnf
-      copy:
+      ansible.builtin.copy:
         src: my.cnf
         dest: monitoring/my.cnf
+        mode: '0755'
 
     - name: Скопировать файлы настройки Grafana
-      copy:
+      ansible.builtin.copy:
         src: grafana/
         dest: monitoring/grafana/
         mode: '0755'
@@ -36,7 +39,7 @@
         login_password: "{{ mysql_root_password }}"
         login_host: 127.0.0.1
         login_port: 3306
-        column_case_sensitive: false 
+        column_case_sensitive: false
         state: present
 
     - name: Создать пользователя для mysqld_exporter_slave
@@ -49,7 +52,7 @@
         login_password: "{{ mysql_root_password }}"
         login_host: 127.0.0.1
         login_port: 3307
-        column_case_sensitive: false 
+        column_case_sensitive: false
         state: present
 
     - name: Запустить контейнер Prometheus
@@ -94,7 +97,7 @@
       community.docker.docker_container:
         name: mysqld_exporter_master
         image: prom/mysqld-exporter
-        command: 
+        command:
           - '--config.my-cnf=/cfg/.my.cnf'
           - '--mysqld.address=192.168.56.102:3306'
         restart_policy: always
@@ -105,12 +108,12 @@
           - "./monitoring/my.cnf:/cfg/.my.cnf"
         networks:
           - name: wpnet
-    
+
     - name: Запустить контейнер mysqld_exporter для слейва
       community.docker.docker_container:
         name: mysqld_exporter_slave
         image: prom/mysqld-exporter
-        command: 
+        command:
           - '--config.my-cnf=/cfg/.my.cnf'
           - '--mysqld.address=192.168.56.102:3307'
         restart_policy: always
@@ -121,4 +124,3 @@
           - "./monitoring/my.cnf:/cfg/.my.cnf"
         networks:
           - name: wpnet
-          
