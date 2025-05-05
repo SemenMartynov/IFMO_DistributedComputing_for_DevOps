@@ -87,6 +87,7 @@
       community.docker.docker_container:
         name: node_exporter
         image: prom/node-exporter:latest
+        hostname: node_exporter
         restart_policy: always
         published_ports:
           - "9100:9100"
