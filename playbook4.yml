@@ -121,7 +121,7 @@
         env:
           MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
 #          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}'
-          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ mysql_hosts | join(',') }}'
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ mysql_hosts | join(',') }}"
           MARIADB_GALERA_NODE_ADDRESS: '10.16.1.11'
           MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
           MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
@@ -191,7 +191,7 @@
           - SYS_NICE
         env:
           MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
-          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ mysql_hosts | join(',') }}'
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ mysql_hosts | join(',') }}"
           MARIADB_GALERA_NODE_ADDRESS: '10.16.1.1{{ item }}'
           MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
           MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
