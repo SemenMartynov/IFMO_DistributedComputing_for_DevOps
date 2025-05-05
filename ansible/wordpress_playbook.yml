@@ -90,7 +90,7 @@
     - name: Get master status
       community.docker.docker_container_exec:
         container: mysql_master
-        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\G"
+        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW MASTER STATUS\\G"
       register: master_status_output
       changed_when: false
 
