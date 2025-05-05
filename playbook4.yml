@@ -248,3 +248,17 @@
       community.docker.docker_container:
         name: '{{ wp_container_name }}'
         state: started
+
+    - name: Regenerate Prometheus config
+      ansible.builtin.template:
+        src: templates/prometheus.yaml.j2
+        dest: /prometheus/prometheus.yml
+        mode: '0644'
+        owner: 0
+        group: 0
+
+    - name: Restart Prometheus container
+      community.docker.docker_container:
+        name: 'prometheus'
+        state: started
+        restart: true
