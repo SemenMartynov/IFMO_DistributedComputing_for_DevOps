@@ -1,8 +1,58 @@
----
-- name: Home work 3
+- name: Playbook 3 - Deploy Monitoring (Prometheus & Grafana)
   hosts: carrier
+  become: true
   tasks:
-    - name: Display Configuration Variables
+    - name: Ensure monitoring config directory exists
+      ansible.builtin.file:
+        path: /opt/monitoring
+        state: directory
+        mode: '0755'
+
+    - name: Deploy Prometheus configuration
+      ansible.builtin.copy:
+        dest: /opt/monitoring/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: "prometheus"
+              static_configs:
+                - targets: ["localhost:9090"]
+        mode: '0644'
+
+    - name: Run Prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        pull: true
+        recreate: false
+        published_ports:
+          - "9090:9090"
+        volumes:
+          - "/opt/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"
+        networks:
+          - name: wordpress_default
+
+    - name: Run Grafana container
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        pull: true
+        recreate: false
+        published_ports:
+          - "3000:3000"
+        networks:
+          - name: wordpress_default
+
+    - name: Set monitoring URL fact
+      ansible.builtin.set_fact:
+        monitoring_url: "http://{{ ansible_host }}:3000"
+
+    - name: Show monitoring access info
       ansible.builtin.debug:
         msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "monitoring_url: {{ monitoring_url }}"  # URL Grafana
