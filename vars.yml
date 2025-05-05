@@ -13,3 +13,6 @@ mysql_master_port: 3306
 
 mysql_slave_host: 127.0.0.1
 mysql_slave_port: 3307
+
+mysql_exporter_user: exporter
+mysql_exporter_password: password

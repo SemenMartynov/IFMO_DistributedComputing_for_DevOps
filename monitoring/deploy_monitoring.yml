@@ -1,0 +1,124 @@
+---
+- name: Деплой мониторинга Prometheus + Grafana
+  hosts: webserver
+  become: true
+  vars_files:
+    - ../vars.yml
+  tasks:
+    - name: Создать директорию мониторинга
+      file:
+        path: monitoring/
+        state: directory
+
+    - name: Скопировать конфигурацию Prometheus
+      copy:
+        src: prometheus.yml
+        dest: monitoring/prometheus.yml
+
+    - name: Скопировать my.cnf
+      copy:
+        src: my.cnf
+        dest: monitoring/my.cnf
+
+    - name: Скопировать файлы настройки Grafana
+      copy:
+        src: grafana/
+        dest: monitoring/grafana/
+        mode: '0755'
+
+    - name: Создать пользователя для mysqld_exporter_master
+      community.mysql.mysql_user:
+        name: "{{ mysql_exporter_user }}"
+        password: "{{ mysql_exporter_password }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        host: "%"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3306
+        column_case_sensitive: false 
+        state: present
+
+    - name: Создать пользователя для mysqld_exporter_slave
+      community.mysql.mysql_user:
+        name: "{{ mysql_exporter_user }}"
+        password: "{{ mysql_exporter_password }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        host: "%"
+        login_user: "{{ mysql_root_login }}"
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3307
+        column_case_sensitive: false 
+        state: present
+
+    - name: Запустить контейнер Prometheus
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        restart_policy: always
+        volumes:
+          - "./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"
+        published_ports:
+          - "9090:9090"
+        networks:
+          - name: wpnet
+
+    - name: Запустить контейнер Grafana
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        restart_policy: always
+        volumes:
+          - "./monitoring/grafana/provisioning:/etc/grafana/provisioning/datasources"
+          - "./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards"
+        env:
+          GF_SECURITY_ADMIN_USER: admin
+          GF_SECURITY_ADMIN_PASSWORD: admin
+        published_ports:
+          - "3000:3000"
+        networks:
+          - name: wpnet
+
+    - name: Запустить контейнер node_exporter
+      community.docker.docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        restart_policy: always
+        published_ports:
+          - "9100:9100"
+        networks:
+          - name: wpnet
+
+    - name: Запустить контейнер mysqld_exporter для мастера
+      community.docker.docker_container:
+        name: mysqld_exporter_master
+        image: prom/mysqld-exporter
+        command: 
+          - '--config.my-cnf=/cfg/.my.cnf'
+          - '--mysqld.address=192.168.56.102:3306'
+        restart_policy: always
+        state: started
+        published_ports:
+          - "9104:9104"
+        volumes:
+          - /home/server_artur/monitoring/my.cnf:/cfg/.my.cnf
+        networks:
+          - name: wpnet
+    
+    - name: Запустить контейнер mysqld_exporter для слейва
+      community.docker.docker_container:
+        name: mysqld_exporter_slave
+        image: prom/mysqld-exporter
+        command: 
+          - '--config.my-cnf=/cfg/.my.cnf'
+          - '--mysqld.address=192.168.56.102:3307'
+        restart_policy: always
+        state: started
+        published_ports:
+          - "9105:9104"
+        volumes:
+          - /home/server_artur/monitoring/my.cnf:/cfg/.my.cnf
+        networks:
+          - name: wpnet
+          
