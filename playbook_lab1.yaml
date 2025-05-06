@@ -1,0 +1,7 @@
+- name: lab1
+  hosts: default
+  gather_facts: true
+  become: true
+  roles:
+    - prepare
+    - lab1
