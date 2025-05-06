@@ -1,0 +1,5 @@
+[mysqld]
+server-id = {{ mysql_server_id_master }}
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_do_db = {{ wp_db_name }}

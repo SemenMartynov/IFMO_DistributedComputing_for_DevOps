@@ -1,0 +1,24 @@
+---
+- name: Установка Docker на Ubuntu
+  ansible.builtin.import_tasks: install_docker.yml
+
+- name: Создание директории проекта
+  ansible.builtin.file:
+    path: "{{ project_dir }}"
+    mode: '0750'
+    state: directory
+    owner: "{{ system_user }}"
+    group: "{{ system_user }}"
+
+- name: Создание Docker Compose файла
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ system_user }}"
+    group: "{{ system_user }}"
+    mode: '0644'
+
+- name: Запуск контейнеров через Docker Compose
+  ansible.builtin.shell: cd {{ project_dir }} && docker-compose up -d
+  register: compose_result
+  changed_when: compose_result.stdout is search('(Creating|Starting|Recreating)')
