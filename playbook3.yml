@@ -2,7 +2,32 @@
 - name: Home work 3
   hosts: carrier
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: Copy Docker Compose monitoring files
+      ansible.builtin.copy:
+        src: files/docker-compose-monitoring.yml
+        dest: /data/docker-compose-monitoring.yml
+        mode: '0644'
+      notify: restart docker-compose-monitoring
+
+    - name: Copy monitoring conf files
+      ansible.builtin.copy:
+        src: files/monitoring
+        dest: /data/
+        mode: '0755'
+      notify: restart docker-compose-monitoring
+
+    - name: Create necessary directories for prometheus container
+      ansible.builtin.file:
+        path: "{{ vol_prometheus }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create Docker network app_network
+      community.docker.docker_network:
+        name: app_network
+        driver: bridge
+        state: present
+
+  handlers:
+    - name: Include shared handlers
+      ansible.builtin.import_tasks: handlers/common.yml
