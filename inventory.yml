@@ -1,9 +1,51 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 158.160.97.167
+      ansible_port: 22
+      ansible_user: user
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
+      ansible_become: true
+      ansible_ssh_private_key_file: "~/ssh/r-devops-magistracy-114284314"
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+      locale1: ru_RU.UTF-8
+      locale2: en_US.UTF-8
+      time_zone: Europe/Moscow
+
+      wordpress_database: wordpress
+      db_root_password: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        31636362353032656166356436306437343330646239323463323066333566643733653834653961
+        3239626664376666353465633665646162303164373966370a663430326531643937643963663537
+        66613937313834346433376133323736326363343763363161373662616639613436303661346439
+        6436376436336239350a636230393237333262303062356433386437333438313131663935323361
+        3765
+
+      db_wordpress_user: wordpress_user
+      db_wordpress_password: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        35626638353135616634346464363537373330643565393366353031626131346535306638636336
+        6133306339356462343965363731383164326132356130650a626639653139363736393361306666
+        39663932336639336365383061396231386538393133633564333435303264316464666330623732
+        6561613862633638380a396166313966313833346539626466303232303333323166343630366164
+        3938
+
+      replication_user: replica
+      replication_password: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        38353565623937386532656436613039336132663262323432616537313832306462343536343964
+        3365356165636332343865306239633631373062366333330a326564353463653033613264356136
+        61643636653036373939336238653334663735343637366231366431623664373936663337633533
+        6466616335313765310a653636646463613533316537356538613462616163346432613663366261
+        6662
+
+      vol_nginx_www: /data/nginx/www
+      vol_nginx_conf: /data/nginx/conf
+      vol_db_data: /data/db/data
+      vol_db_conf: /data/db/conf
+      vol_db_data_slave: /data/db_slave/data
+      vol_db_conf_slave: /data/db_slave/conf
+      vol_prometheus: /data/prometheus/data
+
+      venv_path: /opt/ansible_venv
