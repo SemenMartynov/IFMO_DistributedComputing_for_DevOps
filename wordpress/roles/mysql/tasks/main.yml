@@ -1,0 +1,19 @@
+- name: Create Docker network
+  community.docker.docker_network:
+    name: "{{ docker_network }}"
+
+- name: Run MySQL container
+  community.docker.docker_container:
+    name: "{{ mysql_container_name }}"
+    image: "{{ mysql_image }}"
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    networks:
+      - name: "{{ docker_network }}"
+    volumes:
+      - "{{ mysql_volume }}:/var/lib/mysql"

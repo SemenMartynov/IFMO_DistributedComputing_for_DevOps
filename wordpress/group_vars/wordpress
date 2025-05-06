@@ -1,0 +1,13 @@
+docker_network: wordpress_network
+
+mysql_container_name: mysql
+mysql_image: mysql:5.7
+mysql_root_password: root_password
+mysql_database: wordpress
+mysql_user: wp_user
+mysql_password: wp_password
+mysql_volume: mysql_data
+
+wordpress_container_name: wordpress
+wordpress_image: wordpress:latest
+wordpress_port: "8080:80"
