@@ -1,0 +1,13 @@
+
+
+- name: Установка и настройка prometheus сервера и node exporter
+  hosts: lemp
+  become: true
+  roles:
+    - prometheus
+
+- name: Установка mysqld_exporter
+  hosts: mysql
+  become: true
+  roles:
+    - mysqld_exporter

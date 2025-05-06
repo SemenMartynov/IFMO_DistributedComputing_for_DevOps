@@ -1,0 +1,7 @@
+---
+prometheus_container_name: "prometheus_container"
+node_container_name: "node_container"
+prometheus_volume: prometheus-data
+prometheus_image: "prom/prometheus:latest"
+prometheus_nodeexporter_name: "prom_node-exp_container"
+prometheus_nodeexporter_image: "quay.io/prometheus/node-exporter:latest"

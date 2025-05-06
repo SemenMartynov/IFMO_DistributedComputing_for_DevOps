@@ -1,6 +1,0 @@
-docker_network: "lemp_docker_network"
-mysql_root_password: "defaultpassword"
-mysql_database: "wordpress"
-mysql_user: "wp_user"
-mysql_password: "wp_password"
-wordpress_volume: "wordpress_data"

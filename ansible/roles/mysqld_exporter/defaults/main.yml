@@ -1,0 +1,6 @@
+---
+
+mysqld_exporters_name: "mysqld_container"
+mysqld_exporters_image: "prom/mysqld-exporter"
+
+mysql_exporter_password: "password"

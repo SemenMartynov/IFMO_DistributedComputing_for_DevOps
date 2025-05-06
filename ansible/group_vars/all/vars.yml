@@ -11,3 +11,4 @@ mysql_replication_user: "replication_user"
 mysql_root_password: "{{ vault_mysql_root_password }}"
 mysql_password: "{{ vault_mysql_password }}"
 mysql_replication_password: "{{ vault_mysql_replication_password }}"
+

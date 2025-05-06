@@ -41,6 +41,7 @@
 - name: Настройка слейва
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
+    login_port: 3306
     login_user: root
     login_password: "{{ mysql_root_password }}"
     primary_host: "{{ hostvars['mysql-master']['ansible_host'] }}"
@@ -56,6 +57,7 @@
 - name: Запуск репликации
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
+    login_port: 3306
     login_user: root
     login_password: "{{ mysql_root_password }}"
     mode: startreplica
@@ -63,6 +65,7 @@
 - name: Проверка финального статуса репликации
   community.mysql.mysql_replication:
     login_host: 127.0.0.1
+    login_port: 3306
     login_user: root
     login_password: "{{ mysql_root_password }}"
     mode: getreplica

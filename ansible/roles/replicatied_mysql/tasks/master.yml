@@ -23,14 +23,15 @@
 
 - name: Ожидание готовности MySQL
   ansible.builtin.wait_for:
-    host: localhost
+    host: 127.0.0.1
     port: 3306
     delay: 10
     timeout: 300
 
 - name: Создание пользователя для репликации
   community.mysql.mysql_user:
-    login_host: localhost
+    login_host: 127.0.0.1
+    login_port: 3306
     login_user: root
     login_password: "{{ mysql_root_password }}"
     name: "{{ mysql_replication_user }}"
@@ -49,7 +50,8 @@
 
 - name: Получение информации о бинарных логах до импорта дампа
   community.mysql.mysql_replication:
-    login_host: localhost
+    login_host: 127.0.0.1
+    login_port: 3306
     login_user: root
     login_password: "{{ mysql_root_password }}"
     mode: getprimary

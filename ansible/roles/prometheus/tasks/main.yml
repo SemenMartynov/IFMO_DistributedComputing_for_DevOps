@@ -1,0 +1,72 @@
+---
+- name: Создание именованного volume для Prometheus
+  community.docker.docker_volume:
+    name: "{{ prometheus_volume }}"
+    state: present
+
+- name: Создание директории для настроек prometheus
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
+
+- name: Копирование настроек prometheus
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: '0644'
+
+- name: Создание пользовательской сети Docker
+  community.docker.docker_network:
+    name: prometheus_network
+    driver: bridge
+    state: present
+
+- name: Создание контейнера для сервера prometheus
+  community.docker.docker_container:
+    name: "{{ prometheus_container_name }}"
+    image: "{{ prometheus_image }}"
+    ports:
+      - "9090:9090"
+    restart_policy: always
+    recreate: true
+    state: started
+    networks:
+      - name: prometheus_network
+    volumes:
+      - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - "{{ prometheus_volume }}:/prometheus"
+
+  
+- name: Установка node-exporter
+  community.docker.docker_container:
+
+    name: "{{ prometheus_nodeexporter_name }}"
+    image: "{{ prometheus_nodeexporter_image }}"
+    command:
+      - '--path.rootfs=/host'
+    pid_mode: host
+    ports:
+      - "9100:9100"
+    restart_policy: always
+    state: started
+    restart: true
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - name: prometheus_network
+
+
+- name: Копируем настройки для дашборда Grafana
+
+- name: Настраиваем provisioning для Grafana
+
+
+- name: Запуск Grafana в Docker
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    restart_policy: unless-stopped
+    state: started
