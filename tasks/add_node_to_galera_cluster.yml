@@ -1,5 +1,5 @@
 ---
-- name: Galera cluster - creating node '{{ node_name }} {{ node_ip }} {{ bootstrap }}'
+- name: Galera cluster - creating node {{ node_name + ':' + node_ip + ':' + bootstrap }}
   community.docker.docker_container:
     name: '{{ node_name }}'
     image: '{{ galera_container_image }}'
