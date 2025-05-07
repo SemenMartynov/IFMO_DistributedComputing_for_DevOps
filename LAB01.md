@@ -14,7 +14,7 @@ Distributed Computing course for DevOps 2025
   * ansible_become_method: sudo
   * ansible_become_pass: XXXXXXXX
 * на сервере **carrier** заведён пользователь из **inventory.yml**:
-  *```useradd someuser```
+  * ```useradd someuser```
 * и он добавлен в группу sudo:
   * ```usermod -aG sudo someuser```,
 * с сервера есть доступ в Интернет.

@@ -1,5 +1,5 @@
 ---
-- name: Galera cluster - creating node '{{ node_name }}' with IP '{{ node_ip }}' bootstrap '{{ bootstrap }}'
+- name: Galera cluster - creating node '{{ node_name }} {{ node_ip }} {{ bootstrap }}'
   community.docker.docker_container:
     name: '{{ node_name }}'
     image: '{{ galera_container_image }}'
@@ -38,7 +38,7 @@
     galera_cluster_bootstrap: "{% if bootstrap == true %}yes{% else %}no{% endif %}"
     galera_cluster_address: "{% if bootstrap == true %}gcomm://{% else %}gcomm://{{ mysql_hosts | join(',') }}{% endif %}"
 
-- name: Wait for the node '{{ node_name }}' to restart
+- name: Wait to restart the node '{{ node_name }}'
   ansible.builtin.wait_for:
     host: '{{ node_ip }}'
     port: 3306
