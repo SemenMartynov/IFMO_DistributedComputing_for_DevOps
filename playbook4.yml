@@ -59,85 +59,24 @@
         login_password: '{{ mysql_root_pw }}'
 
     - name: Bootstraping Galera cluster on the first node
-      community.docker.docker_container:
-        name: '{{ db1_host }}'
-        image: '{{ galera_container_image }}'
-        state: started
-        restart: true
-        healthcheck:
-          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
-          interval: 15s
-          timeout: 5s
-          retries: 6
-        restart_policy: on-failure
-        networks:
-          - name: '{{ wp_int_network }}'
-            ipv4_address: '10.16.1.11'
-        volumes:
-          - 'galera_db1:/bitnami/mariadb'
-        capabilities:
-          - SYS_NICE
-        env:
-          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
-          MARIADB_GALERA_CLUSTER_BOOTSTRAP: 'yes'
-          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://'
-          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.11'
-          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_REPLICATION_USER: 'replicant'
-          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_DATABASE: '{{ wp_dbname }}'
-          MARIADB_USER: '{{ wp_dbuser }}'
-          MARIADB_PASSWORD: '{{ mysql_passwd }}'
-          MARIADB_SKIP_TEST_DB: 'yes'
-          MARIADB_INIT_SLEEP_TIME: '5'
-
-    - name: Wait for bootstaping the first Galera node
-      ansible.builtin.wait_for:
-        host: '10.16.1.11'
-        port: 3306
-        delay: 15
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: true
+      loop:
+        - 1
 
     - name: Remove bootstrap option and restart the first node
-      community.docker.docker_container:
-        name: '{{ db1_host }}'
-        image: '{{ galera_container_image }}'
-        state: started
-        restart: true
-#        recreate: true
-        healthcheck:
-          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
-          interval: 15s
-          timeout: 5s
-          retries: 6
-        restart_policy: on-failure
-        networks:
-          - name: '{{ wp_int_network }}'
-            ipv4_address: '10.16.1.11'
-        volumes:
-          - 'galera_db1:/bitnami/mariadb'
-        capabilities:
-          - SYS_NICE
-        env:
-          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
-#          MARIADB_GALERA_CLUSTER_ADDRESS: 'gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}'
-          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ mysql_hosts | join(',') }}"
-          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.11'
-          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_REPLICATION_USER: 'replicant'
-          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_DATABASE: '{{ wp_dbname }}'
-          MARIADB_USER: '{{ wp_dbuser }}'
-          MARIADB_PASSWORD: '{{ mysql_passwd }}'
-          MARIADB_SKIP_TEST_DB: 'yes'
-          MARIADB_INIT_SLEEP_TIME: '5'
-
-    - name: Wait for the first instance to restart
-      ansible.builtin.wait_for:
-        host: '10.16.1.11'
-        port: 3306
-        delay: 15
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: false
+      loop:
+        - 1
 
     - name: Restore WP databases
       community.mysql.mysql_db:
@@ -170,46 +109,14 @@
         priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
         state: present
 
-    - name: Adding nodes to the Galera cluster
-      community.docker.docker_container:
-        name: 'db{{ item }}'
-        image: '{{ galera_container_image }}'
-        state: started
-        restart: true
-        healthcheck:
-          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
-          interval: 15s
-          timeout: 5s
-          retries: 6
-        restart_policy: on-failure
-        networks:
-          - name: '{{ wp_int_network }}'
-            ipv4_address: '10.16.1.1{{ item }}'
-        volumes:
-          - 'galera_db_{{ item }}:/bitnami/mariadb'
-        capabilities:
-          - SYS_NICE
-        env:
-          MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
-          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ mysql_hosts | join(',') }}"
-          MARIADB_GALERA_NODE_ADDRESS: '10.16.1.1{{ item }}'
-          MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_REPLICATION_USER: 'replicant'
-          MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
-          MARIADB_USER: '{{ wp_dbuser }}'
-          MARIADB_PASSWORD: '{{ mysql_passwd }}'
-          MARIADB_SKIP_TEST_DB: 'yes'
-          MARIADB_INIT_SLEEP_TIME: '5'
+    - name: Adding rest nodes to the Galera cluster
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: false
       with_sequence: start=2 end=5
-      loop_control:
-        pause: 5
-
-    - name: Wait for the last instance to restart
-      ansible.builtin.wait_for:
-        host: '10.16.1.15'
-        port: 3306
-        delay: 15
 
     - name: Create haproxy config dir
       ansible.builtin.file:
@@ -228,14 +135,6 @@
         owner: 0
         group: 0
 
-    - name: Stop MySQL replication instances
-      community.docker.docker_container:
-        name: '{{ item }}'
-        state: stopped
-      loop:
-        - '{{ db_master }}'
-        - '{{ db_replica }}'
-
     - name: Create and start HAProxy container
       community.docker.docker_container:
         name: '{{ loadbalancer }}'
@@ -248,7 +147,6 @@
             ipv4_address: '10.16.1.10'
         volumes:
           - /haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-        capabilities:
 
     - name: Regenerate Prometheus config
       ansible.builtin.template:
@@ -287,3 +185,12 @@
           WORDPRESS_DB_USER: '{{ wp_dbuser }}'
           WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
           WORDPRESS_DB_NAME: '{{ wp_dbname }}'
+
+    - name: Remove MySQL replication instances
+      community.docker.docker_container:
+        name: '{{ item }}'
+        state: absent
+        keep_volumes: false
+      loop:
+        - '{{ db_master }}'
+        - '{{ db_replica }}'

@@ -30,7 +30,7 @@
         login_port: 3306
         login_password: '{{ mysql_root_pw }}'
         name: export
-        host: '%'
+        host: '10.16.1.%'
         plugin_auth_string: '{{ mysql_passwd }}'
         plugin: caching_sha2_password
         priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
@@ -118,10 +118,13 @@
         ds_url: 'http://prometheus:9090'
         is_default: true
 
-    - name: Import Grafana dashboard for MySQL
+    - name: Import Grafana dashboards for MySQL
       community.grafana.grafana_dashboard:
         grafana_url: 'http://10.16.1.7:3000'
         grafana_user: '{{ grafana_admin_username }}'
         grafana_password: '{{ grafana_admin_password }}'
-        dashboard_url: 'https://grafana.com/api/dashboards/21821/revisions/1/download'
+        dashboard_url: '{{ item }}'
         overwrite: true
+      with_items:
+        - 'https://raw.githubusercontent.com/prometheus/mysqld_exporter/refs/heads/main/mysqld-mixin/dashboards/mysql-overview.json'
+        - 'https://grafana.com/api/dashboards/21821/revisions/1/download'
