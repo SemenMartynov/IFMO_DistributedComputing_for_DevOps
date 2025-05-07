@@ -4,6 +4,11 @@
     name: "{{ prometheus_volume }}"
     state: present
 
+- name: Создатьименованного volume для Grafana
+  community.docker.docker_volume:
+    name: "{{ grafana_volume }}"
+    state: present
+
 - name: Создание директории для настроек prometheus
   ansible.builtin.file:
     path: /etc/prometheus
@@ -56,17 +61,27 @@
     networks:
       - name: prometheus_network
 
+- name: Создать директорию для настроек grafana
+  ansible.builtin.file:
+    path: /etc/grafana/provisioning
+    state: directory
+    mode: '0755'
 
 - name: Копируем настройки для дашборда Grafana
-
-- name: Настраиваем provisioning для Grafana
-
+  ansible.builtin.copy:
+    src: provisioning
+    dest: /etc/grafana/
+    mode: '0755'
 
 - name: Запуск Grafana в Docker
   community.docker.docker_container:
     name: grafana
     image: grafana/grafana
+    recreate: true
     ports:
       - "3000:3000"
     restart_policy: unless-stopped
     state: started
+    volumes:
+      - "{{ grafana_volume }}:/var/lib/grafana"
+      - /etc/grafana/provisioning:/etc/grafana/provisioning

@@ -6,7 +6,7 @@
     login_user: root
     login_password: "{{ mysql_root_password }}"
     name: exporter
-    host: localhost
+    host: "%"
     password: "{{ mysql_exporter_password }}"
     priv: "*.*:PROCESS, REPLICATION CLIENT"
     state: present
