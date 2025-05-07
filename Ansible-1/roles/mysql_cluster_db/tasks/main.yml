@@ -36,6 +36,24 @@
     networks:
       - name: "{{ wp_network }}"
 
+- name: Check mysql master connection
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: mysql_ping
+  until: mysql_ping.failed == false
+  retries: 20
+  delay: 3
+  ignore_errors: yes
+
+- name: Fail if the db is not reachable
+  fail:
+    msg: "error connecting mysql master"
+  when: mysql_ping.failed
+
 - name: Create replication user in master
   community.mysql.mysql_query:
     login_host: localhost
@@ -91,6 +109,24 @@
     master_log_file: "{{ master_status.query_result[0][0].File }}"
     master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
+- name: check mysql replica connection
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: mysql_ping
+  until: mysql_ping.failed == false
+  retries: 20
+  delay: 3
+  ignore_errors: yes
+
+- name: Fail if the db is not reachable
+  fail:
+    msg: "error connecting mysql replica"
+  when: mysql_ping.failed
+
 - name: Configure replication on replica
   community.mysql.mysql_query:
     login_host: localhost
@@ -128,3 +164,39 @@
   fail:
     msg: "Error: mysql replica doesn't work as expected!"
   when: replica_io_running != true or replica_sql_running != true
+
+- name: Restart master with closed ports
+  community.docker.docker_container:
+    name: mysql_db_master
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports: []
+    volumes:
+      - /tmp/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - mysql_data:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Restart replica container with closed ports
+  community.docker.docker_container:
+    name: mysql_db_replica
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports: []
+    volumes:
+      - "/tmp/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - mysql_data_replica:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
