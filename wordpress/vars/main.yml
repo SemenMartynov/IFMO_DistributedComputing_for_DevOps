@@ -62,3 +62,9 @@ mysql_root_password: !vault |
 test_table_name: test_table
 test_row_name: test
 test_row_id: 1
+
+grafana_admin_username: admin
+grafana_admin_password: password
+prometheus_port: 9090
+grafana_port: 3000
+prometheus_container_name: prometheus

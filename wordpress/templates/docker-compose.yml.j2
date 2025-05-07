@@ -69,10 +69,44 @@ services:
     ports:
       - "{{ db_replica_port }}:3306"
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: {{ prometheus_container_name }}
+    restart: always
+    ports:
+      - "{{ prometheus_port }}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - wordpress-network
+    depends_on:
+      - db-master
+      - db-replica
+
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: always
+    ports:
+      - "{{ grafana_port }}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: {{ grafana_admin_username }}
+      GF_SECURITY_ADMIN_PASSWORD: {{ grafana_admin_password }}
+      GF_INSTALL_PLUGINS: "grafana-piechart-panel"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - wordpress-network
+    depends_on:
+      - prometheus
+
 volumes:
   wordpress:
   db_data_master:
   db_data_replica:
+  prometheus_data:
+  grafana_data:
 
 networks:
   wordpress-network:
