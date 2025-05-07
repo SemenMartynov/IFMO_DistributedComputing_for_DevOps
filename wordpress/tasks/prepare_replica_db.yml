@@ -1,3 +1,4 @@
+---
 - name: Ping the replica MySQL server
   community.mysql.mysql_query:
     login_host: 127.0.0.1
@@ -21,8 +22,8 @@
     master_port: "{{ db_master_port | int }}"
     master_user: "{{ replication_user }}"
     master_password: "{{ replication_password }}"
-    master_auto_position: yes
-  ignore_errors: true
+    master_auto_position: true
+  ignore_errors: true  # noqa: ignore-errors
 
 - name: Start replication on slave
   community.mysql.mysql_replication:

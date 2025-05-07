@@ -1,3 +1,4 @@
+---
 - name: Check replica status
   community.mysql.mysql_query:
     login_host: 127.0.0.1
@@ -12,5 +13,5 @@
     that:
       - replica_status.query_result[0][0]['Slave_IO_Running'] == 'Yes'
       - replica_status.query_result[0][0]['Slave_SQL_Running'] == 'Yes'
-    fail_msg: "Replication is NOT working {{replica_status.query_result[0][0]}}"
+    fail_msg: "Replication is NOT working {{ replica_status.query_result[0][0] }}"
     success_msg: "Replication is working correctly"

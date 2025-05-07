@@ -1,6 +1,5 @@
-#SPDX-License-Identifier: MIT-0
+# SPDX-License-Identifier: MIT-0
 ---
-
 - name: Prepare a server environment
   ansible.builtin.import_tasks: prepare_environment.yml
 

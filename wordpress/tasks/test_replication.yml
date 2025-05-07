@@ -1,3 +1,4 @@
+---
 - name: Create test table
   community.mysql.mysql_query:
     login_host: 127.0.0.1
