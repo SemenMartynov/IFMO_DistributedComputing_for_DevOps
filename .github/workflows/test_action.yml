@@ -1,0 +1,246 @@
+name: Test Ansible playbooks
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+          
+  test_deploy_wordpress_with_standalone_mysql:
+    name: Install Wordpress and MySQL containers 
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: mikefarah/yq@master
+      id: set_ipaddress_for_carrier
+      with:
+        cmd: yq -i '.all.hosts.carrier.ansible_host = "127.0.0.1"' inventory.yml
+
+    - name: "Check inventory.yml"
+      run: |
+        cat inventory.yml
+#        sudo echo '127.0.0.1 carrier ' >> /etc/hosts
+
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
+      run: ansible-playbook --connection=local --inventory carrier, playbook1.yml
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+  test_convert_sandalone_to_master_slave:
+
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: mikefarah/yq@master
+      id: set_ipaddress_for_carrier
+      with:
+        cmd: yq -i '.all.hosts.carrier.ansible_host = "127.0.0.1"' inventory.yml
+        
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+      
+    - name: "Generate ansible.cfg"
+      run: |
+        echo '[defaults]' > ~/.ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
+        echo 'transport = local' >> ~/.ansible.cfg
+
+    - name: "Generate localhost inventory"
+      run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
+
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
+      run: ansible-playbook --connection=local --inventory carrier, playbook1.yml
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook2.yml
+
+    - name: Testing docker containers are running
+      run: |
+        sudo docker ps -a
+        sudo docker volume ls
+        sudo docker network ls
+        
+    - name: DEBUG show docker logs on MASTER
+      run: |    
+        sudo docker logs db
+        
+    - name: DEBUG show docker logs on SLAVE
+      run: |    
+        sudo docker logs db_replica
+
+    - name: Testing MySQL replication is running
+      run: |    
+        sudo docker exec db_replica mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW DATABASES;' -e 'SHOW REPLICA STATUS\G;'
+        sudo docker exec db mysql -uroot -p'MySQL_r00t_s3cret_Pas3w0rD' -e 'SHOW REPLICAS;'
+ #       sudo docker exec dbslave mysql -uroot -p'MySQL_s3cret_Pas3w0rD' -e 'SELECT TABLE_SCHEMA AS `Database`,TABLE_NAME AS `Table`,ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) AS `Size (MB)` FROM information_schema.TABLES ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC'
+     
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+  test_adding_monitoring_to_replication:
+
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: mikefarah/yq@master
+      id: set_ipaddress_for_carrier
+      with:
+        cmd: yq -i '.all.hosts.carrier.ansible_host = "127.0.0.1"' inventory.yml
+    
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+      
+    - name: "Generate ansible.cfg"
+      run: |
+        echo '[defaults]' > ~/.ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
+        echo 'transport = local' >> ~/.ansible.cfg
+
+    - name: "Generate localhost inventory"
+      run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
+
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
+      run: ansible-playbook --connection=local --inventory carrier, playbook1.yml
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook2.yml
+
+    - name: Run Ansible Playbook locally to Add monitoring
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook3.yml
+
+    - name: Testing docker containers are running
+      run: |
+        sudo docker ps -a
+        sudo docker volume ls
+        sudo docker network ls
+
+    - name: DEBUG show docker logs on mysqld-exporter
+      run: |    
+        sudo docker logs mysqld-exporter
+    - name: DEBUG show docker logs on prometheus
+      run: |    
+        sudo docker logs prometheus
+    - name: DEBUG show docker logs on grafana
+      run: |    
+        sudo docker logs grafana
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Testing Graphana container is serving HTTP port
+      run: |
+        curl -v "http://127.0.0.1:3000/" || true
+        
+
+  test_hw4:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: mikefarah/yq@master
+      id: set_ipaddress_for_carrier
+      with:
+        cmd: yq -i '.all.hosts.carrier.ansible_host = "127.0.0.1"' inventory.yml
+    
+    - name: "Install Ansible"
+      run: pip install ansible
+
+    - name: "Print Ansible version"
+      run: ansible-playbook --version
+      
+    - name: "Generate ansible.cfg"
+      run: |
+        echo '[defaults]' > ~/.ansible.cfg
+        echo 'hostfile = ~/.ansible-hosts'  >> ~/.ansible.cfg
+        echo 'inventory = ~/.ansible-hosts' >> ~/.ansible.cfg
+        echo 'transport = local' >> ~/.ansible.cfg
+
+    - name: "Generate localhost inventory"
+      run: echo 'localhost ansible_connection=local' > ~/.ansible-hosts
+
+    - name: Run Ansible Playbook locally to install Wordpress with standalone MySQL
+      run: ansible-playbook --connection=local --inventory carrier, playbook1.yml
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to MySQL->Slave replication
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook2.yml
+
+    - name: Run Ansible Playbook locally to Add monitoring
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook3.yml
+
+    - name: Run Ansible Playbook locally to convert standalone MySQL to Galera 5-node cluster
+      run: ansible-playbook -vv --connection=local --inventory carrier, playbook4.yml
+
+    - name: Testing docker containers are running
+      run: |
+        sudo docker ps -a
+        sudo docker volume ls
+        sudo docker network ls
+
+    - name: DEBUG show docker logs on mysqld-exporter
+      run: |    
+        sudo docker logs mysqld-exporter
+
+    - name: DEBUG show docker logs on prometheus
+      run: |    
+        sudo docker logs prometheus
+
+    - name: DEBUG show docker logs on grafana
+      run: |    
+        sudo docker logs grafana
+
+    - name: DEBUG show docker logs on HAProxy
+      run: |    
+        sudo docker logs haproxy
+
+    - name: Testing wordpress container is serving HTTP port
+      run: |
+        sleep 7 # need some time for docker containers to start properly
+        curl -v "http://127.0.0.1/" || true
+
+    - name: Testing Graphana container is serving HTTP port
+      run: |
+        curl -v "http://127.0.0.1:3000/" || true

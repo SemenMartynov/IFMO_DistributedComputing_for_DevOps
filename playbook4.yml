@@ -1,6 +1,16 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
+  vars_files:
+    - defaults/main.yml
+  vars:
+    mysql_hosts:
+      - '{{ db1_host }}'
+      - '{{ db2_host }}'
+      - '{{ db3_host }}'
+      - '{{ db4_host }}'
+      - '{{ db5_host }}'
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -16,3 +26,171 @@
           - "db_pass: {{ db_pass }}" # root password for DBs
           - "loadbalancer: {{ loadbalancer }}" # container name
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+
+    - name: Check if Galera cluster already exists
+      community.docker.docker_container_info:
+        name: '{{ db5_host }}'
+      register: is_galera
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_galera.exists
+
+    - name: Install packages required by Ansible modules
+      ansible.builtin.apt:
+        pkg:
+          - mariadb-client
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Stop WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        state: stopped
+
+    - name: Backup current WP databases
+      community.mysql.mysql_db:
+        state: dump
+        name: '{{ wp_dbname }}'
+        target: '{{ wp_mysql_dump }}'
+        login_host: 10.16.1.3
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+
+    - name: Bootstraping Galera cluster on the first node
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: true
+      loop:
+        - 1
+
+    - name: Remove bootstrap option and restart the first node
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: false
+      loop:
+        - 1
+
+    - name: Restore WP databases
+      community.mysql.mysql_db:
+        state: import
+        name: '{{ wp_dbname }}'
+        target: '{{ wp_mysql_dump }}'
+        login_host: 10.16.1.11
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        force: true
+
+    - name: Create HAProxy user with empty password
+      community.mysql.mysql_user:
+        login_host: '10.16.1.11'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: 'haproxy'
+        host: '10.16.1.%'
+        priv: '*.*:USAGE'
+        state: present
+
+    - name: Create Prometheus user
+      community.mysql.mysql_user:
+        login_host: '10.16.1.11'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: export
+        host: '10.16.1.%'
+        password: '{{ mysql_passwd }}'
+        priv: '*.*:PROCESS,REPLICATION CLIENT/performance_schema.*:SELECT'
+        state: present
+
+    - name: Adding rest nodes to the Galera cluster
+      ansible.builtin.include_tasks:
+        file: "tasks/add_node_to_galera_cluster.yml"
+      vars:
+        node_name: '{{ mysql_hosts[item | int - 1] }}'
+        node_ip: '10.16.1.1{{ item }}'
+        bootstrap: false
+      with_sequence: start=2 end=5
+
+    - name: Create haproxy config dir
+      ansible.builtin.file:
+        path: /haproxy
+        state: directory
+        recurse: true
+        mode: '0755'
+        owner: 0
+        group: 0
+
+    - name: Generate HAProxy config
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /haproxy/haproxy.cfg
+        mode: '0644'
+        owner: 0
+        group: 0
+
+    - name: Create and start HAProxy container
+      community.docker.docker_container:
+        name: '{{ loadbalancer }}'
+        image: 'haproxy'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: '10.16.1.10'
+        volumes:
+          - /haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+
+    - name: Regenerate Prometheus config
+      ansible.builtin.template:
+        src: templates/prometheus.yaml.j2
+        dest: /prometheus/prometheus.yml
+        mode: '0644'
+        owner: 0
+        group: 0
+
+    - name: Restart Prometheus container
+      community.docker.docker_container:
+        name: 'prometheus'
+        state: started
+        restart: true
+
+    - name: Recreate WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        image: '{{ wp_container_image }}'
+        state: started
+        recreate: true
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            aliases: wpint
+            ipv4_address: 10.16.1.2
+          - name: '{{ wp_ext_network }}'
+            aliases: wp
+        ports:
+          - '{{ wordpress_port }}:{{ wordpress_port }}'
+        volumes:
+          - 'wordpress:/var/www/html'
+        env:
+          WORDPRESS_DB_HOST: '{{ loadbalancer }}'
+          WORDPRESS_DB_USER: '{{ wp_dbuser }}'
+          WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
+          WORDPRESS_DB_NAME: '{{ wp_dbname }}'
+
+    - name: Remove MySQL replication instances
+      community.docker.docker_container:
+        name: '{{ item }}'
+        state: absent
+        keep_volumes: false
+      loop:
+        - '{{ db_master }}'
+        - '{{ db_replica }}'
