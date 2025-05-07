@@ -1,8 +1,5 @@
 ---
 - name: Galera cluster - creating node '{{ node_name }}' with IP '{{ node_ip }}' bootstrap '{{ bootstrap }}'
-  vars:
-    galera_cluster_bootstrap: "{% if bootstrap == true %}yes{% else %}no{% endif %}"
-    galera_cluster_address: "{% if bootstrap == true %}gcomm://{% else %}gcomm://{{ mysql_hosts | join(',') }}{% endif %}"
   community.docker.docker_container:
     name: '{{ node_name }}'
     image: '{{ galera_container_image }}'
@@ -37,6 +34,9 @@
       MARIADB_PASSWORD: '{{ mysql_passwd }}'
       MARIADB_SKIP_TEST_DB: 'yes'
       MARIADB_INIT_SLEEP_TIME: '5'
+  vars:
+    galera_cluster_bootstrap: "{% if bootstrap == true %}yes{% else %}no{% endif %}"
+    galera_cluster_address: "{% if bootstrap == true %}gcomm://{% else %}gcomm://{{ mysql_hosts | join(',') }}{% endif %}"
 
 - name: Wait for the node '{{ node_name }}' to restart
   ansible.builtin.wait_for:
