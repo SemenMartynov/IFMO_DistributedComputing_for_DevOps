@@ -1,6 +1,6 @@
 - name: Развертывание WordPress с Docker
   hosts: all
-  become: yes
+  become: true
   vars:
     mysql_root_password: "my_root_password"
     mysql_database: "wordpress_db"
@@ -13,19 +13,19 @@
 
   tasks:
     - name: Добавление GPG ключа
-      apt_key:
+      ansible.builtin.apt_key:
         url: "https://download.docker.com/linux/ubuntu/gpg"
         state: present
 
     - name: Скачиваем официальный дистрибутив docker
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
         state: present
-        update_cache: yes
+        update_cache: true
 
 ## Обновление кеша apt и установка Docker, Python-пакетов и Docker Compose:
     - name: Обновить apt-кеш, установка Docker и Python и модуля Docker
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -34,11 +34,11 @@
           - python3-docker
           - python3-pymysql
         state: present
-        update_cache: yes
+        update_cache: true
 
 ## Запуск серивиса Docker
     - name: запускаю сервис Docker
-      service:
+      ansible.builtin.service:
         name: docker
         state: started
         enabled: true
@@ -78,13 +78,13 @@
         mode: '0644'
 
     - name: Сгенерировать SQL-файл для мастера
-      template:
+      ansible.builtin.template:
         src: "{{ playbook_dir }}/templates/user_init_master.sql.j2"
         dest: "/tmp/user_init_master.sql"
         mode: '0644'
 
   ## Запуск MySQL Master Порт на хосте: 3307, добавляем и настраиваем стартогого пользователя для репликации, меняем конфиги.
-    - name: запускаю контейнер базы данных MySQL -master
+    - name: Запускаю контейнер базы данных MySQL - master
       community.docker.docker_container:
         name: wp_db_master
         image: mysql:5.7
@@ -106,7 +106,7 @@
             - "3307:3306"
 
     - name: Ожидание запуска MySQL Master
-      wait_for:
+      ansible.builtin.wait_for:
         host: localhost
         port: 3307
         delay: 10
@@ -114,7 +114,7 @@
         state: started
 
   ## Порт на хосте: 3308
-    - name: запускаю контейнер базы данных MySQL - slave
+    - name: Запускаю контейнер базы данных MySQL - slave
       community.docker.docker_container:
         name: wp_db_slave
         image: mysql:5.7
@@ -131,7 +131,7 @@
             - "3308:3306"
 
     - name: Ожидание запуска MySQL Slave
-      wait_for:
+      ansible.builtin.wait_for:
         host: localhost
         port: 3308
         delay: 10
@@ -161,15 +161,15 @@
       until: slave_ready is succeeded
       retries: 10
       delay: 10
-      
-    - name: настраиваю репликацию на Slave
+
+    - name: Настраиваю репликацию на Slave
       community.mysql.mysql_replication:
         mode: "changeprimary"
         master_host: "wp_db_master"     
         master_port: 3306               
         master_user: "{{ replica_user }}"
         master_password: "{{ replica_password }}"
-        master_auto_position: yes
+        master_auto_position: true
         login_host: "localhost"
         login_port: 3308
         login_user: "root"
@@ -187,16 +187,17 @@
       community.docker.docker_container_exec:
         container: wp_db_slave
         command: >
-          mysql -uroot -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+          mysql -uroot -p{{ mysql_root_password }}
+          -e "SHOW SLAVE STATUS\G"
       register: slave_status
       changed_when: false
 
     - name: Вывод статуса репликации
-      debug:
+      ansible.builtin.debug:
         var: slave_status.stdout_lines
 
   ## Запуск WordPress, Доступ по HTTP на порту 80
-    - name: запускаю контейнер WordPress
+    - name: Запускаю контейнер WordPress
       community.docker.docker_container:
         name: wordpress
         image: wordpress:latest
@@ -213,3 +214,4 @@
             - wp_data:/var/www/html
         networks:
           - name: "{{ docker_network }}"
+          
