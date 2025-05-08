@@ -1,0 +1,12 @@
+---
+db_root_password: "root_pass"
+db_name: "wordpress_db"
+db_user: "wordpress"
+db_password: "pass"
+db_replication_user: "replicator"
+db_replication_password: "rep_pass"
+
+db_wordpress_dir: "/opt/wordpress"
+db_docker_user: "ivan"
+
+db_config_dir: "{{ db_wordpress_dir }}/mysql-config"
