@@ -153,7 +153,18 @@
         priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
         state: present
 
-    - name: Configure replica
+    - name: Check if replication needs to be configured
+      mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3307
+      register: repl_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Configure replica (only if not already configured)
       mysql_replication:
         mode: changereplication
         primary_host: "db_master"
@@ -169,14 +180,23 @@
       until: replication_setup is succeeded
       retries: 10
       delay: 5
+      when: >
+        repl_check is failed or
+        repl_check.Source_Host != 'db_master' or
+        repl_check.Replica_IO_Running != 'Yes' or
+        repl_check.Replica_SQL_Running != 'Yes'
 
-    - name: Start replication
+    - name: Start replication (only if needed)
       mysql_replication:
         mode: startreplica
         login_user: root
         login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
+      when: >
+        repl_check is failed or
+        repl_check.Replica_IO_Running != 'Yes' or
+        repl_check.Replica_SQL_Running != 'Yes'
 
     - name: Verify replication status
       mysql_replication:
@@ -195,7 +215,7 @@
     - name: Show replication status
       ansible.builtin.debug:
         var: replication_status
-
+  
     - name: Start WordPress
       docker_container:
         name: wordpress
