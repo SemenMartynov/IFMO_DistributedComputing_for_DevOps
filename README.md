@@ -105,13 +105,13 @@ mon
    ```
    Follow the prompts to set up the username, email, and password for the superuser.
 
-7. **Run exporters**
+7. **Run exporters**  
    Use the `run-docker-master.yml` playbook to launch exporeter services on the **master**, **slave** servers using Docker Compose:
    ```bash
    ansible-playbook -i inventory run-docker-exporter.yml
    ```
 
-8. **Run monitoring**
+8. **Run monitoring**  
    Use the `run-docker-mon.yml` playbook to launch prometheus+grafana services on the **monitoring** server using Docker Compose:
    ```bash
    ansible-playbook -i inventory run-docker-mon.yml
