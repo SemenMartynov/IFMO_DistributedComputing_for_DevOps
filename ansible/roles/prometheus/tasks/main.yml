@@ -4,7 +4,7 @@
     name: "{{ prometheus_volume }}"
     state: present
 
-- name: Создатьименованного volume для Grafana
+- name: Создание именованного volume для Grafana
   community.docker.docker_volume:
     name: "{{ grafana_volume }}"
     state: present
@@ -61,17 +61,42 @@
     networks:
       - name: prometheus_network
 
-- name: Создать директорию для настроек grafana
+- name: Создать директорию для настроек datasource grafana
   ansible.builtin.file:
-    path: /etc/grafana/provisioning
+    path: /etc/grafana/provisioning/datasources
     state: directory
     mode: '0755'
 
-- name: Копируем настройки для дашборда Grafana
-  ansible.builtin.copy:
-    src: provisioning
-    dest: /etc/grafana/
+- name: Создать директорию для настроек dashboards grafana
+  ansible.builtin.file:
+    path: /etc/grafana/provisioning/dashboards
+    state: directory
     mode: '0755'
+
+- name: Копируем настройки для datasource Grafana
+  ansible.builtin.template:
+    src: provisioning/datasources/datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/datasource.yml
+    mode: '0755'
+
+- name: Копируем настройки для dashboard Grafana
+  ansible.builtin.template:
+    src: provisioning/dashboards/dashboards.yaml.j2
+    dest: /etc/grafana/provisioning/dashboards/dashboards.yaml
+    mode: '0755'
+
+- name: Копируем dashboard для node exporter
+  ansible.builtin.copy:
+    src: provisioning/dashboards/1860_node.json
+    dest: /etc/grafana/provisioning/dashboards
+    mode: '0755'
+
+- name: Копируем dashboard для mysqld exporter
+  ansible.builtin.copy:
+    src: provisioning/dashboards/6239_mysql.json
+    dest: /etc/grafana/provisioning/dashboards
+    mode: '0755'
+
 
 - name: Запуск Grafana в Docker
   community.docker.docker_container:
