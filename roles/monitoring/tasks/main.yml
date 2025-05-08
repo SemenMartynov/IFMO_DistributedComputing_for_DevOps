@@ -7,11 +7,13 @@
   ansible.builtin.file:
     path: /home/deploy/monitoring
     state: directory
+    mode: '0755'
 
 - name: Copy prometheus config
   ansible.builtin.copy:
     src: "{{ role_path }}/files/prometheus.yml"
     dest: /home/deploy/monitoring/prometheus.yml
+    mode: '0644'
 
 - name: Run prometheus container
   community.docker.docker_container:
@@ -51,6 +53,7 @@
   ansible.builtin.template:
     src: my-cnf.j2
     dest: /home/deploy/monitoring/{{ item.name }}-my-cnf
+    mode: '0644'
   loop:
     - { name: "mysql_exporter_master", host: "mysql_db_master" }
     - { name: "mysql_exporter_replica", host: "mysql_db_replica" }
