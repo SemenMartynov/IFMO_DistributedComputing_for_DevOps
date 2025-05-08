@@ -1,7 +1,7 @@
 ---
 - name: Update cache & Install packages
   apt:
-    update_cache: yes
+    update_cache: true
     name:
       - ca-certificates
       - lsb-release
@@ -19,7 +19,7 @@
 
 - name: Install Docker
   apt:
-    update_cache: yes
+    update_cache: true
     name:
       - docker-ce
       - docker-ce-cli
@@ -30,4 +30,4 @@
   systemd:
     name: docker
     state: started
-    enabled: yes
+    enabled: true

@@ -18,4 +18,3 @@
       - mysql_data:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
-

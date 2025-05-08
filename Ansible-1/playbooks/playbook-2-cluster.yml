@@ -3,5 +3,5 @@
   hosts: webservers
   become: true
   roles:
-    - mysql_cluster_db  # create mysql cluster
-    - wp_use_cluster    # modify wp to use cluster
+    - mysql_cluster_db
+    - wp_use_cluster

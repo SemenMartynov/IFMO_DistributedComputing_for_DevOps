@@ -47,7 +47,7 @@
   until: mysql_ping.failed == false
   retries: 20
   delay: 3
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Fail if the db is not reachable
   fail:
@@ -105,11 +105,12 @@
     query: "SHOW BINARY LOG STATUS"
   register: master_status
 
-- set_fact:
+- name: Set master/log files
+  set_fact:
     master_log_file: "{{ master_status.query_result[0][0].File }}"
     master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
-- name: check mysql replica connection
+- name: Check mysql replica connection
   community.mysql.mysql_query:
     login_host: localhost
     login_port: 3307
@@ -120,7 +121,7 @@
   until: mysql_ping.failed == false
   retries: 20
   delay: 3
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Fail if the db is not reachable
   fail:
@@ -158,7 +159,7 @@
 - name: Set facts from replica status
   set_fact:
     replica_io_running: "{{ replica_status.query_result[0][0].Replica_IO_Running }}"
-    replica_sql_running: "{{ replica_status.query_result[0][0].Replica_SQL_Running }}"#
+    replica_sql_running: "{{ replica_status.query_result[0][0].Replica_SQL_Running }}"
 
 - name: Check if replica is running fine
   fail:

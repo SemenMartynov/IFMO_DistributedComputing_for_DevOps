@@ -76,8 +76,8 @@
     method: GET
     user: "{{ grafana_user }}"
     password: "{{ grafana_password }}"
-    force_basic_auth: yes
-    return_content: yes
+    force_basic_auth: true
+    return_content: true
     status_code: 200
   register: grafana_sources
 
@@ -132,7 +132,7 @@
     method: GET
     user: "{{ grafana_user }}"
     password: "{{ grafana_password }}"
-    force_basic_auth: yes
+    force_basic_auth: true
     headers:
       Content-Type: "application/json"
   register: dashboard_search
@@ -149,7 +149,7 @@
     method: PUT
     user: "{{ grafana_user }}"
     password: "{{ grafana_password }}"
-    force_basic_auth: yes
+    force_basic_auth: true
     headers:
       Content-Type: "application/json"
     body_format: json
