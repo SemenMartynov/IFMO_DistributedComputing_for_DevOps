@@ -1,0 +1,25 @@
+---
+- name: Ping the master MySQL server
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_master_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: master_ping
+  retries: 10
+  delay: 6
+  until: master_ping.query_result is defined and master_ping.query_result[0][0]["1"] == 1
+
+- name: Create replication user on master
+  community.mysql.mysql_user:
+    login_host: 127.0.0.1
+    login_port: "{{ db_master_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ replication_user }}"
+    password: "{{ replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    plugin: mysql_native_password
+    host: "%"
+    state: present

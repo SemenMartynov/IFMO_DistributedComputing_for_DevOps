@@ -1,0 +1,34 @@
+---
+- name: Ping the replica MySQL server
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_replica_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: replica_ping
+  retries: 10
+  delay: 6
+  until: replica_ping.query_result[0][0]["1"] == 1
+
+- name: Configure replication on slave
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_port: "{{ db_replica_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    mode: changeprimary
+    master_host: "db-master"
+    master_port: "{{ db_master_port | int }}"
+    master_user: "{{ replication_user }}"
+    master_password: "{{ replication_password }}"
+    master_auto_position: true
+  failed_when: false
+
+- name: Start replication on slave
+  community.mysql.mysql_replication:
+    login_host: 127.0.0.1
+    login_port: "{{ db_replica_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    mode: startreplica

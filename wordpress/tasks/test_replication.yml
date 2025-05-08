@@ -1,0 +1,47 @@
+---
+- name: Create test table
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_master_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_db: "{{ wordpress_db_name }}"
+    query: "CREATE TABLE IF NOT EXISTS {{ test_table_name }} (id INT, name VARCHAR(255) NOT NULL)"
+
+- name: Create test row
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_master_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_db: "{{ wordpress_db_name }}"
+    query: "INSERT INTO {{ test_table_name }} (id, name) VALUES ({{ test_row_id | int }}, '{{ test_row_name }}')"
+
+- name: Select test row from replica
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_replica_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_db: "{{ wordpress_db_name }}"
+    query: "SELECT name FROM {{ test_table_name }} WHERE id = {{ test_row_id | int }}"
+  register: test_query_result
+
+- name: Sleep for 5 seconds
+  ansible.builtin.wait_for:
+    timeout: 5
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - test_query_result.query_result[0][0]['name'] == test_row_name
+    success_msg: "Replication is working correctly"
+
+- name: Drop test Table
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: "{{ db_master_port | int }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_db: "{{ wordpress_db_name }}"
+    query: "DROP TABLE {{ test_table_name }}"
