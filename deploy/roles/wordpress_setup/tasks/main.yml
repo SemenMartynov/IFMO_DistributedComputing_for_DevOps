@@ -1,0 +1,82 @@
+- name: Prepare project dir
+  ansible.builtin.file:
+    path: "{{ wordpress_setup_project_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Dockerfiles
+  ansible.builtin.copy:
+    src: files/
+    dest: "{{ wordpress_setup_project_dir }}"
+    mode: '0755'
+
+- name: Copy docker-compose and .env
+  ansible.builtin.template:
+    src: "templates/{{ item.src }}"
+    dest: "{{ wordpress_setup_project_dir }}/{{ item.dest }}"
+    mode: '0755'
+  loop:
+    - { src: 'docker-compose.yml.j2', dest: 'docker-compose.yml' }
+    - { src: '.env.j2', dest: '.env' }
+
+- name: Start docker containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ wordpress_setup_project_dir }}"
+    state: present
+
+- name: Add container to inventory
+  ansible.builtin.add_host:
+    name: "{{ item }}"
+    ansible_connection: docker
+    ansible_user: root
+    ansible_docker_extra_args: "{{ wordpress_setup_docker_socket }}"
+  loop:
+    - "{{ wordpress_setup_db_master_container }}"
+    - "{{ wordpress_setup_db_slave_container }}"
+  changed_when: false
+
+- name: Create replication user on master
+  community.mysql.mysql_user:
+    name: "{{ wordpress_setup_mysql_replication_user }}"
+    password: "{{ wordpress_setup_mysql_replication_password }}"
+    host: '%'
+    priv: '*.*:REPLICATION SLAVE'
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    state: present
+  delegate_to: "{{ wordpress_setup_db_master_container }}"
+
+- name: Get master status
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    query: "SHOW MASTER STATUS"
+  register: master_status
+  delegate_to: "{{ wordpress_setup_db_master_container }}"
+
+- name: Set Up Slave
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    query: STOP SLAVE
+  delegate_to: "{{ wordpress_db_slave_container }}"
+
+- name: Change master MySQL
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: >
+      CHANGE MASTER TO
+      MASTER_HOST='wordpress_db_master',
+      MASTER_USER='{{ wordpress_setup_mysql_replication_user }}',
+      MASTER_PASSWORD='{{ wordpress_setup_mysql_replication_password }}',
+      MASTER_LOG_FILE='{{ wordpress_setup_master_status.query_result[0][0].File }}',
+      MASTER_LOG_POS={{ wordpress_setup_master_status.query_result[0][0].Position }}
+  delegate_to: "{{ wordpress_setup_db_slave_container }}"
+
+- name: Start slave MySQL
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    query: START SLAVE
+  delegate_to: "{{ wordpress_setup_db_slave_container }}"
