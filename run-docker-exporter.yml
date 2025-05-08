@@ -1,0 +1,30 @@
+---
+- name: Install Docker and manage docker-compose
+  hosts: 
+    - master
+    - slave
+  become: yes
+  vars:
+    project_dir: "/home/{{ ansible_user }}/exporter"
+    compose_file: "{{ project_dir }}/docker-compose_exporter.yml"
+
+  tasks:
+    - name: Copy docker-compose_exporter.yml to the remote host
+      copy:
+        src: ./exporter/
+        dest: "{{ project_dir }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        directory_mode: '0755'
+
+
+    - name: Ensure services are up and running using docker-compose v2
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present
+        build: 'never'
+        remove_orphans: no
+        timeout: 30
+        recreate: 'always'

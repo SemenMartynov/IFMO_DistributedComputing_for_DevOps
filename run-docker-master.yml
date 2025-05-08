@@ -1,0 +1,27 @@
+---
+- name: Install Docker and manage docker-compose
+  hosts: master
+  become: yes
+  vars:
+    project_dir: "/home/{{ ansible_user }}/netbox"
+    compose_file: "{{ project_dir }}/docker-compose_master.yml"
+
+  tasks:
+    - name: Copy docker-compose_master.yml to the remote host
+      copy:
+        src: ./netbox/
+        dest: "{{ project_dir }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        directory_mode: '0755'
+
+    - name: Ensure services are running with correct compose file
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present  # Создаст и запустит, если не существует
+        build: never
+        remove_orphans: no
+        timeout: 30
+        recreate: always  # Пересоздаёт контейнеры, если конфиг изменился

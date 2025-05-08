@@ -1,0 +1,35 @@
+---
+- name: Install Docker and manage docker-compose
+  hosts: mon
+  become: yes
+  vars:
+    project_dir: "/home/{{ ansible_user }}/mon"
+    compose_file: "{{ project_dir }}/docker-compose_mon.yml"
+
+  tasks:
+    - name: Copy docker-compose_mon.yml to the remote host
+      copy:
+        src: ./mon/
+        dest: "{{ project_dir }}"
+
+    - name: Replace nodes.yml with rendered template
+      template:
+        src: templates/prometheus.yml.j2
+        dest: "{{ project_dir }}/prometheus/prometheus.yml"
+
+    - name: Replace datasource.yml with rendered template
+      template:
+        src: templates/datasource.yml.j2
+        dest: "{{ project_dir }}/grafana/provisioning/datasources/datasource.yml"
+
+
+    - name: Ensure services are up and running using docker-compose v2
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present
+        build: 'never'
+        remove_orphans: no
+        timeout: 30
+        recreate: 'always'
