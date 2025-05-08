@@ -1,6 +1,7 @@
 ---
 - name: Запуск Wordpress с базой данных с использованием docker-compose
   hosts: all
+  become: true
   vars:
     mysql_connect_timeout: "3"
 
@@ -24,6 +25,11 @@
     - name: Запустить docker-compose конфигурацию
       community.docker.docker_compose_v2:
         project_src: ~/app
+        state: present
+
+    - name: Установка коннектора к mysql
+      ansible.builtin.apt:
+        name: python3-pymysql
         state: present
 
     - name: Ожидание готовности Master (первый раз поднимается долго!)

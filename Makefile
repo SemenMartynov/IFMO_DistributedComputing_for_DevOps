@@ -1,4 +1,4 @@
-up-all: docker docker-up-wordpress
+up-all: docker docker-up-wordpress monitoring
 
 # установить докер
 docker:
@@ -7,3 +7,7 @@ docker:
 # с помощью docker-compose файла поднять Wordpress и mysql
 docker-up-wordpress:
 	ansible-playbook playbooks/docker-up-wordpress.yml
+
+# мониторинг
+monitoring:
+	ansible-playbook playbooks/monitoring.yml

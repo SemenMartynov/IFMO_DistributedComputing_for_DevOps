@@ -1,0 +1,8 @@
+---
+- name: Конфигурация Prometheus и Grafana
+  hosts: all
+  become: true
+  roles:
+    - cadvisor
+    - prometheus
+    - grafana
