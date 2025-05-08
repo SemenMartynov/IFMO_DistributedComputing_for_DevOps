@@ -9,7 +9,7 @@
     state: directory
 
 - name: Copy prometheus config
-  copy:
+  ansible.builtin.copy:
     src: "{{ role_path }}/files/prometheus.yml"
     dest: /home/deploy/monitoring/prometheus.yml
 
@@ -138,7 +138,7 @@
   register: dashboard_search
 
 - name: Get the dashboard id
-  set_fact:
+  ansible.builtin.set_fact:
     home_dashboard_id: "{{ item.id | int }}"
   loop: "{{ dashboard_search.json }}"
   when: item.title == "MySQL Overview"

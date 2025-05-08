@@ -10,7 +10,7 @@
     state: present
 
 - name: Copy master config
-  copy:
+  ansible.builtin.copy:
     src: "{{ role_path }}/files/mysql.cnf.master"
     dest: /tmp/mysql.cnf.master
     owner: root
@@ -50,7 +50,7 @@
   ignore_errors: true
 
 - name: Fail if the db is not reachable
-  fail:
+  ansible.builtin.fail:
     msg: "error connecting mysql master"
   when: mysql_ping.failed
 
@@ -66,7 +66,7 @@
       - "FLUSH PRIVILEGES;"
 
 - name: Copy replica config
-  copy:
+  ansible.builtin.copy:
     src: "{{ role_path }}/files/mysql.cnf.replica"
     dest: /tmp/mysql.cnf.replica
     owner: root
@@ -106,7 +106,7 @@
   register: master_status
 
 - name: Set master/log files
-  set_fact:
+  ansible.builtin.set_fact:
     master_log_file: "{{ master_status.query_result[0][0].File }}"
     master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
@@ -124,7 +124,7 @@
   ignore_errors: true
 
 - name: Fail if the db is not reachable
-  fail:
+  ansible.builtin.fail:
     msg: "error connecting mysql replica"
   when: mysql_ping.failed
 
@@ -157,12 +157,12 @@
   register: replica_status
 
 - name: Set facts from replica status
-  set_fact:
+  ansible.builtin.set_fact:
     replica_io_running: "{{ replica_status.query_result[0][0].Replica_IO_Running }}"
     replica_sql_running: "{{ replica_status.query_result[0][0].Replica_SQL_Running }}"
 
 - name: Check if replica is running fine
-  fail:
+  ansible.builtin.fail:
     msg: "Error: mysql replica doesn't work as expected!"
   when: not (replica_io_running and replica_sql_running)
 

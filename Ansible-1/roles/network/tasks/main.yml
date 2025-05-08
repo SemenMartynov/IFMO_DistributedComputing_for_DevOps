@@ -1,4 +1,4 @@
 - name: Create Docker network
-  docker_network:
+  community.docker.docker_network:
     name: "{{ wp_network }}"
     state: present

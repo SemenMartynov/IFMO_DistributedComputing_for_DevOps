@@ -4,7 +4,7 @@
     name: wp_data
 
 - name: Create WordPress container
-  docker_container:
+  community.docker.docker_container:
     name: wordpress
     image: wordpress:latest
     state: started
