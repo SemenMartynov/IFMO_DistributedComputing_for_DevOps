@@ -1,3 +1,4 @@
+---
 - name: Prepare the server and run WordPress
   hosts: service
   become: true
