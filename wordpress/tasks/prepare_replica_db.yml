@@ -23,7 +23,7 @@
     master_user: "{{ replication_user }}"
     master_password: "{{ replication_password }}"
     master_auto_position: true
-  ignore_errors: true  # noqa: ignore-errors
+  failed_when: false
 
 - name: Start replication on slave
   community.mysql.mysql_replication:
