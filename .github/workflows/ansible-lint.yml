@@ -22,15 +22,16 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Install-ansible-reqs"
+      - name: Install Ansible Collections
         run: |
-          pip install ansible      
-          ansible-galaxy collection install community.docker community.mysql --force
+          pip install ansible
+          ansible-galaxy collection install -r requirements.yml
 
       # Runs the ansible lint check
       - name: run-ansible-lint

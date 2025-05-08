@@ -43,7 +43,7 @@
     state: present
     update_cache: true
   notify:
-    - Start docker
+    - Restart docker
 
 - name: Create docker group
   ansible.builtin.group:
@@ -54,3 +54,12 @@
   ansible.builtin.user:
     name: "docker"
     group: "docker"
+
+- name: Update ExecStart line in dockerd service
+  ansible.builtin.lineinfile:
+    path: /usr/lib/systemd/system/docker.service
+    regexp: "^ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock"
+    line: "ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock {{ docker_setup_docker_socket }}"
+    backup: true
+  notify:
+    - Restart docker

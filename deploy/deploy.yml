@@ -3,22 +3,7 @@
   hosts: all
   become: true
   roles:
-    - docker_setup
-
-  tasks:
-    - name: Prepare project dir
-      ansible.builtin.file:
-        path: "{{ project_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Copy docker-compose and env
-      ansible.builtin.copy:
-        src: files/
-        dest: "{{ project_dir }}"
-        mode: '0755'
-
-    - name: Start docker containers
-      community.docker.docker_compose_v2:
-        project_src: "{{ project_dir }}"
-        state: present
+    - role: docker_setup
+      tags: ['docker']
+    - role: wordpress_setup
+      tags: ['wp']
