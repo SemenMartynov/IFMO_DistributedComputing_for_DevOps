@@ -164,7 +164,7 @@
 - name: Check if replica is running fine
   fail:
     msg: "Error: mysql replica doesn't work as expected!"
-  when: replica_io_running != true or replica_sql_running != true
+  when: not (replica_io_running and replica_sql_running)
 
 - name: Restart master with closed ports
   community.docker.docker_container:
