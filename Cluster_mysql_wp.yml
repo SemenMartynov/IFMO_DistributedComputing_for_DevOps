@@ -37,7 +37,7 @@
         update_cache: true
 
 ## Запуск серивиса Docker
-    - name: запускаю сервис Docker
+    - name: Запускаю сервис Docker
       ansible.builtin.service:
         name: docker
         state: started
@@ -64,7 +64,9 @@
         - mysql_slave_data
         - wp_data
 
-  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/, необходимо для того чтобы Ansible видел переменные
+  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 
+  ## и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/,
+  ## необходимо для того чтобы Ansible видел переменные
     - name: Копирование master.cnf
       ansible.builtin.template:
         src: "{{ playbook_dir }}/templates/master.cnf"
@@ -103,7 +105,7 @@
           - name: "{{ docker_network }}"
           - name: "{{ cluster_network }}"
         published_ports:
-            - "3307:3306"
+          - "3307:3306"
 
     - name: Ожидание запуска MySQL Master
       ansible.builtin.wait_for:
@@ -128,7 +130,7 @@
         networks:
           - name: "{{ cluster_network }}"
         published_ports:
-            - "3308:3306"
+          - "3308:3306"
 
     - name: Ожидание запуска MySQL Slave
       ansible.builtin.wait_for:
@@ -165,8 +167,8 @@
     - name: Настраиваю репликацию на Slave
       community.mysql.mysql_replication:
         mode: "changeprimary"
-        master_host: "wp_db_master"     
-        master_port: 3306               
+        master_host: "wp_db_master"
+        master_port: 3306
         master_user: "{{ replica_user }}"
         master_password: "{{ replica_password }}"
         master_auto_position: true
@@ -211,7 +213,6 @@
           WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
           WORDPRESS_DB_NAME: "{{ mysql_database }}"
         volumes:
-            - wp_data:/var/www/html
+          - wp_data:/var/www/html
         networks:
           - name: "{{ docker_network }}"
-          
