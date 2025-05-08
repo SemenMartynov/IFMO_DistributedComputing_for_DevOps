@@ -21,6 +21,14 @@
     ds_url: "http://prometheus:9090"
     access: proxy
     uid: "prometheus"
+    url: "http://localhost:3000"
     grafana_user: "{{ grafana_user }}"
     grafana_password: "{{ grafana_password }}"
     state: present
+
+- name: Import Grafana MySQL dashboard
+  community.grafana.grafana_dashboard:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    dashboard_url: "https://grafana.com/api/dashboards/14057/revisions/1/download"
