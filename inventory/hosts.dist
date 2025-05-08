@@ -1,0 +1,1 @@
+192.168.0.150 ansible_user=vboxuser ansible_password=changeme ansible_become_method=sudo ansible_become_pass=changeme

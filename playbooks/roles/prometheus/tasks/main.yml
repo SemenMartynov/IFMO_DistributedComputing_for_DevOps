@@ -1,0 +1,92 @@
+---
+- name: Скачать Prometheus
+  get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ arch }}.tar.gz"
+    dest: "/tmp/prometheus.tar.gz"
+    checksum: "sha256:https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+
+- name: Создать каталоги для Prometheus
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ prometheus_dir }}"
+    - "{{ prometheus_config_dir }}"
+
+- name: Распаковать архив с Prometheus
+  unarchive:
+    src: "/tmp/prometheus.tar.gz"
+    dest: "{{ prometheus_dir }}"
+    remote_src: yes
+
+- name: Доставить конфигурационный файл Prometheus
+  template:
+    src: ../templates/prometheus.yml.j2
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+
+- name: Создать unit для Prometheus
+  template:
+    src: ../templates/prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+
+- name: Скачать Node Exporter
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{ arch }}.tar.gz"
+    dest: "/tmp/node_exporter.tar.gz"
+    checksum: "sha256:https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/sha256sums.txt"
+
+- name: Создать каталоги для Node Exporter
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ node_exporter_dir }}"
+
+- name: Распаковать архив с Node Exporter
+  unarchive:
+    src: "/tmp/node_exporter.tar.gz"
+    dest: "{{ node_exporter_dir }}"
+    remote_src: yes
+
+- name: Создать unit для Node Exporter
+  template:
+    src: ../templates/node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+
+- name: Запустить Node Exporter
+  systemd:
+    name: node_exporter
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+
+- name: Запустить Prometheus
+  systemd:
+    name: prometheus
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+
+- name: Запустить docker контейнер с mysql exporter для мастера
+  docker_container:
+    name: mysqld-exporter-master
+    image: prom/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ mysql_exporter_master_port }}:9104"
+    command:
+      - "--mysqld.username=root:{{ mysql_root_password }}"
+      - "--mysqld.address={{ ansible_host }}:{{ db_port }}"
+
+- name: Запустить docker контейнер с mysql exporter для слейва
+  docker_container:
+    name: mysqld-exporter-slave
+    image: prom/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ mysql_exporter_slave_port }}:9104"
+    command:
+      - "--mysqld.username=root:{{ mysql_root_password }}"
+      - "--mysqld.address={{ ansible_host }}:{{ slave_mysql_port }}"

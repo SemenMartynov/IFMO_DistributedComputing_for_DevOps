@@ -1,0 +1,14 @@
+---
+- name: Запустить docker контейнер Cadvisor
+  docker_container:
+    name: cadvisor
+    image: gcr.io/cadvisor/cadvisor
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ cadvisor_port }}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
