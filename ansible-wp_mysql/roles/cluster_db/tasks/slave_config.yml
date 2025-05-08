@@ -1,0 +1,48 @@
+- name: Create slave volume
+  docker_volume:
+    name: mysql_slave_data
+
+- name: MySQL slave container start
+  docker_container:
+    name: mysql_slave
+    image: mysql:5.7
+    state: started
+    restart_policy: always
+    networks:
+      - name: wp-network
+    env:
+      MYSQL_ROOT_PASSWORD: "{{db_slave_password}}"
+    ports:
+      "{{ db_slave_port }}:{{ db_master_port }}"
+    volumes:
+      - mysql_slave_data:/var/lib/mysql2
+    command:
+      --server-id=2
+      --log-bin=mysql-bin
+      --relay-log=relay-log
+      --gtid-mode=ON
+      --enforce-gtid-consistency=TRUE
+      --skip-host-cache
+      --skip-name-resolve
+  register: slave_container
+
+- name: Wait for slave up
+  wait_for:
+    host: "{{ db_host }}"
+    port: "{{ db_slave_port }}"
+    delay: 10
+    timeout: 60
+
+- name: Configure slave
+  community.mysql.mysql_query:
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_slave_port }}"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_slave_password }}"
+    query:
+      - STOP SLAVE;
+      - CHANGE MASTER TO
+          MASTER_HOST='mysql',
+          MASTER_USER='replica',
+          MASTER_PASSWORD='replica_pass';
+      - START SLAVE;

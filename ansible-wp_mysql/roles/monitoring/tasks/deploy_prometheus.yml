@@ -1,0 +1,29 @@
+- name: Prometheus volume create
+  community.docker.docker_volume:
+    name: prometheus_data
+
+- name: Create config directory
+  ansible.builtin.file:
+    path: "{{ prometheus_config_path }}"
+    state: directory
+    mode: '0644'
+
+- name: Prometheus configuration copy
+  ansible.builtin.copy:
+    src: prometheus.yml
+    dest: "{{ prometheus_config_path }}/prometheus.yml"
+    mode: '0644'
+
+- name: Prometheus container start
+  community.docker.docker_container:
+    name: prometheus
+    image: prom/prometheus:latest
+    restart_policy: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - "{{ prometheus_config_path }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+    networks:
+      - name: wp-network
+    state: started

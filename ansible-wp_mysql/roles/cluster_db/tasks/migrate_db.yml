@@ -1,0 +1,30 @@
+- name: Import dump WordPress DB
+  community.mysql.mysql_db:
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_master_port }}"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    name: "{{ db_name }}"
+    state: import
+    target: "{{ db_dump_path }}"
+
+- name: WordPress container start
+  docker_container:
+    name: wordpress
+    state: started
+
+- name: Get replication status
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_slave_port }}"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_slave_password }}"
+  register: slave_status  
+
+- name: Show replication status
+  debug:
+    msg: |
+      Slave_IO_Running: {{ slave_status.Slave_IO_Running }}
+      Slave_SQL_Running: {{ slave_status.Slave_SQL_Running }}
+      Seconds_Behind_Master: {{ slave_status.Seconds_Behind_Master }}

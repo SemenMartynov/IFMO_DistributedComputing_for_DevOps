@@ -1,0 +1,17 @@
+- name: WordPress container start
+  docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: wp-network
+    env:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: mysql_db
+      WORDPRESS_DB_USER: mysql_user
+      WORDPRESS_DB_PASSWORD: mysql_user_password
+    ports:
+      - "80:80"
+    links:
+      - mysql

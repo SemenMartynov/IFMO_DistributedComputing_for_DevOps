@@ -1,0 +1,5 @@
+- name: Make MySql Cluster
+  hosts: wp_servers
+  become: yes
+  roles:
+    - cluster_db
