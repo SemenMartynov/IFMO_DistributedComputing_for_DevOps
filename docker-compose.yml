@@ -15,8 +15,7 @@ services:
     volumes:
       - mysql_node1_data:/bitnami/mysql/data
     networks:
-      wp_network:
-        ipv4_address: 10.0.0.11
+      - wp_network
 
   node2:
     image: bitnami/mysql:8.0
@@ -35,8 +34,7 @@ services:
     volumes:
       - mysql_node2_data:/bitnami/mysql/data
     networks:
-      wp_network:
-        ipv4_address: 10.0.0.12
+      - wp_network
     depends_on:
       - node1
 
@@ -57,8 +55,7 @@ services:
     volumes:
       - mysql_node3_data:/bitnami/mysql/data
     networks:
-      wp_network:
-        ipv4_address: 10.0.0.13
+      - wp_network
     depends_on:
       - node1
 
@@ -81,6 +78,53 @@ services:
     networks:
       - wp_network
 
+  mysqld_exporter_node1:
+    image: prom/mysqld-exporter:latest
+    environment:
+      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node1:3306)/
+    depends_on:
+      - node1
+    networks:
+      - wp_network
+
+  mysqld_exporter_node2:
+    image: prom/mysqld-exporter:latest
+    environment:
+      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node2:3306)/
+    depends_on:
+      - node2
+    networks:
+      - wp_network
+
+  mysqld_exporter_node3:
+    image: prom/mysqld-exporter:latest
+    environment:
+      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node3:3306)/
+    depends_on:
+      - node3
+    networks:
+      - wp_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      - wp_network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - wp_network
+    depends_on:
+      - prometheus
+
 volumes:
   mysql_node1_data:
   mysql_node2_data:
@@ -89,7 +133,4 @@ volumes:
 
 networks:
   wp_network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.0.0.0/24 
+    driver: bridge 

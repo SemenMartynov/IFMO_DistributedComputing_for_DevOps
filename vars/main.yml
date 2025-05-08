@@ -13,7 +13,7 @@ project_dir: "{{ project_home }}/wordpress"
 # Docker network config
 docker_network_name: "wp_network"
 
-# Database cluster configuration
+# Database cluster config
 mysql_root_password: "root_password"
 mysql_database: "wordpress"
 mysql_user: "wordpress"

@@ -1,4 +1,30 @@
 ---
+- name: Setup ansible user
+  hosts: wordpress_servers
+  become: true
+  tasks:
+    - name: Create ansible user
+      user:
+        name: ansible
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+        create_home: yes
+        state: present
+
+    - name: Set up sudo for ansible user
+      copy:
+        content: "ansible ALL=(ALL) NOPASSWD:ALL"
+        dest: /etc/sudoers.d/ansible
+        mode: 0440
+        validate: /usr/sbin/visudo -cf %s
+
+    - name: Add authorized key
+      authorized_key:
+        user: ansible
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
 - name: Deploy WordPress with Docker
   hosts: wordpress_servers
   become: true
@@ -29,12 +55,13 @@
         state: present
         filename: docker
 
-    - name: Install Docker
+    - name: Install Docker and Docker Compose plugin
       apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          - docker-compose-plugin
         state: present
         update_cache: yes
 
@@ -58,12 +85,8 @@
         groups: docker
         append: yes
 
-    - name: Install Docker Compose
-      get_url:
-        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-{{ docker_compose_arch }}"
-        dest: /usr/local/bin/docker-compose
-        mode: '0755'
-        checksum: "{{ docker_compose_sha256 }}"
+    - name: Wait for group changes to take effect
+      meta: flush_handlers
 
     - name: Create project directory
       file:
@@ -72,6 +95,14 @@
         mode: '0755'
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
+
+    - name: Copy prometheus config
+      copy:
+        src: prometheus.yml
+        dest: "{{ project_dir }}/prometheus.yml"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0644'
 
     - name: Copy docker-compose.yml
       copy:
@@ -97,7 +128,7 @@
         group: "{{ project_group }}"
         mode: '0600'
 
-    - name: Deploy WordPress stack
+    - name: Deploy WordPress stack with monitoring
       community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         state: present
