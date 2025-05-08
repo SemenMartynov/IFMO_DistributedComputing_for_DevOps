@@ -1,0 +1,23 @@
+- name: Create exporters config directory
+  ansible.builtin.file:
+    path: "{{ exporters_config_path }}"
+    state: directory
+    mode: '0644'
+
+- name: Create exporter db_master config
+  ansible.builtin.template:
+    src: exporter_cfg_db_mst.j2
+    dest: "{{ exporters_config_path }}/db_master_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db_master container start
+  community.docker.docker_container:
+    name: db_master_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db_master_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db_master_config.my-cnf:/cfg/db_master_config.my-cnf"
+    networks:
+      - name: wp-network
+    state: started

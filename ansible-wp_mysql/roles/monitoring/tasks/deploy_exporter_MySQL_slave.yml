@@ -1,0 +1,17 @@
+- name: Create exporter db_slave config
+  ansible.builtin.template:
+    src: exporter_cfg_db_slv.j2
+    dest: "{{ exporters_config_path }}/db_slave_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db_slave container start
+  community.docker.docker_container:
+    name: db_slave_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db_slave_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db_slave_config.my-cnf:/cfg/db_slave_config.my-cnf"
+    networks:
+      - name: wp-network
+    state: started
