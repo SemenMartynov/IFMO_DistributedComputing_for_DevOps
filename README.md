@@ -106,7 +106,7 @@ mon
    Follow the prompts to set up the username, email, and password for the superuser.
 
 7. **Run exporters**  
-   Use the `run-docker-master.yml` playbook to launch exporeter services on the **master**, **slave** servers using Docker Compose:
+   Use the `run-docker-exporter.yml` playbook to launch exporeter services on the **master**, **slave** servers using Docker Compose:
    ```bash
    ansible-playbook -i inventory run-docker-exporter.yml
    ```
