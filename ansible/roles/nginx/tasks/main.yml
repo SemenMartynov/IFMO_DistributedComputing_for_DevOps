@@ -1,0 +1,30 @@
+---
+- name: Создание необходимых директорий
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "/opt/nginx"
+    - "/opt/nginx/conf.d"
+
+- name: Создание конфигурации Nginx
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /opt/nginx/conf.d/wordpress.conf
+    mode: '0644'
+
+- name: Установка контейнера Nginx
+  community.docker.docker_container:
+    name: "{{ nginx_container_name }}"
+    image: "{{ nginx_image }}"
+    state: started
+    restart: true
+    ports:
+      - "80:80"
+    restart_policy: always
+    networks:
+      - name: "{{ docker_network }}"
+    volumes:
+      - /opt/nginx/conf.d:/etc/nginx/conf.d:ro
+      - "{{ wordpress_volume }}:/var/www/html:ro"

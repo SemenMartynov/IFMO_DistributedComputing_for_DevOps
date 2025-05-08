@@ -1,0 +1,26 @@
+---
+- name: Установка docker
+  hosts: all
+  become: true
+  roles:
+    - docker
+
+- name: Создание дампа со старого котнейнера mysql и его остановка
+  hosts: lemp
+  become: true
+  roles:
+    - mysql
+
+- name: Запуск mysql master-slave
+  hosts: mysql
+  become: true
+  roles:
+    - replicatied_mysql
+
+
+- name: Перезапуск контейнеров nginx + wordpress
+  hosts: lemp
+  become: true
+  roles:
+    - nginx
+    - wordpress
