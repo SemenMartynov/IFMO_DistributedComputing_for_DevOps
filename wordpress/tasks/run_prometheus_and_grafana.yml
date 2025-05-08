@@ -1,0 +1,28 @@
+---
+- name: Create exporter users
+  community.mysql.mysql_user:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: "{{ item | int }}"
+    name: "{{ mysql_exporter_user }}"
+    password: "{{ mysql_exporter_password }}"
+    priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+    host: "%"
+    state: present
+  loop:
+    - "{{ db_master_port }}"
+    - "{{ db_replica_port }}"
+
+- name: Sleep for 5 seconds
+  ansible.builtin.wait_for:
+    timeout: 5
+
+- name: Restart exporter containers
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: started
+    restart: yes
+  loop:
+    - "{{ master_exporter_container_name }}"
+    - "{{ replica_exporter_container_name }}"

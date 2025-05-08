@@ -1,8 +1,8 @@
 services:
   wordpress:
+    container_name: wordpress
     image: wordpress:latest
     restart: always
-    container_name: wordpress
     ports:
       - 80:80
     environment:
@@ -13,15 +13,17 @@ services:
     depends_on:
       - db-master
       - db-replica
-    volumes:
-      - wordpress:/var/www/html
     networks:
       - wordpress-network
+    volumes:
+      - wordpress:/var/www/html
 
   db-master:
+    container_name: {{ master_container_name }}
     image: mysql:8.0
     restart: always
-    container_name: {{ master_container_name }}
+    ports:
+      - "{{ db_master_port }}:3306"
     environment:
       MYSQL_DATABASE: {{ wordpress_db_name }}
       MYSQL_USER: {{ master_db_user }}
@@ -38,8 +40,6 @@ services:
       - db_data_master:/var/lib/mysql
     networks:
       - wordpress-network
-    ports:
-      - "{{ db_master_port }}:3306"
 
   db-replica:
     image: mysql:8.0
@@ -58,6 +58,7 @@ services:
       --binlog-format=ROW
       --gtid-mode=ON
       --enforce-gtid-consistency=ON
+      --bind-address=0.0.0.0
       --default-authentication-plugin=mysql_native_password
       --skip-replica-start
     depends_on:
@@ -69,35 +70,59 @@ services:
     ports:
       - "{{ db_replica_port }}:3306"
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: {{ prometheus_container_name }}
+  mysql_replica_exporter:
+    container_name: {{ replica_exporter_container_name }}
+    image: prom/mysqld-exporter
     restart: always
-    ports:
-      - "{{ prometheus_port }}:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+    command:
+      - "--mysqld.username={{ mysql_exporter_user }}:{{ mysql_exporter_password }}"
+      - "--mysqld.address={{ replica_container_name }}:3306"
+    networks:
+      - wordpress-network
+    depends_on:
+      - db-replica
+
+  mysql_master_exporter:
+    container_name: {{ master_exporter_container_name }}
+    image: prom/mysqld-exporter
+    restart: always
+    command:
+      - "--mysqld.username={{ mysql_exporter_user }}:{{ mysql_exporter_password }}"
+      - "--mysqld.address={{ master_container_name }}:3306"
     networks:
       - wordpress-network
     depends_on:
       - db-master
-      - db-replica
 
-  grafana:
-    image: grafana/grafana-enterprise
-    container_name: grafana
+  prometheus:
+    container_name: "{{ prometheus_container_name }}"
+    image: prom/prometheus:latest
     restart: always
     ports:
-      - "{{ grafana_port }}:3000"
+      - "{{ prometheus_port }}:9090"
+    networks:
+      - wordpress-network
+    depends_on:
+      - mysql_master_exporter
+      - mysql_replica_exporter
+    volumes:
+      - "/home/{{ ansible_user }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-enterprise
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - wordpress-network
     environment:
-      GF_SECURITY_ADMIN_USER: {{ grafana_admin_username }}
-      GF_SECURITY_ADMIN_PASSWORD: {{ grafana_admin_password }}
+      GF_SECURITY_ADMIN_USER: "{{ grafana_admin_username }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_INSTALL_PLUGINS: "grafana-piechart-panel"
     volumes:
       - grafana_data:/var/lib/grafana
-    networks:
-      - wordpress-network
+      - /home/{{ ansible_user }}/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     depends_on:
       - prometheus
 
@@ -105,7 +130,6 @@ volumes:
   wordpress:
   db_data_master:
   db_data_replica:
-  prometheus_data:
   grafana_data:
 
 networks:

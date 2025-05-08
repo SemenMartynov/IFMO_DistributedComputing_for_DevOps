@@ -8,8 +8,8 @@ scrape_configs:
 
   - job_name: "mysql-master-monitoring"
     static_configs:
-      - targets: ["{{ master_container_name }}:3306"]
+      - targets: ["{{ master_exporter_container_name }}:9104"]
 
   - job_name: "mysql-replica-monitoring"
     static_configs:
-      - targets: ["{{ replica_container_name }}:3306"]
+      - targets: ["{{ replica_exporter_container_name }}:9104"]

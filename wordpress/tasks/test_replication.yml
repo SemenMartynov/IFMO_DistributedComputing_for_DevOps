@@ -27,6 +27,10 @@
     query: "SELECT name FROM {{ test_table_name }} WHERE id = {{ test_row_id | int }}"
   register: test_query_result
 
+- name: Sleep for 5 seconds
+  ansible.builtin.wait_for:
+    timeout: 5
+
 - name: Check result
   ansible.builtin.assert:
     that:

@@ -15,5 +15,8 @@
 - name: Check if the database is ready
   ansible.builtin.import_tasks: check_replica_status.yml
 
+- name: Run Prometheus & Grafana
+  ansible.builtin.import_tasks: run_prometheus_and_grafana.yml
+
 - name: Test replication
   ansible.builtin.import_tasks: test_replication.yml
