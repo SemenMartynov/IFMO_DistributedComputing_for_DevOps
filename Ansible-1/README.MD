@@ -17,7 +17,7 @@ apt install -y python3 python3-pip ansible
 ## Запуск playbooks
 - Первый playbook установит Docker, WordPress, MySQL и все настроит
 ```
-ansible-playbook playbooks/docker-wp-mysql.yml
+ansible-playbook playbooks/playbook-1-docker-wp-mysql.yml
 ```
 - Второй playbook преобразует mysql в mysql master & replica
 ```
