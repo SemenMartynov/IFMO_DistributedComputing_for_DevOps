@@ -4,4 +4,3 @@ collections:
     version: "4.5.2"
   - name: community.mysql
     version: "3.13.0"
-

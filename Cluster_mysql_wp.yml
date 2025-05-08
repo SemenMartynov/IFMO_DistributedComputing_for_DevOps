@@ -64,7 +64,7 @@
         - mysql_slave_data
         - wp_data
 
-  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2 
+  ##  Генерация SQL-файлов через шаблоны user_init_master.sql.j2
   ## и user_init_slave.sql.j2 заполняются переменными и копируются в project/sql_confs/,
   ## необходимо для того чтобы Ansible видел переменные
     - name: Копирование master.cnf
