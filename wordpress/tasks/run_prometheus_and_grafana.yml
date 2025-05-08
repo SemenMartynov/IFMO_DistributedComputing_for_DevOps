@@ -22,7 +22,7 @@
   community.docker.docker_container:
     name: "{{ item }}"
     state: started
-    restart: yes
+    restart: true
   loop:
     - "{{ master_exporter_container_name }}"
     - "{{ replica_exporter_container_name }}"
