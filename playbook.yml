@@ -20,7 +20,7 @@
         validate: /usr/sbin/visudo -cf %s
 
     - name: Add authorized key
-      authorized_key:
+      ansible.builtin.authorized_key:
         user: ansible
         state: present
         key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
