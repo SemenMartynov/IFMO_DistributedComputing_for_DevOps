@@ -138,6 +138,30 @@
         timeout: 120
         state: started
 
+    - name: Ожидание полной инициализации MySQL Master
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_port: 3307
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT 1"
+      register: master_ready
+      until: master_ready is succeeded
+      retries: 10
+      delay: 10
+
+    - name: Ожидание полной инициализации MySQL Slave
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_port: 3308
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT 1"
+      register: slave_ready
+      until: slave_ready is succeeded
+      retries: 10
+      delay: 10
+      
     - name: настраиваю репликацию на Slave
       community.mysql.mysql_replication:
         mode: "changeprimary"
