@@ -1,9 +1,13 @@
 [master]
-vm-master ansible_host=192.168.0.5 ansible_user=user ansible_password=123 ansible_become_password=123
+vm-master ansible_host=192.168.0.209 ansible_user=user ansible_password=123 ansible_become_password=123
 
 [slave]
-vm-slave ansible_host=192.168.0.250 ansible_user=user ansible_password=123 ansible_become_password=123
+vm-slave ansible_host=192.168.0.241 ansible_user=user ansible_password=123 ansible_become_password=123
+
+[mon]
+vm-mon ansible_host=192.168.0.220 ansible_user=user ansible_password=123 ansible_become_password=123
 
 [all:children]
 master
 slave
+mon

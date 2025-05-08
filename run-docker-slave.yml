@@ -2,17 +2,38 @@
 - name: Install Docker and manage docker-compose
   hosts: slave
   become: yes
+  vars:
+    project_dir: "/home/{{ ansible_user }}/netbox"
+    compose_file: "{{ project_dir }}/docker-compose_slave.yml"
+
   tasks:
-    - name: Copy docker-compose.yml_slave to the remote host
+    - name: Copy docker-compose_slave.yml to the remote host
       copy:
         src: ./netbox/
-        dest: /home/{{ ansible_user }}/netbox/
+        dest: "{{ project_dir }}"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        directory_mode: '0644'
+        directory_mode: '0755'
 
-    - name: Run docker-compose in detached mode
-      command: >
-        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_slave.yml up -d
-      args:
-        chdir: /home/{{ ansible_user }}
+    - name: Show master node IP
+      debug:
+        msg: "Master host IP: {{ hostvars[groups['master'][0]]['ansible_host'] }}"
+
+    - name: Replace postgres-slave.env with rendered template
+      template:
+        src: templates/postgres-slave.env.j2
+        dest: "{{ project_dir }}/env/postgres-slave.env"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+
+    - name: Ensure services are up and running using docker-compose v2
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present
+        build: 'never'
+        remove_orphans: no
+        timeout: 30
+        recreate: 'always'

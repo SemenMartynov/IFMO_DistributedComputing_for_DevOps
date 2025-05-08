@@ -10,18 +10,12 @@ services:
     env_file:
       - env/netbox.env
       - env/netbox-master.env
-    user: "root:root"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       start_period: 120s
       timeout: 10s
       interval: 30s
       retries: 3
-#    volumes:
-#      - ./configuration:/etc/netbox/config:z,ro
-#      - netbox-media-files:/opt/netbox/netbox/media:rw
-#      - netbox-reports-files:/opt/netbox/netbox/reports:rw
-#      - netbox-scripts-files:/opt/netbox/netbox/scripts:rw
   netbox-worker:
     image: docker.io/netboxcommunity/netbox:${VERSION-v4.2-3.2.0}
     depends_on:

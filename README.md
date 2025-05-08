@@ -19,37 +19,28 @@ The project includes:
 ---
 
 ## Project Structure
-
 ```
 .
 ├── LICENSE
 ├── README.md
-├── install-docker.yml          # Ansible playbook to install Docker and copy the NetBox project folder
-├── inventory                   # Inventory file for Ansible
-├── netbox                      # Main NetBox project folder
-│   ├── configuration            # Configuration files for NetBox
-│   │   ├── configuration.py     # Main NetBox configuration
-│   │   ├── extra.py             # Additional custom configurations
-│   │   ├── ldap                 # LDAP-related configurations
-│   │   │   ├── extra.py         # Extra LDAP settings
-│   │   │   └── ldap_config.py   # LDAP configuration file
-│   │   ├── logging.py           # Logging settings
-│   │   └── plugins.py           # Plugin configurations
+├── exporter
+│   └── docker-compose_exporter.yml       # Docker Compose for running exporters node-exporter and postgres-exporter
+├── install-docker.yml                    # Ansible playbook to install Docker
+├── inventory                             # Ansible inventory file
+├── mon                                   # Monitoring-related configurations
+│   ├── docker-compose_mon.yml            # Docker Compose for Prometheus + Grafana stack
+│   ├── grafana                           # Grafana provisioning configs
+│   └── prometheus                        # Prometheus configuration
+├── netbox                                # NetBox folder
 │   ├── docker-compose_master.yml # Docker Compose file for launching NetBox master services
 │   ├── docker-compose_slave.yml  # Docker Compose file for launching NetBox slave services
-│   └── env                      # Environment variable files
-│       ├── netbox-master.env    # NetBox master-specific environment variables
-│       ├── netbox-slave.env     # NetBox slave-specific environment variables
-│       ├── netbox.env           # NetBox-specific environment variables
-│       ├── postgres-master.env  # PostgreSQL master database configuration
-│       ├── postgres-slave.env   # PostgreSQL slave database configuration
-│       ├── postgres.env         # PostgreSQL database configuration
-│       ├── redis-cache.env      # Redis cache configuration
-│       └── redis.env            # Redis configuration
-├── run-docker-master.yml        # Ansible playbook to start NetBox master using Docker Compose
-├── run-docker-slave.yml         # Ansible playbook to start NetBox slave using Docker Compose
-└── scr.png                      # Screenshot or image file
+│   └── env                               # Environment variables
+├── run-docker-exporter.yml               # Ansible playbooks
+├── run-docker-master.yml
+├── run-docker-mon.yml
+└── run-docker-slave.yml
 ```
+
 
 ---
 
@@ -58,19 +49,23 @@ The project includes:
 ### Prerequisites
 
 1. Ensure that Ansible is installed on your control machine.
-2. Update the `inventory` file with the target hosts for both the **master** and **slave** servers under appropriate groups.
+2. Update the `inventory` file with the target hosts for both the **master** and **slave**  and **monitoring** servers under appropriate groups.
 
 Example `inventory` file:
 ```ini
 [master]
-192.168.0.5
+vm-master ansible_host=192.168.0.209 ansible_user=user ansible_password=123 ansible_become_password=123
 
 [slave]
-192.168.0.250
+vm-slave ansible_host=192.168.0.241 ansible_user=user ansible_password=123 ansible_become_password=123
+
+[mon]
+vm-mon ansible_host=192.168.0.220 ansible_user=user ansible_password=123 ansible_become_password=123
 
 [all:children]
 master
 slave
+mon
 ```
 
 ### Steps
@@ -110,6 +105,18 @@ slave
    ```
    Follow the prompts to set up the username, email, and password for the superuser.
 
+7. **Run exporters**
+   Use the `run-docker-master.yml` playbook to launch exporeter services on the **master**, **slave** servers using Docker Compose:
+   ```bash
+   ansible-playbook -i inventory run-docker-exporter.yml
+   ```
+
+8. **Run monitoring**
+   Use the `run-docker-mon.yml` playbook to launch prometheus+grafana services on the **monitoring** server using Docker Compose:
+   ```bash
+   ansible-playbook -i inventory run-docker-mon.yml
+   ```
+
 ---
 
 ## Accessing the NetBox UI
@@ -142,6 +149,10 @@ Below is an example of how the NetBox UI might look:
 
 ### Screenshot of Netbox UI with **maintenance mode**
 ![Screen](./scr_slave.png)
+
+### Screenshot of Grafana dashborad
+![Screen](./src_dashboard.png)
+
 
 ---
 

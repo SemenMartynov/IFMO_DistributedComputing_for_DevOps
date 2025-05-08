@@ -2,31 +2,26 @@
 - name: Install Docker and manage docker-compose
   hosts: master
   become: yes
+  vars:
+    project_dir: "/home/{{ ansible_user }}/netbox"
+    compose_file: "{{ project_dir }}/docker-compose_master.yml"
+
   tasks:
     - name: Copy docker-compose_master.yml to the remote host
       copy:
         src: ./netbox/
-        dest: /home/{{ ansible_user }}/netbox/
+        dest: "{{ project_dir }}"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        directory_mode: '0644'
+        directory_mode: '0755'
 
-    - name: Check if docker-compose is already running
-      command: >
-        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_master.yml ps --format json
-      register: docker_compose_status
-      ignore_errors: yes
-      changed_when: false
-
-    - name: Stop docker-compose if it is already running
-      command: >
-        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_master.yml down
-      when: docker_compose_status.stdout != "[]"
-      args:
-        chdir: /home/{{ ansible_user }}
-
-    - name: Run docker-compose in detached mode
-      command: >
-        docker compose -f /home/{{ ansible_user }}/netbox/docker-compose_master.yml up -d
-      args:
-        chdir: /home/{{ ansible_user }}
+    - name: Ensure services are running with correct compose file
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present  # Создаст и запустит, если не существует
+        build: never
+        remove_orphans: no
+        timeout: 30
+        recreate: always  # Пересоздаёт контейнеры, если конфиг изменился
