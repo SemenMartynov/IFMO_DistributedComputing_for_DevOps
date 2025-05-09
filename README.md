@@ -15,7 +15,7 @@ Distributed Computing course for DevOps 2025
 ## Структура проекта
 
 ```
-├── .env                  # Переменные окружения для WordPress и MariaDB
+├── _.env                  # Переменные окружения для WordPress и MariaDB
 ├── .gitignore            # Исключения для Git (например, inventory.ini)
 ├── docker-compose.yml    # Описание Docker-сервисов
 ├── LICENSE               # Файл с данными по лизении
@@ -59,22 +59,11 @@ touch inventory.ini
 
 ```ini
 [wordpress]
-<IP-адрес вашего сервера> ansible_user=your_user ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3.12
+<IP-адрес вашего сервера> ansible_user=your_user ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
 ```
 
-3. Отредактируйте `.env` (указанные логин и пароли предоставлены в качестве примера):
-
-```env
-MYSQL_DATABASE=wpdb
-MYSQL_USER=wpuser
-MYSQL_PASSWORD=change_me_ple4se
-MYSQL_ROOT_PASSWORD=rootP4ssw0rd!
-
-WORDPRESS_DB_NAME=wpdb
-WORDPRESS_DB_USER=wpuser
-WORDPRESS_DB_PASSWORD=change_me_ple4se
-WORDPRESS_DB_HOST=db:3306
-```
+3. Создайте `.env` файл в котором укажите требуемый набор секретов, пример файла есть в репозитории '_.env'
+Все секреты указанные в файле '_.env' должны быть изменены, в целях обеспечения безопасности.
 
 4. Запустите Ansible:
 
@@ -98,6 +87,6 @@ http://<IP-адрес вашего сервера>
 
 Проект подготовлен в рамках курса **"Распределённые вычисления в DevOps"**
 **Денис Булгаков**
-Апрель 2025
+Май 2025
 
 ---

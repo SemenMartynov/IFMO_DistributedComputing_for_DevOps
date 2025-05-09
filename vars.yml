@@ -1,0 +1,12 @@
+project_dir: /opt/wordpress
+docker_compose_dest: "{{ project_dir }}/docker-compose.yml"
+mariadb_root_password: supersecure
+mariadb_user: wpuser
+mariadb_password: wp_pass
+mariadb_database: wpdb
+galera_cluster_name: galera_cluster
+galera_backup_user: backup
+galera_backup_password: backup_pass
+replication_user: replicator
+replication_password: repl_pass
+ansible_user: user

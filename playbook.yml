@@ -1,80 +1,130 @@
----
-- name:  wordpress splitted to containers (web + db)
+- name: Wordpress splitted to containers (web + db)
   hosts: all
   become: true
 
-  tasks:
-    - name: Print detected OS
-      debug:
-        msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+  vars_files:
+    - vars.yml
 
-    - name: Install dependencies on Ubuntu
-      apt:
+  roles:
+    - docker
+
+  tasks:
+    - name: Install dependencies (Debian family)
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
           - curl
+          - gnupg
+          - lsb-release
           - software-properties-common
+          - python3-pip
         state: present
-        update_cache: yes
-      when: ansible_facts['os_family'] == "Ubuntu"
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
 
-    - name: Install dependencies on RHEL-like
-      dnf:
+    - name: Install dependencies (RHEL family)
+      ansible.builtin.dnf:
         name:
           - dnf-plugins-core
           - curl
+          - python3-pip
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "RedHat"
 
-    - name: add docker gpg key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
+    - name: Install pymysql via apt (Debian-based systems)
+      ansible.builtin.apt:
+        name: python3-pymysql
         state: present
+      when: ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_version'] is version('22.04', '>='))
 
-    - name: add docker repo ubuntu
-      apt_repository:
-        repo: deb https://download.docker.com/linux/ubuntu focal stable
-        state: present
-
-    - name: docker and docker compose installation
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
-        state: present
-        update_cache: yes
-
-    - name: checking status for docker service
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: project dir creation
-      file:
-        path: /opt/wordpress
+    - name: Project dir creation
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
         state: directory
+        mode: '0755'
 
-    - name: copy docker-compose.yml
-      copy:
-        src: docker-compose.yml
-        dest: /opt/wordpress/docker-compose.yml
+    - name: Docker compose from template
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ docker_compose_dest }}"
+        mode: '0644'
 
-    - name: copy .env file
-      copy:
-        src: .env
-        dest: /opt/wordpress/.env
-
-    - name: Stop and remove containers
+    - name: Run docker compose (v2)
       community.docker.docker_compose_v2:
-        project_src: /opt/wordpress
-        state: absent
-
-    - name: run dokcer compose (v2)
-      community.docker.docker_compose_v2:
-        project_src: /opt/wordpress
+        project_src: "{{ project_dir }}"
         state: present
+
+    - name: Wait for db-master healthy
+      community.docker.docker_container_info:
+        name: db-master
+      register: master_info
+      until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Check if db-slave container exists
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      failed_when: not slave_info.exists
+
+    - name: Wait for db-slave healthy
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      until: slave_info.container.State.Health is defined and slave_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Check galera status on db-master
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: supersecure
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_master
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_master is defined and
+            galera_check_master.query_result is defined and
+            galera_check_master.query_result[0][0].Value is defined and
+            galera_check_master.query_result[1][0].Value is defined and
+            (galera_check_master.query_result[0][0].Value | int) >= 2 and
+            galera_check_master.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-master staus
+      ansible.builtin.debug:
+        var: galera_check_master
+      when: galera_check_master is defined
+
+    - name: Check galera status on db-slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_slave
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_slave is defined and
+            galera_check_slave.query_result is defined and
+            galera_check_slave.query_result[0][0].Value is defined and
+            galera_check_slave.query_result[1][0].Value is defined and
+            (galera_check_slave.query_result[0][0].Value | int) >= 2 and
+            galera_check_slave.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-slave staus
+      ansible.builtin.debug:
+        var: galera_check_slave
+      when: galera_check_slave is defined
+
