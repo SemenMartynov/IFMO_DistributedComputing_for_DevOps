@@ -159,8 +159,9 @@
   retries: 5
   delay: 30
   until:
-    - replica_status.Slave_IO_Running == "Yes"
-    - replica_status.Slave_SQL_Running == "Yes"
+    - replica_status is defined
+    - (replica_status.Slave_IO_Running | default('')) == "Yes"
+    - (replica_status.Slave_SQL_Running | default('')) == "Yes"
 
 - name: Show replica status
   ansible.builtin.debug:

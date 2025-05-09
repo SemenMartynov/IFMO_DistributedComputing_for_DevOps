@@ -1,0 +1,12 @@
+scrape_configs:
+  - job_name: "node_exporter"  
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+      ca_file: /webconfig/exporter.crt
+    basic_auth:
+      username: {{ monitoring_user }}
+      password: {{ monitoring_password }}
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["{{ hostvars['blog'].ansible_host }}:9100"]

@@ -8,9 +8,14 @@
     mode: '0755'
   loop:
     - "{{ monitoring_dir }}/prometheus"
+    - "{{ monitoring_dir }}/prometheus/scrape_configs"
     - "{{ monitoring_dir }}/alertmanager"
     - "{{ monitoring_dir }}/blackbox"
     - "{{ monitoring_dir }}/grafana"
+    - "{{ monitoring_dir }}/grafana/dashboards"
+    - "{{ monitoring_dir }}/grafana/provisioning"
+    - "{{ monitoring_dir }}/grafana/provisioning/dashboards"
+    - "{{ monitoring_dir }}/grafana/provisioning/datasources"
 
 - name: Upload files
   ansible.builtin.template:
@@ -25,57 +30,14 @@
     - "prometheus/rules.yml"
     - "alertmanager/alertmanager.yml"
     - "blackbox/blackbox.yml"
-    - "grafana/ds.yaml"
-
-- name: Add node_exporter prometheus scrape config
-  ansible.builtin.blockinfile:
-    path: "{{ monitoring_dir }}/prometheus/prometheus.yml"
-    insertafter: 'scrape_configs:'
-    marker: "# {mark} NODE_EXPORTER ANSIBLE MANAGED BLOCK"
-    block: |
-      {% filter indent(width=2, first=true) %}
-      - job_name: "node_exporter"  
-        scheme: https
-        tls_config:
-          insecure_skip_verify: true
-          ca_file: /webconfig/exporter.crt
-        basic_auth:
-          username: {{ monitoring_user }}
-          password: {{ monitoring_password }}
-        metrics_path: /metrics
-        static_configs:
-          - targets: ["{{ hostvars['blog'].ansible_host }}:9100"]
-      {% endfilter %}
-
-- name: Add mysql_exporter prometheus scrape config
-  ansible.builtin.blockinfile:
-    path: "{{ monitoring_dir }}/prometheus/prometheus.yml"
-    insertafter: 'scrape_configs:'
-    marker: "# {mark} MYSQL_EXPORTER ANSIBLE MANAGED BLOCK"
-    block: |
-      {% filter indent(width=2, first=true) %}
-      - job_name: "mysql_exporter"  
-        scheme: https
-        tls_config:
-          insecure_skip_verify: true
-          ca_file: /webconfig/exporter.crt
-        basic_auth:
-          username: {{ monitoring_user }}
-          password: {{ monitoring_password }}
-        metrics_path: /metrics
-        static_configs:
-        - targets:
-          - db:3306
-          - db-replica:3306
-        relabel_configs:
-          - source_labels: [__address__]
-            target_label: __param_target
-          - source_labels: [__param_target]
-            target_label: instance
-          - target_label: __address__
-            # The mysqld_exporter host:port
-            replacement: {{ hostvars['blog'].ansible_host }}:9104
-      {% endfilter %}
+    - "grafana/provisioning/dashboards/default.yaml"
+    - "grafana/provisioning/datasources/default.yaml"
+    - "grafana/dashboards/blackbox.json"
+    - "grafana/dashboards/mysql-exporter.json"
+    - "grafana/dashboards/node-exporter.json"
+    - "prometheus/scrape_configs/node-exporter.yml"
+    - "prometheus/scrape_configs/mysql-exporter.yml" 
+    - "prometheus/scrape_configs/blackbox.yml"
 
 - name: Create and start apps
   community.docker.docker_compose_v2:

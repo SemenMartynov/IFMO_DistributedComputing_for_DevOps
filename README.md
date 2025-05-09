@@ -35,8 +35,8 @@
 
 Доступы к prometheus и grafana:
 
-https://<monitoring-host-ip>:9090/
-http://<monitoring-host-ip>:3000/
+https://monitoring-host-ip:9090/
+http://monitoring-host-ip:3000/
 
 **Доработки по заданию 2:**
 
@@ -47,6 +47,15 @@ http://<monitoring-host-ip>:3000/
 ✅ Пропускаем таски с созданием и восстановлением дампа, если репликация была включена ранее
 
 ✅ server_id в vars
+
+
+## Task 4
+
+**Доработки по заданию 3:**
+
+✅ Добавление экспортеров через Prometheus Scrape Configs вместо blockinfile
+✅ Исправлена работа на arm64 
+✅ Предустановлены дашборды в Grafana
 
 # Использование
 
