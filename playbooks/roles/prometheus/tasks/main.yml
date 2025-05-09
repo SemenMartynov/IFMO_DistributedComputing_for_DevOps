@@ -1,0 +1,130 @@
+---
+- name: Создать пользователя Prometheus
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    shell: /sbin/nologin
+    home: /var/lib/prometheus
+    create_home: true
+
+- name: Скачать Prometheus
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}.tar.gz"
+    dest: "/tmp/prometheus.tar.gz"
+    checksum: "sha256:https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+    mode: '0644'
+
+- name: Создать каталоги для Prometheus
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - "{{ prometheus_dir }}"
+    - "{{ prometheus_config_dir }}"
+
+- name: Распаковать архив с Prometheus
+  ansible.builtin.unarchive:
+    src: "/tmp/prometheus.tar.gz"
+    dest: "{{ prometheus_dir }}"
+    remote_src: true
+    mode: '0750'
+    owner: prometheus
+    group: prometheus
+
+- name: Доставить конфигурационный файл Prometheus
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/prometheus.yml.j2"
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    mode: '0640'
+    owner: prometheus
+    group: prometheus
+
+- name: Создать unit для Prometheus
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/prometheus.service.j2"
+    dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Скачать Node Exporter
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/prometheus/node_exporter/releases/download/v{{
+      prometheus_node_exporter_version }}/node_exporter-{{ prometheus_node_exporter_version }}.{{
+      prometheus_arch }}.tar.gz
+    dest: "/tmp/node_exporter.tar.gz"
+    checksum: >-
+      sha256:https://github.com/prometheus/node_exporter/releases/download/v{{
+      prometheus_node_exporter_version }}/sha256sums.txt
+    mode: '0644'
+
+- name: Создать каталоги для Node Exporter
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - "{{ prometheus_node_exporter_dir }}"
+
+- name: Распаковать архив с Node Exporter
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter.tar.gz"
+    dest: "{{ prometheus_node_exporter_dir }}"
+    remote_src: true
+    mode: '0750'
+    owner: prometheus
+    group: prometheus
+
+- name: Создать unit для Node Exporter
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/node_exporter.service.j2"
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Запустить Node Exporter
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Запустить Prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Запустить docker контейнер с mysql exporter для мастера
+  community.docker.docker_container:
+    name: mysqld-exporter-master
+    image: prom/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ prometheus_mysql_exporter_master_port }}:9104"
+    command:
+      - "--mysqld.username=root:{{ mysql_root_password }}"
+      - "--mysqld.address={{ ansible_host }}:{{ db_port }}"
+
+- name: Запустить docker контейнер с mysql exporter для слейва
+  community.docker.docker_container:
+    name: mysqld-exporter-slave
+    image: prom/mysqld-exporter
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ prometheus_mysql_exporter_slave_port }}:9104"
+    command:
+      - "--mysqld.username=root:{{ mysql_root_password }}"
+      - "--mysqld.address={{ ansible_host }}:{{ slave_mysql_port }}"

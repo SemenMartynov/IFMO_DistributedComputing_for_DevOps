@@ -1,0 +1,56 @@
+services:
+
+  wordpress:
+    image: wordpress
+    container_name: wordpress
+    ports:
+      - "{{ wordpress_port }}:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql-master
+      WORDPRESS_DB_USER: {{ db_user }}
+      WORDPRESS_DB_PASSWORD: {{ db_pass }}
+      WORDPRESS_DB_NAME: {{ db_name }}
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - mysql-net
+
+  mysql-master:
+    image: mysql:8.0
+    container_name: mysql-master
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+      MYSQL_DATABASE: {{ db_name }}
+      MYSQL_USER: {{ db_user }}
+      MYSQL_PASSWORD: {{ db_pass }}
+    volumes:
+      - master-data:/var/lib/mysql
+      - ./config/mysql-master.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - mysql-net
+
+  mysql-slave:
+    image: mysql:8.0
+    container_name: mysql-slave
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+    volumes:
+      - slave-data:/var/lib/mysql
+      - ./config/mysql-slave.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    ports:
+      - "{{ slave_mysql_port }}:3306"
+    networks:
+      - mysql-net
+    depends_on:
+      - mysql-master
+
+networks:
+  mysql-net:
+    driver: bridge
+
+volumes:
+  wordpress:
+  master-data:
+  slave-data:

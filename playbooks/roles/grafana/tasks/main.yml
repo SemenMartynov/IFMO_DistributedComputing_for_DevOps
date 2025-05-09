@@ -1,0 +1,52 @@
+---
+- name: Создать директории provisioning
+  ansible.builtin.file:
+    path: "./provisioning/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "datasources"
+    - "dashboards"
+
+- name: Копировать конфигурационные файлы источника данных
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/grafana/templates/provisioning/datasources/prometheus.yml.j2"
+    dest: "./provisioning/datasources/prometheus.yml"
+    mode: '0644'
+
+- name: Копировать конфигурационные файлы дашборда
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/roles/grafana/files/provisioning/{{ item.src }}"
+    dest: "./provisioning/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "dashboards/dashboards.yml", dest: "dashboards/dashboards.yml" }
+    - { src: "dashboards/node_exporter.json", dest: "dashboards/node_exporter.json" }
+    - { src: "dashboards/docker.json", dest: "dashboards/docker.json" }
+    - { src: "dashboards/mysql-overview.json", dest: "dashboards/mysql-overview.json" }
+
+- name: Запустить docker контейнер Grafana
+  community.docker.docker_container:
+    name: grafana
+    image: "grafana/grafana-oss:{{ grafana_version }}"
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ grafana_port }}:3000"
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+
+- name: Дождаться, когда Grafana станет доступна
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ grafana_port }}/api/health"
+    method: GET
+    status_code: 200
+    timeout: 10
+  register: grafana_health
+  until: grafana_health.status == 200
+  retries: 20
+  delay: 3

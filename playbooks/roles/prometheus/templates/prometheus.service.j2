@@ -1,0 +1,9 @@
+[Unit]
+Description=Prometheus Server
+After=network-online.target
+
+[Service]
+ExecStart={{ prometheus_dir }}/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/prometheus \
+    --config.file={{ prometheus_config_dir }}/prometheus.yml
+
+Restart=always

@@ -1,0 +1,8 @@
+[Unit]
+Description=Node Exporter
+After=network-online.target
+
+[Service]
+ExecStart={{ prometheus_node_exporter_dir }}/node_exporter-{{ prometheus_node_exporter_version }}.{{ prometheus_arch }}/node_exporter
+
+Restart=always
