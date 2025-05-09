@@ -3,7 +3,7 @@
   ansible.builtin.file:
     path: /opt/wordpress
     state: directory
-  become: yes
+  become: true
 
 - name: Установить права на директорию
   ansible.builtin.file:
@@ -11,16 +11,16 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0755"
-  become: yes
+  become: true
 
 - name: Генерация docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: /opt/wordpress/docker-compose.yml
-  become: yes
+  become: true
 
 - name: Запуск Docker Compose
   community.docker.docker_compose_v2:
     project_src: /opt/wordpress
     state: present
-  become: yes
+  become: true
