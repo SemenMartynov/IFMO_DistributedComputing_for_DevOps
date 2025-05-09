@@ -10,3 +10,5 @@
           - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
           - "db_host: {{ db_host }}" # container name
           - "db_pass: {{ db_pass }}" # root password
+
+          

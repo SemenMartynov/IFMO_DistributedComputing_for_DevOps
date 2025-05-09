@@ -24,3 +24,4 @@
     project_src: /opt/wordpress
     state: present
   become: true
+  

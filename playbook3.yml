@@ -6,3 +6,4 @@
       ansible.builtin.debug:
         msg:
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+
