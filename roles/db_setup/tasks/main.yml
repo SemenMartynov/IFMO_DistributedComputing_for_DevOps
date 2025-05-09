@@ -1,29 +1,29 @@
+---
 - name: Wait until MySQL master is healthy
   community.docker.docker_container_info:
     name: mysql_master
   register: master_info
   until: master_info.container.State.Health.Status == 'healthy'
-  retries: 20
-  delay: 10
+  retries: 30
+  delay: 5
 
 - name: Capture MySQL master IP
-  set_fact:
+  ansible.builtin.set_fact:
     master_ip: "{{ master_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
 
-- name: Ensure replication user exists with appropriate settings
+- name: Ensure replication user exists (idempotent)
   community.mysql.mysql_query:
     login_host: "{{ master_ip }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
+    single_transaction: true
     query:
-      - |
-        DROP USER IF EXISTS '{{ replication_user }}'@'%';
-      - |
-        CREATE USER '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_password }}';
-      - |
+      - >-
+        CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
+        IDENTIFIED WITH caching_sha2_password BY '{{ replication_password }}'
+        REQUIRE SSL;
+      - >-
         GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
-      - |
-        ALTER USER '{{ replication_user }}'@'%' REQUIRE SSL;
       - FLUSH PRIVILEGES;
   changed_when: false
 
@@ -33,11 +33,17 @@
   register: legacy_vol
   failed_when: false
 
+- name: Create temporary file for dump
+  ansible.builtin.tempfile:
+    state: file
+    suffix: ".sql"
+  register: dump_tmp
+  when: legacy_vol.exists | default(false)
+
 - name: Start temporary legacy MySQL container
   community.docker.docker_container:
     name: mysql_legacy
     image: mysql:8.4.4
-    detach: true
     env:
       MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
     volumes:
@@ -57,20 +63,15 @@
     name: mysql_legacy
   register: legacy_info
   until: legacy_info.container.State.Health.Status == 'healthy'
-  retries: 20
-  delay: 10
-  when: legacy_vol.exists | default(false)
-
-- name: Capture legacy MySQL IP
-  set_fact:
-    legacy_ip: "{{ legacy_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
+  retries: 30
+  delay: 5
   when: legacy_vol.exists | default(false)
 
 - name: Dump all databases from legacy
   community.mysql.mysql_db:
     state: dump
-    target: /tmp/legacy_dump.sql
-    login_host: "{{ legacy_ip }}"
+    target: "{{ dump_tmp.path }}"
+    login_host: "{{ legacy_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
     single_transaction: yes
@@ -80,7 +81,7 @@
 - name: Import dump into master
   community.mysql.mysql_db:
     state: import
-    target: /tmp/legacy_dump.sql
+    target: "{{ dump_tmp.path }}"
     login_host: "{{ master_ip }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
@@ -93,183 +94,12 @@
     force_kill: true
   when: legacy_vol.exists | default(false)
 
-- name: Wait until MySQL slave1 is healthy
-  community.docker.docker_container_info:
-    name: mysql_slave1
-  register: slave1_info
-  until: slave1_info.container.State.Health.Status == 'healthy'
-  retries: 20
-  delay: 10
+- name: Collect slaves into a list
+  ansible.builtin.set_fact:
+    slave_names: ["mysql_slave1", "mysql_slave2"]
 
-- name: Wait until MySQL slave2 is healthy
-  community.docker.docker_container_info:
-    name: mysql_slave2
-  register: slave2_info
-  until: slave2_info.container.State.Health.Status == 'healthy'
-  retries: 20
-  delay: 10
-
-- name: Capture slaves IPs
-  set_fact:
-    slave1_ip: "{{ slave1_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
-    slave2_ip: "{{ slave2_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
-
-- name: Stop replication on slave1
-  community.mysql.mysql_replication:
-    mode: stopreplica
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-  ignore_errors: true
-
-- name: Reset replica on slave1
-  community.mysql.mysql_query:
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    query: "RESET REPLICA ALL;"
-  changed_when: false
-  ignore_errors: true
-
-- name: Configure replication on slave1
-  community.mysql.mysql_replication:
-    mode: changeprimary
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    primary_host: mysql_master
-    primary_user: "{{ replication_user }}"
-    primary_password: "{{ replication_password }}"
-    primary_auto_position: yes
-    primary_ssl: yes
-
-- name: Start replication on slave1
-  community.mysql.mysql_replication:
-    mode: startreplica
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-
-- name: Stop replication on slave2
-  community.mysql.mysql_replication:
-    mode: stopreplica
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-  ignore_errors: true
-
-- name: Reset replica on slave2
-  community.mysql.mysql_query:
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    query: "RESET REPLICA ALL;"
-  changed_when: false
-  ignore_errors: true
-
-- name: Configure replication on slave2
-  community.mysql.mysql_replication:
-    mode: changeprimary
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    primary_host: mysql_master
-    primary_user: "{{ replication_user }}"
-    primary_password: "{{ replication_password }}"
-    primary_auto_position: yes
-    primary_ssl: yes
-
-- name: Start replication on slave2
-  community.mysql.mysql_replication:
-    mode: startreplica
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-
-- name: Wait for data to replicate (10 seconds)
-  pause:
-    seconds: 10
-  when: (ansible_check_mode|bool) == false
-
-- name: Check replication status on slave1
-  community.mysql.mysql_replication:
-    mode: getreplica
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-  register: repl1_status
-
-- name: Check replication status on slave2
-  community.mysql.mysql_replication:
-    mode: getreplica
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-  register: repl2_status
-
-- name: Check if replica IO thread is running on slave1
-  fail:
-    msg: "Replica IO thread is not running on slave1. Status: {{ repl1_status.Replica_IO_Running }}"
-  when: repl1_status.Replica_IO_Running != 'Yes'
-
-- name: Check if replica SQL thread is running on slave1
-  fail:
-    msg: "Replica SQL thread is not running on slave1. Status: {{ repl1_status.Replica_SQL_Running }}"
-  when: repl1_status.Replica_SQL_Running != 'Yes'
-
-- name: Check if replica IO thread is running on slave2
-  fail:
-    msg: "Replica IO thread is not running on slave2. Status: {{ repl2_status.Replica_IO_Running }}"
-  when: repl2_status.Replica_IO_Running != 'Yes'
-
-- name: Check if replica SQL thread is running on slave2
-  fail:
-    msg: "Replica SQL thread is not running on slave2. Status: {{ repl2_status.Replica_SQL_Running }}"
-  when: repl2_status.Replica_SQL_Running != 'Yes'
-
-- name: Display replication delay on slave1
-  debug:
-    msg: "Replica delay on slave1: {{ repl1_status.Seconds_Behind_Source | default('N/A') }} seconds"
-
-- name: Display replication delay on slave2
-  debug:
-    msg: "Replica delay on slave2: {{ repl2_status.Seconds_Behind_Source | default('N/A') }} seconds"
-
-- name: Check for wordpress_db on master
-  community.mysql.mysql_query:
-    login_host: "{{ master_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    query: "SHOW DATABASES LIKE 'wordpress_db'"
-  register: master_db
-
-- name: Check for wordpress_db on slave1
-  community.mysql.mysql_query:
-    login_host: "{{ slave1_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    query: "SHOW DATABASES LIKE 'wordpress_db'"
-  register: slave1_db
-
-- name: Check for wordpress_db on slave2
-  community.mysql.mysql_query:
-    login_host: "{{ slave2_ip }}"
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    query: "SHOW DATABASES LIKE 'wordpress_db'"
-  register: slave2_db
-
-- name: Verify wordpress_db exists on slave1
-  fail:
-    msg: "wordpress_db does not exist on slave1"
-  when: slave1_db.rowcount == 0
-
-- name: Verify wordpress_db exists on slave2
-  fail:
-    msg: "wordpress_db does not exist on slave2"
-  when: slave2_db.rowcount == 0
-
-- name: Display DB cluster ready message
-  debug:
-    msg: "Master-Replica-Replica replication configured successfully with verified data replication."
-  changed_when: false
+- name: Configure replication on each slave
+  ansible.builtin.include_tasks: configure_replica.yml
+  loop: "{{ slave_names }}"
+  loop_control:
+    loop_var: slave_container
