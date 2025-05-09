@@ -1,4 +1,3 @@
----
 - name: Wordpress splitted to containers (web + db)
   hosts: all
   become: true
@@ -6,14 +5,10 @@
   vars_files:
     - vars.yml
 
-  # roles:
-  #   - docker_install
+  roles:
+    - docker
 
   tasks:
-    - name: Print detected OS
-      ansible.builtin.debug:
-        msg: "Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
-
     - name: Install dependencies (Debian family)
       ansible.builtin.apt:
         name:
@@ -43,78 +38,6 @@
         name: python3-pymysql
         state: present
       when: ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_version'] is version('22.04', '>='))
-
-    - name: Install Docker on Debian-based systems
-      when: ansible_facts['os_family'] == "Debian"
-      block:
-        - name: Ensure /etc/apt/keyrings directory exists
-          ansible.builtin.file:
-            path: /etc/apt/keyrings
-            state: directory
-            mode: '0755'
-
-        - name: Add Docker GPG apt Key
-          ansible.builtin.apt_key:
-            url: https://download.docker.com/linux/ubuntu/gpg
-            state: present
-
-        - name: Add Docker Repository
-          ansible.builtin.apt_repository:
-            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
-            state: present
-            update_cache: true
-
-        - name: Install Docker packages
-          ansible.builtin.apt:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-buildx-plugin
-              - docker-compose-plugin
-            state: present
-            update_cache: true
-
-    - name: Install Docker on RHEL-based systems
-      when: ansible_facts['os_family'] == "RedHat"
-      block:
-        - name: Add Docker YUM repository
-          ansible.builtin.get_url:
-            url: https://download.docker.com/linux/centos/docker-ce.repo
-            dest: /etc/yum.repos.d/docker-ce.repo
-            mode: '0644'
-
-        - name: Install Docker packages
-          ansible.builtin.dnf:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-compose-plugin
-            state: present
-            update_cache: true
-
-    - name: Checking status for docker service
-      ansible.builtin.service:
-        name: docker
-        state: started
-        enabled: true
-
-    - name: Create docker group if it does not exist
-      ansible.builtin.group:
-        name: docker
-        state: present
-
-    - name: Add user to docker group
-      ansible.builtin.user:
-        name: "{{ ansible_user }}"
-        groups: docker
-        append: true
-
-    - name: Docker restart
-      ansible.builtin.systemd:
-        name: docker
-        state: restarted
 
     - name: Project dir creation
       ansible.builtin.file:
@@ -204,3 +127,4 @@
       ansible.builtin.debug:
         var: galera_check_slave
       when: galera_check_slave is defined
+
