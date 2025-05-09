@@ -1,9 +1,9 @@
 ---
 - name: Установка зависимостей
-  apt:
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: present
-    update_cache: yes
+    update_cache: true
   loop:
     - apt-transport-https
     - ca-certificates
@@ -11,33 +11,33 @@
     - software-properties-common
 
 - name: Добавить GPG-ключ Docker
-  apt_key:
+  ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Добавить репозиторий Docker
-  apt_repository:
+  ansible.builtin.apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
     state: present
 
 - name: Установить Docker
-  apt:
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: present
-    update_cache: yes
+    update_cache: true
   loop:
     - docker-ce
     - docker-ce-cli
     - containerd.io
 
 - name: Добавить пользователя в группу docker
-  user:
+  ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
-    append: yes
+    append: true
 
 - name: Запустить Docker
-  service:
+  ansible.builtin.service:
     name: docker
     state: started
-    enabled: yes
+    enabled: true
