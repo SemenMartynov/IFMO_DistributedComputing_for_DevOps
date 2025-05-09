@@ -19,6 +19,7 @@
   ansible.builtin.apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
     state: present
+    mode: "0644"  # Добавлены права доступа
 
 - name: Установить Docker
   ansible.builtin.apt:
@@ -41,4 +42,3 @@
     name: docker
     state: started
     enabled: true
-    
