@@ -1,4 +1,7 @@
 project_dir: /opt/wordpress
+monitoring_dir: /opt/monitoring
+monitoring_compose_file: docker-compose-monitoring.yml
+prometheus_config: /opt/monitoring/prometheus.yml
 docker_compose_dest: "{{ project_dir }}/docker-compose.yml"
 mariadb_root_password: supersecure
 mariadb_user: wpuser
