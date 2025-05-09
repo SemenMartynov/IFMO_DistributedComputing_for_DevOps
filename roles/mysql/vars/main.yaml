@@ -1,0 +1,5 @@
+dependencies:
+  - python3-pymysql
+  - mysql-server
+db_root_user: root
+db_root_password: rootpassword

@@ -1,0 +1,32 @@
+- name: Install dependencies
+  apt:
+    name: '{{ item }}'
+    state: present
+    update_cache: yes
+  with_items: '{{ dependencies }}'
+
+- name: Start MySQL
+  service:
+    name: mysql
+    state: started
+
+- name: Create MySQL user
+  mysql_user:
+    login_user: "{{ db_root_user }}"
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_port }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    state: present
+    host: "%"
+    priv: "{{ db_name }}.*:ALL"
+
+- name: Create database
+  mysql_db:
+    name: '{{ db_name }}'
+    state: present
+    login_user: '{{ db_user }}'
+    login_password: '{{ db_password }}'
+    login_host: '{{ db_host }}'
+    login_port: '{{ db_port }}'
