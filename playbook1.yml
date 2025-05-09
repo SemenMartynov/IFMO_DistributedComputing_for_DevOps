@@ -96,12 +96,12 @@
         groups: docker
         append: true
 
-    - name: Restart Docker service
+    - name: Restarting Docker service
       ansible.builtin.systemd:
         name: docker
         state: restarted
 
-    - name: Install pymysql via apt (Debian-based systems)
+    - name: Installing pymysql via apt (Debian-based systems)
       ansible.builtin.apt:
         name: python3-pymysql
         state: present
@@ -113,33 +113,33 @@
         state: directory
         mode: '0755'
 
-    - name: Deploy WordPress and MariaDB
+    - name: Deploying WordPress and MariaDB
       ansible.builtin.template:
         src: docker-compose-basic.yml.j2
         dest: "{{ docker_compose_dest }}"
         mode: '0644'
 
-    - name: Launch containers
+    - name: Starting containers
       community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         state: present
 
-    - name: Wait for MariaDB to become healthy
+    - name: Waiting for MariaDB to become healthy
       community.docker.docker_container_info:
-        name: db-master
+        name: db
       register: master_info
       until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
       retries: 15
-      delay: 5
+      delay: 10
 
-    - name: Wait for WordPress to respond with HTTP 200
+    - name: Waititing for WordPress to respond with HTTP 200
       ansible.builtin.uri:
         url: "http://localhost"
         status_code: 200
         validate_certs: false
       register: wordpress_health
-      retries: 10
-      delay: 5
+      retries: 15
+      delay: 10
       until: wordpress_health.status == 200
 
     - name: Debug WordPress response

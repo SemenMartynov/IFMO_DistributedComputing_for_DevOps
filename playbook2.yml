@@ -7,18 +7,18 @@
     - vars.yml
 
   tasks:
-    - name: Stop WordPress and MariaDB containers
+    - name: Stoping WordPress and MariaDB containers
       community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         state: absent
 
-    - name: Deploy Galera-enabled docker-compose
+    - name: Deploying Galera-enabled docker-compose
       ansible.builtin.template:
         src: docker-compose-galera.yml.j2
         dest: "{{ docker_compose_dest }}"
         mode: '0644'
 
-    - name: Launch Galera cluster
+    - name: Starting Galera cluster
       community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         state: present
@@ -70,8 +70,8 @@
           - "SHOW STATUS LIKE 'wsrep_ready';"
       register: galera_check_slave
       become: false
-      retries: 10
-      delay: 5
+      retries: 15
+      delay: 10
       until: galera_check_slave.query_result[0][0].Value | int >= 2 and galera_check_slave.query_result[1][0].Value == "ON"
 
     - name: Debug for db-slave staus
@@ -85,8 +85,8 @@
         status_code: 200
         validate_certs: false
       register: wordpress_health
-      retries: 10
-      delay: 5
+      retries: 15
+      delay: 10
       until: wordpress_health.status == 200
 
     - name: Debug WordPress response
