@@ -1,0 +1,16 @@
+---
+- name: Установка Docker
+  hosts: web
+  become: yes
+  roles:
+    - docker
+
+- name: Развертывание WordPress
+  hosts: web
+  vars:
+    db_root_password: "pass"
+    db_name: "wordpress"
+    db_user: "wp_user"
+    db_password: "pass"
+  roles:
+    - wordpress
