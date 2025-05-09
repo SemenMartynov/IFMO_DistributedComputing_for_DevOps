@@ -32,20 +32,20 @@
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Add Docker GPG key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Add Docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_facts['lsb']['codename'] }} stable"
         state: present
         update_cache: true
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Install Docker on Debian-based systems
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -57,7 +57,7 @@
       when: ansible_facts['os_family'] == "Debian"
 
     - name: Install dependencies (RHEL family)
-      dnf:
+      ansible.builtin.dnf:
         name:
           - dnf-plugins-core
           - curl
@@ -67,14 +67,14 @@
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Add Docker YUM repository
-      get_url:
+      ansible.builtin.get_url:
         url: https://download.docker.com/linux/centos/docker-ce.repo
         dest: /etc/yum.repos.d/docker-ce.repo
         mode: '0644'
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Install Docker on RHEL-based systems
-      dnf:
+      ansible.builtin.dnf:
         name:
           - docker-ce
           - docker-ce-cli
@@ -85,19 +85,19 @@
       when: ansible_facts['os_family'] == "RedHat"
 
     - name: Ensure Docker service is started and enabled
-      service:
+      ansible.builtin.service:
         name: docker
         state: started
         enabled: true
 
     - name: Add user to docker group
-      user:
+      ansible.builtin.user:
         name: "{{ ansible_user }}"
         groups: docker
         append: true
 
     - name: Restart Docker service
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         state: restarted
 
