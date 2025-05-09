@@ -1,0 +1,9 @@
+wp_user: korney1978
+wp_group: korney1978
+wp_path: /opt/wordpress
+wp_db_name: mydb
+mysql_root_password: root
+mysql_wp_user: user
+mysql_wp_password: password
+mysql_repl_user: repl
+mysql_repl_password: replpass

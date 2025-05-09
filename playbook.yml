@@ -1,0 +1,231 @@
+- name: Installation Docker and launch WordPress with MySQL Master-Slave
+  hosts: praktikum
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  pre_tasks:
+    - name: Ensure Docker SDK for Python is installed
+      apt:
+        name: python3-docker
+        state: present
+        update_cache: yes
+
+    - name: Ensure Python MySQL driver is installed
+      apt:
+        name: python3-pymysql
+        state: present
+        update_cache: yes
+
+  tasks:
+    - name: Install prerequisite APT packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - containerd
+          - containerd.io
+          - docker-compose
+          - docker-ce
+          - docker-ce-cli
+        state: absent
+        purge: yes
+
+    - name: Clean APT cache
+      command: apt-get clean
+      changed_when: true
+
+    - name: Update APT cache (retry)
+      apt:
+        update_cache: yes
+      register: apt_update
+      retries: 3
+      delay: 5
+      until: apt_update is success
+
+    - name: Remove legacy Docker GPG key
+      command: apt-key del 7EA0A9C3F273FCD8
+      register: rmkey
+      changed_when: rmkey.rc == 0
+      ignore_errors: yes
+
+    - name: Remove legacy keyring files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/trusted.gpg
+        - /etc/apt/trusted.gpg.d/docker.gpg
+        - /usr/share/keyrings/docker-archive-keyring.gpg
+        - /tmp/docker.gpg
+
+    - name: Download Docker’s GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /tmp/docker.gpg
+        mode: '0644'
+
+    - name: Convert GPG key to keyring
+      command:
+        cmd: gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
+      args:
+        creates: /usr/share/keyrings/docker-archive-keyring.gpg
+      changed_when: true
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: >-
+          deb [arch=amd64
+          signed-by=/usr/share/keyrings/docker-archive-keyring.gpg]
+          https://download.docker.com/linux/ubuntu jammy stable
+        state: present
+        update_cache: yes
+
+    - name: Install Docker and Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ansible user to docker group
+      user:
+        name: "{{ wp_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create project directory
+      file:
+        path: "{{ wp_path }}"
+        state: directory
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: files/docker-compose.yml
+        dest: "{{ wp_path }}/docker-compose.yml"
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0644'
+
+    - name: Clean up any old containers & volumes
+      command:
+        cmd: docker compose down -v
+        chdir: "{{ wp_path }}"
+      become_user: "{{ wp_user }}"
+
+    - name: Start only MySQL Master & Slave
+      command:
+        cmd: docker compose up -d db-master db-slave
+        chdir: "{{ wp_path }}"
+      become_user: "{{ wp_user }}"
+
+    - name: Wait for MySQL Master to accept connections
+      shell: |
+        until docker exec db-master mysql -uroot -p{{ mysql_root_password }} -e "SELECT 1" &>/dev/null; do
+          sleep 5
+        done
+      args:
+        executable: /bin/bash
+      retries: 30
+      delay: 5
+      register: master_ready
+      until: master_ready.rc == 0
+      become_user: "{{ wp_user }}"
+
+    - name: Wait for MySQL Slave to accept connections
+      shell: |
+        until docker exec db-slave mysql -uroot -p{{ mysql_root_password }} -e "SELECT 1" &>/dev/null; do
+          sleep 5
+        done
+      args:
+        executable: /bin/bash
+      retries: 30
+      delay: 5
+      register: slave_ready
+      until: slave_ready.rc == 0
+      become_user: "{{ wp_user }}"
+
+    - name: Create replication user on master
+      shell: >
+        docker exec db-master mysql
+        -uroot -p{{ mysql_root_password }}
+        -e "CREATE USER IF NOT EXISTS '{{ mysql_repl_user }}'@'%' IDENTIFIED BY '{{ mysql_repl_password }}';
+            GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_repl_user }}'@'%';
+            FLUSH PRIVILEGES;"
+      args:
+        executable: /bin/bash
+      become_user: "{{ wp_user }}"
+
+    - name: Get master log file and position
+      shell: >
+        docker exec db-master mysql
+        -uroot -p{{ mysql_root_password }}
+        -e "SHOW MASTER STATUS\G"
+        | awk '/File: /{file=$2}/Position: /{pos=$2}END{print file, pos}'
+      register: master_status
+      changed_when: false
+      become_user: "{{ wp_user }}"
+
+    - name: Configure slave to replicate from master
+      shell: >
+        docker exec db-slave mysql
+        -uroot -p{{ mysql_root_password }}
+        -e "CHANGE MASTER TO
+              MASTER_HOST='db-master',
+              MASTER_USER='{{ mysql_repl_user }}',
+              MASTER_PASSWORD='{{ mysql_repl_password }}',
+              MASTER_LOG_FILE='{{ master_status.stdout.split()[0] }}',
+              MASTER_LOG_POS={{ master_status.stdout.split()[1] }};
+            START SLAVE;"
+      args:
+        executable: /bin/bash
+      become_user: "{{ wp_user }}"
+
+    - name: Create application database on master
+      shell: >
+        docker exec db-master mysql
+        -uroot -p{{ mysql_root_password }}
+        -e "CREATE DATABASE IF NOT EXISTS {{ wp_db_name }};"
+      become_user: "{{ wp_user }}"
+
+    - name: Create WordPress user and grant privileges
+      shell: >
+        docker exec db-master mysql
+        -uroot -p{{ mysql_root_password }}
+        -e "CREATE USER IF NOT EXISTS '{{ mysql_wp_user }}'@'%' IDENTIFIED BY '{{ mysql_wp_password }}';
+            GRANT ALL PRIVILEGES ON {{ wp_db_name }}.* TO '{{ mysql_wp_user }}'@'%';
+            FLUSH PRIVILEGES;"
+      args:
+        executable: /bin/bash
+      become_user: "{{ wp_user }}"
+
+    - name: Finally start WordPress container
+      command:
+        cmd: docker compose up -d wordpress
+        chdir: "{{ wp_path }}"
+      become_user: "{{ wp_user }}"
