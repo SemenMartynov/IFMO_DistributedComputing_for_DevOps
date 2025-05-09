@@ -1,9 +1,10 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 83.220.168.126
+      ansible_user: ifmo_ansible_user
+      ansible_password: ifmo_ansible_password
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
+      ansible_become_pass: ifmo_ansible_password
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_connection: paramiko  # Обрабатывает пароль внутри Python-кода

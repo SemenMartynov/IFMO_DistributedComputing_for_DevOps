@@ -1,0 +1,67 @@
+---
+- name: Wait until {{ slave_container }} is healthy
+  community.docker.docker_container_info:
+    name: "{{ slave_container }}"
+  register: slave_info
+  until: slave_info.container.State.Health.Status == 'healthy'
+  retries: 30
+  delay: 5
+
+- name: Capture slave IP
+  ansible.builtin.set_fact:
+    slave_ip: "{{ slave_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
+
+- name: Stop replica if running
+  community.mysql.mysql_replication:
+    mode: stopreplica
+    login_host: "{{ slave_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  ignore_errors: true
+
+- name: Ensure replica configured for master
+  community.mysql.mysql_replication:
+    mode: changeprimary
+    login_host: "{{ slave_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    primary_host: mysql_master
+    primary_user: "{{ replication_user }}"
+    primary_password: "{{ replication_password }}"
+    primary_auto_position: yes
+    primary_ssl: yes
+  register: replica_changed
+
+- name: Start replica (only if changed)
+  community.mysql.mysql_replication:
+    mode: startreplica
+    login_host: "{{ slave_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  when: replica_changed.changed
+
+- name: Wait until replication lag ≤ 2 s on {{ slave_container }}
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_host: "{{ slave_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  register: repl_status
+  until: (repl_status.Replica_IO_Running == 'Yes') and
+         (repl_status.Replica_SQL_Running == 'Yes') and
+         ((repl_status.Seconds_Behind_Source | int) <= 2)
+  retries: 20
+  delay: 6
+
+- name: Assert wordpress_db exists on {{ slave_container }}
+  community.mysql.mysql_query:
+    login_host: "{{ slave_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW DATABASES LIKE '{{ wordpress_db_name }}'"
+  register: db_check
+
+- name: Fail if DB absent on {{ slave_container }}
+  ansible.builtin.fail:
+    msg: "wordpress_db missing on {{ slave_container }}"
+  when: db_check.rowcount == 0

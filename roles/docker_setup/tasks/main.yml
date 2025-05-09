@@ -1,7 +1,8 @@
+---
 - name: Gather installed package facts
   package_facts:
     manager: apt
-  
+
 - name: Check if Docker is already installed
   debug:
     msg: "Docker CE {{ ansible_facts.packages['docker-ce'][0].version if 'docker-ce' in ansible_facts.packages else 'not installed' }}"
@@ -51,7 +52,7 @@
     url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
     state: present
   become: yes
-  when: not docker_version_ok|default(true) or not compose_plugin_version_ok|default(true)
+  when: not docker_version_ok | default(true) or not compose_plugin_version_ok | default(true)
 
 - name: Add Docker repository
   apt_repository:
@@ -60,7 +61,7 @@
     filename: docker
     update_cache: yes
   become: yes
-  when: not docker_version_ok|default(true) or not compose_plugin_version_ok|default(true)
+  when: not docker_version_ok | default(true) or not compose_plugin_version_ok | default(true)
 
 - name: Install Docker Engine with specific version
   apt:
@@ -71,15 +72,15 @@
     state: present
     update_cache: yes
   become: yes
-  when: not docker_version_ok|default(true)
+  when: not docker_version_ok | default(true)
 
-- name: Install Docker Compose Plugin with minimum version
+- name: Install or upgrade Docker Compose Plugin (ensure ≥ {{ compose_plugin_min_version }})
   apt:
-    name: "docker-compose-plugin={{ compose_plugin_min_version }}*"
-    state: present
+    name: docker-compose-plugin
+    state: latest          # ← ставим последнюю доступную версию
     update_cache: yes
   become: yes
-  when: not compose_plugin_version_ok|default(true)
+  when: not compose_plugin_version_ok | default(true)
 
 - name: Install Python Docker SDK on remote host
   apt:

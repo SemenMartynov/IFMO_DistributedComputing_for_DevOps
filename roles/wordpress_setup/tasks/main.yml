@@ -1,4 +1,52 @@
+---
+- name: Wait until wordpress_app is healthy or simply running
+  community.docker.docker_container_info:
+    name: wordpress_app
+  register: wp_info
+  until: >
+    (wp_info.container.State.Health is defined and
+     wp_info.container.State.Health.Status == 'healthy') or
+    (wp_info.container.State.Health is not defined and
+     wp_info.container.State.Status == 'running')
+  retries: 30
+  delay: 4
+
+- name: Install WP-CLI in container (idempotent)
+  community.docker.docker_container_exec:
+    container: wordpress_app
+    command: >
+      bash -c "command -v wp ||
+               curl -s -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar &&
+               chmod +x wp-cli.phar &&
+               mv wp-cli.phar /usr/local/bin/wp"
+  register: wp_cli_install
+  changed_when: "'wp-cli.phar' in wp_cli_install.stdout"
+
+- name: Check if WordPress core is installed
+  community.docker.docker_container_exec:
+    container: wordpress_app
+    command: wp core is-installed --path=/var/www/html --allow-root
+  register: wp_core_check
+  failed_when: false
+  changed_when: false
+
+- name: Install WordPress core
+  community.docker.docker_container_exec:
+    container: wordpress_app
+    command: >
+      wp core install
+        --url='{{ wordpress_site_url }}'
+        --title='WordPress on Docker'
+        --admin_user='{{ wordpress_admin_user }}'
+        --admin_password='{{ wordpress_admin_password }}'
+        --admin_email='{{ wordpress_admin_email }}'
+        --path=/var/www/html
+        --allow-root
+  when: wp_core_check.rc != 0
+  register: wp_core_install
+  changed_when: "'WordPress has been installed' in wp_core_install.stdout"
+
 - name: Display final WordPress setup message
-  debug:
-    msg: "WordPress setup role completed. Nginx + PHP-FPM environment is ready."
+  ansible.builtin.debug:
+    msg: "WordPress + Nginx/PHP-FPM готовы: {{ wordpress_site_url }}"
   changed_when: false
