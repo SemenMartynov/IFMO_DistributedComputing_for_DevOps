@@ -94,13 +94,13 @@
         networks:
           - name: wpnet
 
-    - name: Запустить контейнер mysqld_exporter для мастера
+    - name: Запустить контейнер mysqld_exporter  для мастера
       community.docker.docker_container:
         name: mysqld_exporter_master
         image: prom/mysqld-exporter
         command:
           - '--config.my-cnf=/cfg/.my.cnf'
-          - '--mysqld.address=192.168.56.102:3306'
+          - '--mysqld.address={{ hostvars["vm"]["ansible_host"] }}:3306'
         restart_policy: always
         state: started
         published_ports:
@@ -116,7 +116,7 @@
         image: prom/mysqld-exporter
         command:
           - '--config.my-cnf=/cfg/.my.cnf'
-          - '--mysqld.address=192.168.56.102:3307'
+          - '--mysqld.address={{ hostvars["vm"]["ansible_host"] }}:3306'
         restart_policy: always
         state: started
         published_ports:
