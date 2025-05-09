@@ -1,0 +1,8 @@
+---
+- name: Deploy app
+  hosts: YANDEX_SERVERS
+  become: true
+
+  roles:
+    - role:
+        deploy_wordpress
