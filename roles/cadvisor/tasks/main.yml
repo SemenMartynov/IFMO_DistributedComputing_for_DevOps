@@ -1,0 +1,19 @@
+---
+- name: Run cAdvisor container
+  community.docker.docker_container:
+    name: "{{ cadvisor_container_name }}"
+    image: "{{ cadvisor_image }}"
+    restart_policy: always
+    ports:
+      - "{{ cadvisor_ports }}"
+    volumes:
+      - "{{ cadvisor_volume_path_root }}"
+      - "{{ cadvisor_volume_path_var }}"
+      - "{{ cadvisor_volume_path_sys }}"
+    networks:
+      - name: "{{ docker_network }}"
+
+- name: Confirm cAdvisor is live
+  ansible.builtin.debug:
+    msg: "cAdvisor → http://{{ hostvars[inventory_hostname].ansible_host }}:{{ cadvisor_port }}"
+  changed_when: false
