@@ -16,11 +16,13 @@
       ansible.builtin.copy:
         src: ../config
         dest: ~/app
+        mode: '0755'
 
     - name: Доставить docker-compose файл на сервер
       ansible.builtin.template:
-        src: ../templates/docker-compose.yaml.j2
+        src: "{{ playbook_dir }}/templates/docker-compose.yaml.j2"
         dest: ~/app/docker-compose.yaml
+        mode: '0755'
 
     - name: Запустить docker-compose конфигурацию
       community.docker.docker_compose_v2:
@@ -45,7 +47,7 @@
         ("unable to connect to database" not in (mysql_check.msg | default("")))
       retries: 40
       delay: 3
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Ожидание готовности Master (проверка результата)
       ansible.builtin.assert:
@@ -115,9 +117,19 @@
       register: replication_status
 
     - name: Парсинг статуса репликации (для проверки, нужно ли ее запускать)
-      set_fact:
-        replica_io_running: "{{ replication_status.query_result[0][0].Replica_IO_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
-        replica_sql_running: "{{ replication_status.query_result[0][0].Replica_SQL_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
+      ansible.builtin.set_fact:
+        replica_io_running: >-
+          {{
+            replication_status.query_result[0][0].Replica_IO_Running == 'Yes'
+            if replication_status.query_result and replication_status.query_result[0]
+            else false
+          }}
+        replica_sql_running: >-
+          {{
+            replication_status.query_result[0][0].Replica_SQL_Running == 'Yes'
+            if replication_status.query_result and replication_status.query_result[0]
+            else false
+          }}
 
     - name: Остановить репликацию перед изменением настроек
       community.mysql.mysql_replication:
@@ -161,13 +173,23 @@
         query: "SHOW REPLICA STATUS"
       register: replication_status
 
-    - name: Парсинг статуса репликации (для проверки, нужно ли ее запускать)
-      set_fact:
-        replica_io_running: "{{ replication_status.query_result[0][0].Replica_IO_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
-        replica_sql_running: "{{ replication_status.query_result[0][0].Replica_SQL_Running == 'Yes' if replication_status.query_result and replication_status.query_result[0] else false }}"
+    - name: Парсинг статуса репликации
+      ansible.builtin.set_fact:
+        replica_io_running: >-
+          {{
+            replication_status.query_result[0][0].Replica_IO_Running == 'Yes'
+            if replication_status.query_result and replication_status.query_result[0]
+            else false
+          }}
+        replica_sql_running: >-
+          {{
+            replication_status.query_result[0][0].Replica_SQL_Running == 'Yes'
+            if replication_status.query_result and replication_status.query_result[0]
+            else false
+          }}
 
     - name: Убедиться, что репликация работает
-      assert:
+      ansible.builtin.assert:
         that:
           - replica_io_running
           - replica_sql_running

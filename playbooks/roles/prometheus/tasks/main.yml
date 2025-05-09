@@ -1,74 +1,112 @@
 ---
+- name: Создать пользователя Prometheus
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    shell: /sbin/nologin
+    home: /var/lib/prometheus
+    create_home: true
+
 - name: Скачать Prometheus
-  get_url:
+  ansible.builtin.get_url:
     url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ arch }}.tar.gz"
     dest: "/tmp/prometheus.tar.gz"
     checksum: "sha256:https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+    mode: '0644'
 
 - name: Создать каталоги для Prometheus
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
+    recurse: true
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
   loop:
     - "{{ prometheus_dir }}"
     - "{{ prometheus_config_dir }}"
 
 - name: Распаковать архив с Prometheus
-  unarchive:
+  ansible.builtin.unarchive:
     src: "/tmp/prometheus.tar.gz"
     dest: "{{ prometheus_dir }}"
-    remote_src: yes
+    remote_src: true
+    mode: '0750'
+    owner: prometheus
+    group: prometheus
 
 - name: Доставить конфигурационный файл Prometheus
-  template:
-    src: ../templates/prometheus.yml.j2
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/prometheus.yml.j2"
     dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    mode: '0640'
+    owner: prometheus
+    group: prometheus
 
 - name: Создать unit для Prometheus
-  template:
-    src: ../templates/prometheus.service.j2
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/prometheus.service.j2"
     dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+    owner: root
+    group: root
 
 - name: Скачать Node Exporter
-  get_url:
-    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{ arch }}.tar.gz"
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/prometheus/node_exporter/releases/download/v{{
+      node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{
+      arch }}.tar.gz
     dest: "/tmp/node_exporter.tar.gz"
-    checksum: "sha256:https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/sha256sums.txt"
+    checksum: >-
+      sha256:https://github.com/prometheus/node_exporter/releases/download/v{{
+      node_exporter_version }}/sha256sums.txt
+    mode: '0644'
 
 - name: Создать каталоги для Node Exporter
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
+    recurse: true
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
   loop:
     - "{{ node_exporter_dir }}"
 
 - name: Распаковать архив с Node Exporter
-  unarchive:
+  ansible.builtin.unarchive:
     src: "/tmp/node_exporter.tar.gz"
     dest: "{{ node_exporter_dir }}"
-    remote_src: yes
+    remote_src: true
+    mode: '0750'
+    owner: prometheus
+    group: prometheus
 
 - name: Создать unit для Node Exporter
-  template:
-    src: ../templates/node_exporter.service.j2
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/prometheus/templates/node_exporter.service.j2"
     dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+    owner: root
+    group: root
 
 - name: Запустить Node Exporter
-  systemd:
+  ansible.builtin.systemd:
     name: node_exporter
     state: restarted
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true
 
 - name: Запустить Prometheus
-  systemd:
+  ansible.builtin.systemd:
     name: prometheus
     state: restarted
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true
 
 - name: Запустить docker контейнер с mysql exporter для мастера
-  docker_container:
+  community.docker.docker_container:
     name: mysqld-exporter-master
     image: prom/mysqld-exporter
     state: started
@@ -80,7 +118,7 @@
       - "--mysqld.address={{ ansible_host }}:{{ db_port }}"
 
 - name: Запустить docker контейнер с mysql exporter для слейва
-  docker_container:
+  community.docker.docker_container:
     name: mysqld-exporter-slave
     image: prom/mysqld-exporter
     state: started

@@ -11,3 +11,6 @@ docker-up-wordpress:
 # мониторинг
 monitoring:
 	ansible-playbook playbooks/monitoring.yml
+
+lint:
+	ansible-lint --parseable

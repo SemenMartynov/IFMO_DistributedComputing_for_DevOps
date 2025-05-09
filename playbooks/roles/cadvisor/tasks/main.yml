@@ -1,6 +1,6 @@
 ---
 - name: Запустить docker контейнер Cadvisor
-  docker_container:
+  community.docker.docker_container:
     name: cadvisor
     image: gcr.io/cadvisor/cadvisor
     state: started

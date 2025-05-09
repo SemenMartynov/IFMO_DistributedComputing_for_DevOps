@@ -1,6 +1,6 @@
 ---
 - name: Создать директории provisioning
-  file:
+  ansible.builtin.file:
     path: "./provisioning/{{ item }}"
     state: directory
     mode: '0755'
@@ -9,13 +9,14 @@
     - "dashboards"
 
 - name: Копировать конфигурационные файлы источника данных
-  template:
-    src: ../templates/provisioning/datasources/prometheus.yml.j2
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/grafana/templates/provisioning/datasources/prometheus.yml.j2"
     dest: "./provisioning/datasources/prometheus.yml"
+    mode: '0644'
 
 - name: Копировать конфигурационные файлы дашборда
-  copy:
-    src: "files/provisioning/{{ item.src }}"
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/roles/grafana/files/provisioning/{{ item.src }}"
     dest: "./provisioning/{{ item.dest }}"
     mode: '0644'
   loop:
@@ -25,7 +26,7 @@
     - { src: "dashboards/mysql-overview.json", dest: "dashboards/mysql-overview.json" }
 
 - name: Запустить docker контейнер Grafana
-  docker_container:
+  community.docker.docker_container:
     name: grafana
     image: "grafana/grafana-oss:{{ grafana_version }}"
     state: started
@@ -40,7 +41,7 @@
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
 
 - name: Дождаться, когда Grafana станет доступна
-  uri:
+  ansible.builtin.uri:
     url: "http://{{ ansible_host }}:{{ grafana_port }}/api/health"
     method: GET
     status_code: 200
