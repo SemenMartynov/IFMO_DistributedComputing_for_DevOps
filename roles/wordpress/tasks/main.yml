@@ -1,0 +1,28 @@
+---
+- name: Создать директорию проекта
+  ansible.builtin.file:
+    path: /opt/wordpress
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Установить права на директорию
+  ansible.builtin.file:
+    path: /opt/wordpress
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Генерация docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/wordpress/docker-compose.yml
+    mode: "0644"
+  become: true
+
+- name: Запуск Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: /opt/wordpress
+    state: present
+  become: true

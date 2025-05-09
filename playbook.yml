@@ -1,0 +1,20 @@
+#
+# Лабораторная работа 1.
+#
+# студент 475114 - Емельянов Вадим
+---
+- name: Установка Docker
+  hosts: web
+  become: true
+  roles:
+    - docker
+
+- name: Развертывание WordPress
+  hosts: web
+  vars:
+    db_root_password: "pass"
+    db_name: "wordpress"
+    db_user: "wp_user"
+    db_password: "pass"
+  roles:
+    - wordpress
