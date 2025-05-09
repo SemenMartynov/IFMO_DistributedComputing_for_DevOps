@@ -5,14 +5,14 @@
 
 - name: Create monitoring directory
   ansible.builtin.file:
-    path: /home/deploy/monitoring
+    path: "{{ monitoring_path }}"
     state: directory
     mode: '0755'
 
 - name: Copy prometheus config
   ansible.builtin.copy:
     src: "{{ role_path }}/files/prometheus.yml"
-    dest: /home/deploy/monitoring/prometheus.yml
+    dest: "{{ monitoring_path }}/prometheus.yml"
     mode: '0644'
 
 - name: Run prometheus container
@@ -22,7 +22,7 @@
     state: started
     restart_policy: always
     volumes:
-      - /home/deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - "{{ monitoring_path }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
       - prometheus_vol:/prometheus
     published_ports:
       - "9090:9090"
@@ -52,7 +52,7 @@
 - name: Create configuration for exporters
   ansible.builtin.template:
     src: my-cnf.j2
-    dest: /home/deploy/monitoring/{{ item.name }}-my-cnf
+    dest: "{{ monitoring_path }}/{{ item.name }}-my-cnf"
     mode: '0644'
   loop:
     - { name: "mysql_exporter_master", host: "mysql_db_master" }
@@ -64,9 +64,9 @@
     image: prom/mysqld-exporter:latest
     state: started
     restart_policy: always
-    command: '--config.my-cnf=/cfg/config.my-cnf'
+    command: "--config.my-cnf=/opt/config.my-cnf"
     volumes:
-      - "/home/deploy/monitoring/{{ item.name }}-my-cnf:/opt/config.my-cnf:ro"
+      - "{{ monitoring_path }}/{{ item.name }}-my-cnf:/opt/config.my-cnf:ro"
     networks:
       - name: "{{ wp_network }}"
   loop:
@@ -83,6 +83,9 @@
     return_content: true
     status_code: 200
   register: grafana_sources
+  until: grafana_sources.status == 200
+  retries: 20
+  delay: 3
 
 - name: Delete existing source if exists
   community.grafana.grafana_datasource:
@@ -111,12 +114,12 @@
   ansible.builtin.uri:
     method: GET
     url: "https://grafana.com/api/dashboards/7362/revisions/5/download"
-    dest: "/home/deploy/monitoring/grafana-dashboard.json"
+    dest: "{{ monitoring_path }}/grafana-dashboard.json"
     return_content: true
 
 - name: Set up prometheus id in dashboard
   ansible.builtin.replace:
-    path: "/home/deploy/monitoring/grafana-dashboard.json"
+    path: "{{ monitoring_path }}/grafana-dashboard.json"
     regexp: '\${DS_PROMETHEUS}'
     replace: 'prometheus_id'
 
@@ -125,7 +128,7 @@
     url: "http://localhost:3000"
     grafana_user: "{{ grafana_user }}"
     grafana_password: "{{ grafana_password }}"
-    dashboard_url: "/home/deploy/monitoring/grafana-dashboard.json"
+    dashboard_url: "{{ monitoring_path }}/grafana-dashboard.json"
     state: present
     overwrite: true
 

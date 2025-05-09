@@ -12,7 +12,7 @@
 - name: Copy master config
   ansible.builtin.copy:
     src: "{{ role_path }}/files/mysql.cnf.master"
-    dest: /tmp/mysql.cnf.master
+    dest: /opt/mysql.cnf.master
     owner: root
     group: root
     mode: '0644'
@@ -31,7 +31,7 @@
     published_ports:
       - "3306:3306"
     volumes:
-      - /tmp/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - /opt/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
       - mysql_data:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
@@ -68,7 +68,7 @@
 - name: Copy replica config
   ansible.builtin.copy:
     src: "{{ role_path }}/files/mysql.cnf.replica"
-    dest: /tmp/mysql.cnf.replica
+    dest: /opt/mysql.cnf.replica
     owner: root
     group: root
     mode: '0644'
@@ -91,7 +91,7 @@
     published_ports:
       - "3307:3306"
     volumes:
-      - "/tmp/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - "/opt/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
       - mysql_data_replica:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
@@ -179,7 +179,7 @@
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports: []
     volumes:
-      - /tmp/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - /opt/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
       - mysql_data:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
@@ -197,7 +197,7 @@
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports: []
     volumes:
-      - "/tmp/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - "/opt/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
       - mysql_data_replica:/var/lib/mysql
     networks:
       - name: "{{ wp_network }}"
