@@ -1,0 +1,95 @@
+---
+- name: Configure MySQL Master in container
+  when: inventory_hostname == "master"
+  block:
+    - name: Copy config to target
+      ansible.builtin.copy:
+        src: "{{ role_path }}/files/replication-master.cnf"
+        dest: "/tmp/replication.cnf"
+
+    - name: Run MySQL Master container with replication configuration
+      community.docker.docker_container:
+        name: "{{ mysql_container_name }}"
+        image: "{{ mysql_image }}"
+        state: started
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        networks:
+          - name: "{{ docker_network }}"
+        published_ports:
+          - "3306:3306"
+        volumes:
+          - "{{ mysql_volume }}:/var/lib/mysql"
+          - "/tmp/replication.cnf:/etc/mysql/conf.d/replication.cnf"
+
+    - name: Wait for MySQL to be ready on Master
+      wait_for:
+        host: 127.0.0.1
+        port: 3306
+        timeout: 300
+        state: started
+        delay: 10
+
+    - name: Create replication user on Master
+      community.mysql.mysql_user:
+        login_host: "127.0.0.1"
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ replication_user }}"
+        host: "%"
+        password: "{{ replication_password }}"
+        priv: "*.*:REPLICATION SLAVE"
+        state: present
+
+- name: Configure MySQL Slave in container
+  when: inventory_hostname == "slave"
+  block:
+    - name: Copy config to target
+      ansible.builtin.copy:
+        src: "{{ role_path }}/files/replication-slave.cnf"
+        dest: "/tmp/replication.cnf"
+
+    - name: Run MySQL Slave container with replication configuration
+      community.docker.docker_container:
+        name: "{{ mysql_slave_container_name }}"
+        image: "{{ mysql_image }}"
+        state: started
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        networks:
+          - name: "{{ docker_network }}"
+        published_ports:
+          - "3307:3306"
+        volumes:
+          - "{{ mysql_slave_volume }}:/var/lib/mysql"
+          - "/tmp/replication.cnf:/etc/mysql/conf.d/replication.cnf"
+
+    - name: Wait for MySQL to be ready on Slave
+      wait_for:
+        host: 127.0.0.1
+        port: 3307
+        timeout: 300
+        state: started
+        delay: 10
+
+    - name: Configure replication on Slave
+      community.mysql.mysql_replication:
+        login_host: "127.0.0.1"
+        login_port: 3307
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        mode: changeprimary
+        primary_host: "{{ master_host }}"
+        primary_user: "{{ replication_user }}"
+        primary_password: "{{ replication_password }}"
+        primary_log_file: "{{ master_log_file }}"
+        primary_log_pos: "{{ master_log_pos }}"
+
+    # - name: Start replication on Slave
+    #   community.mysql.mysql_replication:
+    #     login_host: "127.0.0.1"
+    #     login_user: "root"
+    #     login_password: "{{ mysql_root_password }}"
+    #     mode: startreplica

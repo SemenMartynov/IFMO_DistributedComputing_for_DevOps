@@ -1,0 +1,8 @@
+---
+- name: Set Replication
+  hosts: all
+  become: true
+
+  roles:
+    - pymysql
+    - replication

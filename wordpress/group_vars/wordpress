@@ -1,0 +1,23 @@
+docker_network: wordpress_network
+docker_users: [ vboxuser ]
+
+mysql_container_name: mysql   # В репликации используется как Master
+mysql_image: mysql:5.7
+mysql_root_password: root_password
+mysql_database: wordpress
+mysql_user: wp_user
+mysql_password: wp_password
+mysql_volume: mysql_data
+mysql_slave_container_name: mysql_slave
+mysql_slave_volume: mysql_slave_data
+
+wordpress_container_name: wordpress
+wordpress_image: wordpress:latest
+wordpress_port: "80:80"
+wordpress_volume: wordpress_volume
+
+replication_user: repl_user
+replication_password: repl_password
+master_host: "{{ mysql_container_name }}"  # Используем имя контейнера Master
+master_log_file: mysql-bin.000001
+master_log_pos: 4

@@ -1,0 +1,29 @@
+- name: Remove dpkg lock if it exists
+  ansible.builtin.file:
+    path: /var/lib/dpkg/lock-frontend
+    state: absent
+
+- name: Remove dpkg lock (legacy) if it exists
+  ansible.builtin.file:
+    path: /var/lib/dpkg/lock
+    state: absent
+
+# - name: Kill processes holding dpkg lock
+#   ansible.builtin.shell: |
+#     lsof /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock | awk 'NR>1 {print $2}' | xargs -r kill -9
+#   ignore_errors: true
+
+# - name: Reconfigure dpkg
+#   ansible.builtin.command: dpkg --configure -a
+
+- name: Ensure pip is installed
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+    update_cache: true
+
+- name: Install PyMySQL
+  ansible.builtin.pip:
+    name: PyMySQL
+    executable: pip3
+    extra_args: --break-system-packages
