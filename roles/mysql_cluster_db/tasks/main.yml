@@ -1,0 +1,203 @@
+---
+- name: Remove old mysql_db container
+  community.docker.docker_container:
+    name: mysql_db
+    state: absent
+
+- name: Set up pymysql
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+
+- name: Copy master config
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/mysql.cnf.master"
+    dest: /opt/mysql.cnf.master
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Restart mysql_db container as mysql_db_master
+  community.docker.docker_container:
+    name: mysql_db_master
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports:
+      - "3306:3306"
+    volumes:
+      - /opt/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - mysql_data:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Check mysql master connection
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: mysql_ping
+  until: mysql_ping.failed == false
+  retries: 20
+  delay: 3
+  ignore_errors: true
+
+- name: Fail if the db is not reachable
+  ansible.builtin.fail:
+    msg: "error connecting mysql master"
+  when: mysql_ping.failed
+
+- name: Create replication user in master
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query:
+      - "CREATE USER IF NOT EXISTS '{{ mysql_replica_user }}'@'%' IDENTIFIED BY '{{ mysql_replica_password }}';"
+      - "GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_replica_user }}'@'%';"
+      - "FLUSH PRIVILEGES;"
+
+- name: Copy replica config
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/mysql.cnf.replica"
+    dest: /opt/mysql.cnf.replica
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create mysql replica docker volume
+  community.docker.docker_volume:
+    name: mysql_data_replica
+
+- name: Create & start mysql replica container
+  community.docker.docker_container:
+    name: mysql_db_replica
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports:
+      - "3307:3306"
+    volumes:
+      - "/opt/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - mysql_data_replica:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Get master binlog info
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3306
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW BINARY LOG STATUS"
+  register: master_status
+
+- name: Set master/log files
+  ansible.builtin.set_fact:
+    master_log_file: "{{ master_status.query_result[0][0].File }}"
+    master_log_pos: "{{ master_status.query_result[0][0].Position }}"
+
+- name: Check mysql replica connection
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SELECT 1"
+  register: mysql_ping
+  until: mysql_ping.failed == false
+  retries: 20
+  delay: 3
+  ignore_errors: true
+
+- name: Fail if the db is not reachable
+  ansible.builtin.fail:
+    msg: "error connecting mysql replica"
+  when: mysql_ping.failed
+
+- name: Configure replication on replica
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query:
+      - "STOP REPLICA;"
+      - "RESET REPLICA ALL;"
+      - >-
+        CHANGE REPLICATION SOURCE TO
+          SOURCE_HOST='mysql_db_master',
+          SOURCE_USER='{{ mysql_replica_user }}',
+          SOURCE_PASSWORD='{{ mysql_replica_password }}',
+          SOURCE_LOG_FILE='{{ master_log_file }}',
+          SOURCE_LOG_POS={{ master_log_pos }},
+          GET_SOURCE_PUBLIC_KEY=1;
+      - "START REPLICA;"
+
+- name: Get replica status
+  community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW REPLICA STATUS"
+  register: replica_status
+
+- name: Set facts from replica status
+  ansible.builtin.set_fact:
+    replica_io_running: "{{ replica_status.query_result[0][0].Replica_IO_Running }}"
+    replica_sql_running: "{{ replica_status.query_result[0][0].Replica_SQL_Running }}"
+
+- name: Check if replica is running fine
+  ansible.builtin.fail:
+    msg: "Error: mysql replica doesn't work as expected!"
+  when: not (replica_io_running and replica_sql_running)
+
+- name: Restart master with closed ports
+  community.docker.docker_container:
+    name: mysql_db_master
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports: []
+    volumes:
+      - /opt/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - mysql_data:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Restart replica container with closed ports
+  community.docker.docker_container:
+    name: mysql_db_replica
+    image: mysql:latest
+    state: started
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports: []
+    volumes:
+      - "/opt/mysql.cnf.replica:/etc/mysql/conf.d/replica.cnf"
+      - mysql_data_replica:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"

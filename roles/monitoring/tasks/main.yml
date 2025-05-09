@@ -1,0 +1,163 @@
+---
+- name: Create prometheus volume
+  community.docker.docker_volume:
+    name: prometheus_vol
+
+- name: Create monitoring directory
+  ansible.builtin.file:
+    path: "{{ monitoring_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy prometheus config
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/prometheus.yml"
+    dest: "{{ monitoring_path }}/prometheus.yml"
+    mode: '0644'
+
+- name: Run prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    image: prom/prometheus:latest
+    state: started
+    restart_policy: always
+    volumes:
+      - "{{ monitoring_path }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - prometheus_vol:/prometheus
+    published_ports:
+      - "9090:9090"
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Create grafana volume
+  community.docker.docker_volume:
+    name: grafana_vol
+
+- name: Run grafana container
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana:latest
+    state: started
+    restart_policy: always
+    volumes:
+      - grafana_vol:/var/lib/grafana
+    published_ports:
+      - "3000:3000"
+    networks:
+      - name: "{{ wp_network }}"
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_password }}"
+
+- name: Create configuration for exporters
+  ansible.builtin.template:
+    src: my-cnf.j2
+    dest: "{{ monitoring_path }}/{{ item.name }}-my-cnf"
+    mode: '0644'
+  loop:
+    - { name: "mysql_exporter_master", host: "mysql_db_master" }
+    - { name: "mysql_exporter_replica", host: "mysql_db_replica" }
+
+- name: Run mysql exporter for master/replica
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: prom/mysqld-exporter:latest
+    state: started
+    restart_policy: always
+    command: "--config.my-cnf=/opt/config.my-cnf"
+    volumes:
+      - "{{ monitoring_path }}/{{ item.name }}-my-cnf:/opt/config.my-cnf:ro"
+    networks:
+      - name: "{{ wp_network }}"
+  loop:
+    - { name: "mysql_exporter_master" }
+    - { name: "mysql_exporter_replica" }
+
+- name: Get existing sources
+  ansible.builtin.uri:
+    url: "http://localhost:3000/api/datasources"
+    method: GET
+    user: "{{ grafana_user }}"
+    password: "{{ grafana_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: grafana_sources
+  until: grafana_sources.status == 200
+  retries: 20
+  delay: 3
+
+- name: Delete existing source if exists
+  community.grafana.grafana_datasource:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    name: "prometheus"
+    state: absent
+  when: "'prometheus' in grafana_sources.json | map(attribute='name') | list"
+
+- name: Set up prometheus source in grafana
+  community.grafana.grafana_datasource:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    name: "prometheus"
+    ds_type: "prometheus"
+    ds_url: "http://prometheus:9090"
+    access: "proxy"
+    is_default: true
+    time_interval: "5s"
+    uid: "prometheus_id"
+    state: present
+
+- name: Download dashboard
+  ansible.builtin.uri:
+    method: GET
+    url: "https://grafana.com/api/dashboards/7362/revisions/5/download"
+    dest: "{{ monitoring_path }}/grafana-dashboard.json"
+    return_content: true
+
+- name: Set up prometheus id in dashboard
+  ansible.builtin.replace:
+    path: "{{ monitoring_path }}/grafana-dashboard.json"
+    regexp: '\${DS_PROMETHEUS}'
+    replace: 'prometheus_id'
+
+- name: Add dashboard to grafana
+  community.grafana.grafana_dashboard:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    dashboard_url: "{{ monitoring_path }}/grafana-dashboard.json"
+    state: present
+    overwrite: true
+
+- name: Get dashboard id
+  ansible.builtin.uri:
+    url: "http://localhost:3000/api/search"
+    method: GET
+    user: "{{ grafana_user }}"
+    password: "{{ grafana_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+  register: dashboard_search
+
+- name: Get the dashboard id
+  ansible.builtin.set_fact:
+    home_dashboard_id: "{{ item.id | int }}"
+  loop: "{{ dashboard_search.json }}"
+  when: item.title == "MySQL Overview"
+
+- name: Set default dashboard
+  ansible.builtin.uri:
+    url: "http://localhost:3000/api/user/preferences"
+    method: PUT
+    user: "{{ grafana_user }}"
+    password: "{{ grafana_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body: '{"homeDashboardId": {{ home_dashboard_id }}}'
+    status_code: 200

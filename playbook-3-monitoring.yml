@@ -1,0 +1,6 @@
+---
+- name: Set up monitoring
+  hosts: webservers
+  become: true
+  roles:
+    - monitoring
