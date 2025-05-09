@@ -1,0 +1,16 @@
+- name: Start containers using docker compose
+  command: docker compose -f /opt/wordpress/docker-compose.yml up -d
+  args:
+    chdir: /opt/wordpress
+  register: compose_up
+  changed_when: "'Creating' in compose_up.stdout or 'Starting' in compose_up.stdout"
+
+- name: Ensure containers are running
+  command: docker ps
+  register: running_containers
+  changed_when: false
+  failed_when: "'wordpress' not in running_containers.stdout or 'db' not in running_containers.stdout"
+
+- name: Print WordPress access URL
+  debug:
+    msg: "WordPress доступен по адресу: http://{{ ansible_host }}:{{ wordpress_port }}"

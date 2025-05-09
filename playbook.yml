@@ -1,0 +1,12 @@
+---
+- name: Deploy WordPress with MySQL in Docker
+  hosts: wp
+  become: true
+
+  tasks:
+  - name: Ping my hosts
+    ansible.builtin.ping:
+
+  roles:
+  - preparator
+  - launcher
