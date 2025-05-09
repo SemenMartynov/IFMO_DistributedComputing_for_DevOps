@@ -1,0 +1,29 @@
+---
+namespace: /service
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      pg_hba:
+      - host replication all all md5
+      - host all all all md5
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+postgresql:
+  data_dir: /data/patroni
+  pgpass: /tmp/pgpass
+  remove_data_directory_on_diverged_timelines: true
+
+watchdog:
+  mode: off
+
+tags:
+  noloadbalance: false
+  nosync: false
+  nofailover: false

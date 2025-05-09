@@ -1,0 +1,3 @@
+group_vars/all.yml yaml[empty-lines]
+roles/redmine-cluster/files/patroni.yml yaml[indentation]
+roles/redmine-cluster/files/patroni.yml yaml[truthy]

@@ -1,0 +1,76 @@
+---
+db_service_name: db
+db_service_port: 5500
+
+redmine_user_name: redmine
+redmine_user_password: redminepass
+redmine_db_name: redmine
+redmine_service_name: redmine
+redmine_service_port: 8080
+
+redmine_network_name: redmine_network
+
+project_dir: dc-labs
+
+# ==================================================
+
+consul_server1_service_name: consul_server1
+consul_server1_name: consul-server1
+consul_server1_ipv4_address: 172.20.0.2
+
+consul_server2_service_name: consul_server2
+consul_server2_name: consul-server2
+consul_server2_ipv4_address: 172.20.0.3
+
+consul_server3_service_name: consul_server3
+consul_server3_name: consul-server3
+consul_server3_ipv4_address: 172.20.0.4
+
+
+
+consul_domain_name: redmine
+cluster_network_subnet: 172.20.0.0/24
+
+
+
+consul_client1_service_name: consul_client1
+consul_client1_name: consul-client1
+
+consul_client2_service_name: consul_client2
+consul_client2_name: consul-client2
+
+consul_client3_service_name: consul_client3
+consul_client3_name: consul-client3
+
+
+
+postgres_patroni1_service_name: postgres_patroni1
+postgres_patroni1_name: postgres-patroni1
+postgres_patroni1_db_port: 5441
+postgres_patroni1_api_port: 8091
+
+postgres_patroni2_service_name: postgres_patroni2
+postgres_patroni2_name: postgres-patroni2
+postgres_patroni2_db_port: 5442
+postgres_patroni2_api_port: 8092
+
+postgres_patroni3_service_name: postgres_patroni3
+postgres_patroni3_name: postgres-patroni3
+postgres_patroni3_db_port: 5443
+postgres_patroni3_api_port: 8093
+
+
+
+patroni_custom_built_docker_image_name: postgres
+patroni_custom_built_docker_image_tag: 17.4-patroni4.0.5
+
+
+
+patroni_cluster_name: dbservers
+
+
+
+postgres_replication_username: replicator
+postgres_replication_password: replpass
+postgres_superuser_username: postgres
+postgres_superuser_password: supass

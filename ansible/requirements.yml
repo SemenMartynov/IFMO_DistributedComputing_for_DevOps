@@ -1,0 +1,8 @@
+---
+collections:
+  - name: community.docker
+    version: ">=4.5.2"
+    source: https://galaxy.ansible.com
+  - name: community.postgresql
+    version: ">=3.14.0"
+    source: https://galaxy.ansible.com

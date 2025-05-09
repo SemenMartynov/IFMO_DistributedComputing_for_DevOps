@@ -1,0 +1,231 @@
+---
+services:
+  {{ consul_client1_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_client1_name }}
+    command: agent
+    restart: unless-stopped
+    hostname: {{ consul_client1_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": false,
+          "node_name": "{{ consul_client1_name }}",
+          "client_addr": "0.0.0.0",
+          "retry_join": ["{{ consul_server1_name }}", "{{ consul_server2_name }}", "{{ consul_server3_name }}"],
+          "data_dir": "/consul/data"
+        }
+    volumes:
+      - {{ consul_client1_service_name }}_data:/consul/data
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+
+  {{ consul_client2_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_client2_name }}
+    command: agent
+    restart: unless-stopped
+    hostname: {{ consul_client2_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": false,
+          "node_name": "{{ consul_client2_name }}",
+          "client_addr": "0.0.0.0",
+          "retry_join": ["{{ consul_server1_name }}", "{{ consul_server2_name }}", "{{ consul_server3_name }}"],
+          "data_dir": "/consul/data"
+        }
+    volumes:
+      - {{ consul_client2_service_name }}_data:/consul/data
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ consul_client1_service_name }}
+
+  {{ consul_client3_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_client3_name }}
+    command: agent
+    restart: unless-stopped
+    hostname: {{ consul_client3_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": false,
+          "node_name": "{{ consul_client3_name }}",
+          "client_addr": "0.0.0.0",
+          "retry_join": ["{{ consul_server1_name }}", "{{ consul_server2_name }}", "{{ consul_server3_name }}"],
+          "data_dir": "/consul/data"
+        }
+    volumes:
+      - {{ consul_client3_service_name }}_data:/consul/data
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ consul_client2_service_name }}  
+
+  {{ postgres_patroni1_service_name }}:
+    image: {{ patroni_custom_built_docker_image_name }}:{{ patroni_custom_built_docker_image_tag }}
+    pull_policy: missing
+    container_name: {{ postgres_patroni1_name }}
+    restart: unless-stopped
+    hostname: {{ postgres_patroni1_name }}
+    environment:
+      TZ: Europe/Moscow
+      PATRONI_NAME: {{ postgres_patroni1_name }}
+      PATRONI_SCOPE: {{ patroni_cluster_name }}
+      PATRONI_API_CONNECT_PORT: 8091
+      PATRONI_REPLICATION_USERNAME: {{ postgres_replication_username }}
+      PATRONI_REPLICATION_PASSWORD: {{ postgres_replication_password }}
+      PATRONI_SUPERUSER_USERNAME: {{ postgres_superuser_username }}
+      PATRONI_SUPERUSER_PASSWORD: {{ postgres_superuser_password }}
+      PATRONI_CONSUL_HOST: {{ consul_client1_name }}:8500
+      PATRONI_CONSUL_REGISTER_SERVICE: "true"
+    volumes:
+      - {{ postgres_patroni1_service_name }}_data:/data/patroni
+    ports:
+      - {{ postgres_patroni1_db_port }}:5432
+      - {{ postgres_patroni1_api_port }}:8091
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ consul_client1_service_name }}
+      - {{ consul_client2_service_name }}
+      - {{ consul_client3_service_name }}
+
+  {{ postgres_patroni2_service_name }}:
+    image: {{ patroni_custom_built_docker_image_name }}:{{ patroni_custom_built_docker_image_tag }}
+    pull_policy: missing
+    container_name: {{ postgres_patroni2_name }}
+    restart: unless-stopped
+    hostname: {{ postgres_patroni2_name }}
+    environment:
+      TZ: Europe/Moscow
+      PATRONI_NAME: {{ postgres_patroni2_name }}
+      PATRONI_SCOPE: {{ patroni_cluster_name }}
+      PATRONI_API_CONNECT_PORT: 8091
+      PATRONI_REPLICATION_USERNAME: {{ postgres_replication_username }}
+      PATRONI_REPLICATION_PASSWORD: {{ postgres_replication_password }}
+      PATRONI_SUPERUSER_USERNAME: {{ postgres_superuser_username }}
+      PATRONI_SUPERUSER_PASSWORD: {{ postgres_superuser_password }}
+      PATRONI_CONSUL_HOST: {{ consul_client2_name }}:8500
+      PATRONI_CONSUL_REGISTER_SERVICE: "true"
+    volumes:
+      - {{ postgres_patroni2_service_name }}_data:/data/patroni
+    ports:
+      - {{ postgres_patroni2_db_port }}:5432
+      - {{ postgres_patroni2_api_port }}:8091
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ consul_client1_service_name }}
+      - {{ consul_client2_service_name }}
+      - {{ consul_client3_service_name }}
+      - {{ postgres_patroni1_service_name }}
+
+  {{ postgres_patroni3_service_name }}:
+    image: {{ patroni_custom_built_docker_image_name }}:{{ patroni_custom_built_docker_image_tag }}
+    pull_policy: missing
+    container_name: {{ postgres_patroni3_name }}
+    restart: unless-stopped
+    hostname: {{ postgres_patroni3_name }}
+    environment:
+      TZ: Europe/Moscow
+      PATRONI_NAME: {{ postgres_patroni3_name }}
+      PATRONI_SCOPE: {{ patroni_cluster_name }}
+      PATRONI_API_CONNECT_PORT: 8091
+      PATRONI_REPLICATION_USERNAME: {{ postgres_replication_username }}
+      PATRONI_REPLICATION_PASSWORD: {{ postgres_replication_password }}
+      PATRONI_SUPERUSER_USERNAME: {{ postgres_superuser_username }}
+      PATRONI_SUPERUSER_PASSWORD: {{ postgres_superuser_password }}
+      PATRONI_CONSUL_HOST: {{ consul_client3_name }}:8500
+      PATRONI_CONSUL_REGISTER_SERVICE: "true"
+    volumes:
+      - {{ postgres_patroni3_service_name }}_data:/data/patroni
+    ports:
+      - {{ postgres_patroni3_db_port }}:5432
+      - {{ postgres_patroni3_api_port }}:8091
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ consul_client1_service_name }}
+      - {{ consul_client2_service_name }}
+      - {{ consul_client3_service_name }}
+      - {{ postgres_patroni2_service_name }}
+
+  {{ redmine_service_name }}:
+    image: redmine:6.0.5
+    pull_policy: missing
+    container_name: {{ redmine_service_name }}
+    restart: unless-stopped
+    hostname: {{ redmine_service_name }}
+    environment:
+      TZ: Europe/Moscow
+      REDMINE_DB_POSTGRES: master.{{ patroni_cluster_name }}.service.{{ consul_domain_name }}
+      REDMINE_DB_USERNAME: {{ redmine_user_name }}
+      REDMINE_DB_PASSWORD: {{ redmine_user_password }}
+      REDMINE_DB_DATABASE: {{ redmine_db_name }}
+    volumes:
+      - {{ redmine_service_name }}_data:/usr/src/redmine/files
+    ports:
+      - {{ redmine_service_port }}:3000
+    networks:
+      - cluster_network
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+    depends_on:
+      - {{ postgres_patroni1_service_name }}
+      - {{ postgres_patroni2_service_name }}
+      - {{ postgres_patroni3_service_name }}
+
+volumes:
+  {{ consul_client1_service_name }}_data:
+    name: {{ consul_client1_service_name }}_data
+  {{ consul_client2_service_name }}_data:
+    name: {{ consul_client2_service_name }}_data
+  {{ consul_client3_service_name }}_data:
+    name: {{ consul_client3_service_name }}_data
+  {{ postgres_patroni1_service_name }}_data:
+    name: {{ postgres_patroni1_service_name }}_data
+  {{ postgres_patroni2_service_name }}_data:
+    name: {{ postgres_patroni2_service_name }}_data
+  {{ postgres_patroni3_service_name }}_data:
+    name: {{ postgres_patroni3_service_name }}_data
+  {{ redmine_service_name }}_data:
+    name: {{ redmine_service_name }}_data
+
+networks:
+  cluster_network:
+    external: true

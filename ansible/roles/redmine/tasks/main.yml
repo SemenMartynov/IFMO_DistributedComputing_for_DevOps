@@ -1,0 +1,6 @@
+---
+- name: Install Docker
+  ansible.builtin.include_tasks: docker.yml
+
+- name: Start PostgreSQL and Redmine containers
+  ansible.builtin.include_tasks: redmine.yml

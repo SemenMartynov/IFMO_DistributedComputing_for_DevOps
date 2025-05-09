@@ -1,0 +1,121 @@
+---
+- name: Upload PostgreSQL+Patroni Docker image related files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ project_dir }}"
+    mode: '0600'
+  loop:
+    - Dockerfile
+    - patroni-entrypoint.sh
+    - patroni.yml
+
+- name: Upload docker-compose-consul.yml and docker-compose-patroni.yml
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ project_dir }}/{{ item.split('.') | first | basename }}.yml"
+    mode: '0600'
+  loop:
+    - docker-compose-consul.yml.j2
+    - docker-compose-patroni.yml.j2
+
+- name: Build PostgreSQL+Patroni Docker image
+  community.docker.docker_image_build:
+    path: "{{ project_dir }}"
+    name: "{{ patroni_custom_built_docker_image_name }}"
+    tag: "{{ patroni_custom_built_docker_image_tag }}"
+
+- name: Start Consul server (DCS, DNS) containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    files: docker-compose-consul.yml
+    state: present
+
+- name: Start Consul client and Patroni-managed PostgreSQL containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    files: docker-compose-patroni.yml
+    services:
+      - "{{ consul_client1_service_name }}"
+      - "{{ consul_client2_service_name }}"
+      - "{{ consul_client3_service_name }}"
+      - "{{ postgres_patroni1_service_name }}"
+      - "{{ postgres_patroni2_service_name }}"
+      - "{{ postgres_patroni3_service_name }}"
+    state: present
+
+- name: Gather PostgreSQL servers roles information
+  community.postgresql.postgresql_info:
+    login_host: localhost
+    port: "{{ item.port }}"
+    login_user: "{{ postgres_superuser_username }}"
+    login_password: "{{ postgres_superuser_password }}"
+    filter: in_recovery
+  loop:
+    - { name: "{{ postgres_patroni1_name }}", port: "{{ postgres_patroni1_db_port }}" }
+    - { name: "{{ postgres_patroni2_name }}", port: "{{ postgres_patroni2_db_port }}" }
+    - { name: "{{ postgres_patroni3_name }}", port: "{{ postgres_patroni3_db_port }}" }
+  register: pg_servers_roles
+  retries: 10
+  delay: 5
+
+- name: Show Patroni cluster leader
+  ansible.builtin.debug:
+    msg: "Leader is {{ item.item.name }}. Port is {{ item.item.port }}"
+  when: not item.in_recovery
+  loop: "{{ pg_servers_roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Create Redmine user
+  community.postgresql.postgresql_user:
+    login_host: localhost
+    port: "{{ item.item.port }}"
+    login_user: "{{ postgres_superuser_username }}"
+    login_password: "{{ postgres_superuser_password }}"
+    name: "{{ redmine_user_name }}"
+    password: "{{ redmine_user_password }}"
+    encrypted: true
+    expires: infinity
+    role_attr_flags: NOINHERIT
+    state: present
+  when: not item.in_recovery
+  loop: "{{ pg_servers_roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Create empty Redmine database
+  community.postgresql.postgresql_db:
+    login_host: localhost
+    port: "{{ item.item.port }}"
+    login_user: "{{ postgres_superuser_username }}"
+    login_password: "{{ postgres_superuser_password }}"
+    name: "{{ redmine_db_name }}"
+    encoding: UTF-8
+    owner: "{{ redmine_user_name }}"
+    state: present
+  when: not item.in_recovery
+  loop: "{{ pg_servers_roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Restore Redmine database from dump
+  community.postgresql.postgresql_db:
+    login_host: localhost
+    port: "{{ item.item.port }}"
+    login_user: "{{ postgres_superuser_username }}"
+    login_password: "{{ postgres_superuser_password }}"
+    name: "{{ redmine_db_name }}"
+    state: restore
+    target: "{{ project_dir }}/redmine_db_dump.sql"
+  when: not item.in_recovery
+  loop: "{{ pg_servers_roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Start Redmine container
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    files: docker-compose-patroni.yml
+    services:
+      - "{{ redmine_service_name }}"
+    state: present

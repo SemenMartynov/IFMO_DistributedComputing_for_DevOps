@@ -1,0 +1,6 @@
+---
+- name: Home work 2. Deploy Redmine-cluster
+  hosts: carrier
+  roles:
+    - redmine-db-dump
+    - redmine-cluster
