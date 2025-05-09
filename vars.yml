@@ -1,0 +1,18 @@
+mysql_user: wp_user
+mysql_password: password
+mysql_root_login: root
+mysql_root_password: root
+mysql_database: wordpress
+
+project_dir: /home/{{ ansible_user }}/wordpress
+MASTER_USER: replica_user
+MASTER_PASSWORD: replica_password
+
+mysql_master_host: 127.0.0.1
+mysql_master_port: 3306
+
+mysql_slave_host: 127.0.0.1
+mysql_slave_port: 3307
+
+mysql_exporter_user: exporter
+mysql_exporter_password: password
