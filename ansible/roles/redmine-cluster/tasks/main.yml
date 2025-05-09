@@ -1,0 +1,3 @@
+---
+- name: Start Patroni-managed PostgreSQL, Consul and Redmine containers
+  ansible.builtin.include_tasks: redmine-cluster.yml

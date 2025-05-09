@@ -1,0 +1,10 @@
+---
+all:
+  hosts:
+    carrier:
+      ansible_host: 158.160.36.179
+      ansible_user: user
+      # ansible_password: XXXXXXXX
+      # ansible_become_method: sudo
+      # ansible_become_pass: XXXXXXXX
+      # ansible_ssh_common_args: '-o StrictHostKeyChecking=no'

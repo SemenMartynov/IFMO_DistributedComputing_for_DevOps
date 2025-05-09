@@ -1,0 +1,133 @@
+---
+services:
+  {{ consul_server1_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_server1_name }}
+    command: agent -server
+    restart: unless-stopped
+    hostname: {{ consul_server1_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": true,
+          "bootstrap_expect": 3,
+          "domain": "{{ consul_domain_name }}",
+          "node_name": "{{ consul_server1_name }}",
+          "client_addr": "0.0.0.0",
+          "ports": {
+            "dns": 53
+          },
+          "recursors": [
+            "8.8.8.8",
+            "8.8.4.4"
+          ],
+          "retry_join": ["{{ consul_server2_name }}", "{{ consul_server3_name }}"],
+          "data_dir": "/consul/data",
+          "ui_config": {
+            "enabled": true
+          }
+        }
+    volumes:
+      - {{ consul_server1_service_name }}_data:/consul/data
+    ports:
+      - 8500:8500
+      - 8600:53/tcp
+      - 8600:53/udp
+    networks:
+      cluster_network:
+        ipv4_address: {{ consul_server1_ipv4_address }}
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+
+  {{ consul_server2_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_server2_name }}
+    command: agent -server
+    restart: unless-stopped
+    hostname: {{ consul_server2_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": true,
+          "bootstrap_expect": 3,
+          "domain": "{{ consul_domain_name }}",
+          "node_name": "{{ consul_server2_name }}",
+          "client_addr": "0.0.0.0",
+          "ports": {
+            "dns": 53
+          },
+          "recursors": [
+            "8.8.8.8",
+            "8.8.4.4"
+          ],
+          "retry_join": ["{{ consul_server1_name }}", "{{ consul_server3_name }}"],
+          "data_dir": "/consul/data"
+        }
+    volumes:
+      - {{ consul_server2_service_name }}_data:/consul/data
+    networks:
+      cluster_network:
+        ipv4_address: {{ consul_server2_ipv4_address }}
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+
+  {{ consul_server3_service_name }}:
+    image: hashicorp/consul:1.20.6
+    pull_policy: missing
+    container_name: {{ consul_server3_name }}
+    command: agent -server
+    restart: unless-stopped
+    hostname: {{ consul_server3_name }}
+    environment:
+      TZ: Europe/Moscow
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "server": true,
+          "bootstrap_expect": 3,
+          "domain": "{{ consul_domain_name }}",
+          "node_name": "{{ consul_server3_name }}",
+          "client_addr": "0.0.0.0",
+          "ports": {
+            "dns": 53
+          },
+          "recursors": [
+            "8.8.8.8",
+            "8.8.4.4"
+          ],
+          "retry_join": ["{{ consul_server1_name }}", "{{ consul_server2_name }}"],
+          "data_dir": "/consul/data"
+        }
+    volumes:
+      - {{ consul_server3_service_name }}_data:/consul/data
+    networks:
+      cluster_network:
+        ipv4_address: {{ consul_server3_ipv4_address }}
+    dns:
+      - {{ consul_server1_ipv4_address }}
+      - {{ consul_server2_ipv4_address }}
+      - {{ consul_server3_ipv4_address }}
+
+volumes:
+  {{ consul_server1_service_name }}_data:
+    name: {{ consul_server1_service_name }}_data
+  {{ consul_server2_service_name }}_data:
+    name: {{ consul_server2_service_name }}_data
+  {{ consul_server3_service_name }}_data:
+    name: {{ consul_server3_service_name }}_data
+
+networks:
+  cluster_network:
+    name: cluster_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: {{ cluster_network_subnet }}
+    attachable: true

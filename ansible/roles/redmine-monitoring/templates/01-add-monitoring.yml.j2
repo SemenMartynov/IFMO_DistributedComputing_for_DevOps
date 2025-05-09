@@ -1,0 +1,93 @@
+services:
+  {{ pgscv_patroni_service_name }}:
+    image: cherts/pgscv:v0.13.0
+    pull_policy: missing
+    container_name: {{ pgscv_patroni_name }}
+    restart: unless-stopped
+    hostname: {{ pgscv_patroni_name }}
+    environment:
+      TZ: Europe/Moscow
+      PGSCV_LISTEN_ADDRESS: 0.0.0.0:9890
+      PGSCV_DISABLE_COLLECTORS: system,postgres/settings,postgres/storage,postgres/logs
+      PATRONI_URL_{{ postgres_patroni1_name }}: "http://{{ postgres_patroni1_name }}:8091"
+      PATRONI_URL_{{ postgres_patroni2_name }}: "http://{{ postgres_patroni2_name }}:8091"
+      PATRONI_URL_{{ postgres_patroni3_name }}: "http://{{ postgres_patroni3_name }}:8091"
+    ports:
+      - 9891:9890
+    networks:
+      - cluster_network
+    dns:
+      - 172.20.0.2
+      - 172.20.0.3
+      - 172.20.0.4
+
+  {{ pgscv_postgres_service_name }}:
+    image: cherts/pgscv:v0.13.0
+    pull_policy: missing
+    container_name: {{ pgscv_postgres_name }}
+    restart: unless-stopped
+    hostname: {{ pgscv_postgres_name }}
+    environment:
+      TZ: Europe/Moscow
+      PGSCV_LISTEN_ADDRESS: 0.0.0.0:9890
+      PGSCV_DISABLE_COLLECTORS: system,postgres/settings,postgres/storage,postgres/logs
+      DATABASE_DSN_{{ postgres_patroni1_name }}: "postgresql://{{ postgres_superuser_username }}:{{ postgres_superuser_password }}@{{ postgres_patroni1_name }}/{{ redmine_db_name }}"
+      DATABASE_DSN_{{ postgres_patroni2_name }}: "postgresql://{{ postgres_superuser_username }}:{{ postgres_superuser_password }}@{{ postgres_patroni2_name }}/{{ redmine_db_name }}"
+      DATABASE_DSN_{{ postgres_patroni3_name }}: "postgresql://{{ postgres_superuser_username }}:{{ postgres_superuser_password }}@{{ postgres_patroni3_name }}/{{ redmine_db_name }}"
+    ports:
+      - 9892:9890
+    networks:
+      - cluster_network
+    dns:
+      - 172.20.0.2
+      - 172.20.0.3
+      - 172.20.0.4
+
+  {{ prometheus_service_name }}:
+    image: prom/prometheus:v3.3.1
+    pull_policy: missing
+    container_name: {{ prometheus_service_name }}
+    restart: unless-stopped
+    hostname: {{ prometheus_service_name }}
+    environment:
+      TZ: Europe/Moscow
+    volumes:
+      - {{ prometheus_service_name }}_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - cluster_network
+    dns:
+      - 172.20.0.2
+      - 172.20.0.3
+      - 172.20.0.4
+
+  {{ grafana_service_name }}:
+    image: grafana/grafana:12.0.0
+    pull_policy: missing
+    container_name: {{ grafana_service_name }}
+    restart: unless-stopped
+    hostname: {{ grafana_service_name }}
+    environment:
+      TZ: Europe/Moscow
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - {{ grafana_service_name }}_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - 3000:3000
+    networks:
+      - cluster_network
+    dns:
+      - 172.20.0.2
+      - 172.20.0.3
+      - 172.20.0.4
+    depends_on:
+      - {{ prometheus_service_name }}
+
+volumes:
+  {{ prometheus_service_name }}_data:
+    name: {{ prometheus_service_name }}_data
+  {{ grafana_service_name }}_data:
+    name: {{ grafana_service_name }}_data

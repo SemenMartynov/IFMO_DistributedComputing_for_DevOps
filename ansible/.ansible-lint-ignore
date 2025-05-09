@@ -1,0 +1,3 @@
+roles/redmine-cluster/files/patroni.yml yaml[indentation]
+roles/redmine-cluster/files/patroni.yml yaml[truthy]
+roles/redmine-monitoring/tasks/redmine-monitoring.yml risky-file-permissions

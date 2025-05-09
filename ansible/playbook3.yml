@@ -1,0 +1,8 @@
+---
+- name: Home work 3. Deploy Prometheus and Grafana for Redmine cluster
+  hosts: carrier
+  roles:
+    - redmine-monitoring
+
+# pgSCV - PostgreSQL ecosystem metrics collector
+# https://github.com/cherts/pgscv/wiki

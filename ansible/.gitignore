@@ -1,0 +1,6 @@
+# Ansible-lint configuration files
+# .ansible-lint-ignore
+.ansible-lint.yml
+
+# Ansible Vault password file
+.vault

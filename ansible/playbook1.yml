@@ -1,0 +1,5 @@
+---
+- name: Home work 1. Deploy Redmine
+  hosts: carrier
+  roles:
+    - redmine

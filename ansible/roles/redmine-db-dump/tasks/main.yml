@@ -1,0 +1,6 @@
+---
+- name: Install required package
+  ansible.builtin.include_tasks: required.yml
+
+- name: Create Redmine database dump
+  ansible.builtin.include_tasks: redmine-db-dump.yml

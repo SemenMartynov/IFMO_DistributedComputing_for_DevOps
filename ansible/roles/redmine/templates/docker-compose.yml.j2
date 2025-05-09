@@ -1,0 +1,51 @@
+---
+services:
+  {{ db_service_name }}:
+    image: postgres:17.4
+    pull_policy: missing
+    container_name: {{ db_service_name }}
+    restart: unless-stopped
+    hostname: {{ db_service_name }}
+    environment:
+      TZ: Europe/Moscow
+      POSTGRES_USER: {{ redmine_user_name }}
+      POSTGRES_PASSWORD: {{ redmine_user_password }}
+      POSTGRES_DB: {{ redmine_db_name }}
+    volumes:
+      - {{ db_service_name }}_data:/var/lib/postgresql/data
+    ports:
+      - {{ db_service_port }}:5432
+    networks:
+      - {{ redmine_network_name }}
+
+  {{ redmine_service_name }}:
+    image: redmine:6.0.5
+    pull_policy: missing
+    container_name: {{ redmine_service_name }}
+    restart: unless-stopped
+    hostname: {{ redmine_service_name }}
+    environment:
+      TZ: Europe/Moscow
+      REDMINE_DB_POSTGRES: {{ db_service_name }}
+      REDMINE_DB_DATABASE: {{ redmine_db_name }}
+      REDMINE_DB_USERNAME: {{ redmine_user_name }}
+      REDMINE_DB_PASSWORD: {{ redmine_user_password }}
+    volumes:
+      - {{ redmine_service_name }}_data:/usr/src/redmine/files
+    ports:
+      - {{ redmine_service_port }}:3000
+    depends_on:
+      - {{ db_service_name }}
+    networks:
+      - {{ redmine_network_name }}
+
+volumes:
+  {{ db_service_name }}_data:
+    name: {{ db_service_name }}_data
+  {{ redmine_service_name }}_data:
+    name: {{ redmine_service_name }}_data
+
+networks:
+  {{ redmine_network_name }}:
+    name: {{ redmine_network_name }}
+    driver: bridge
