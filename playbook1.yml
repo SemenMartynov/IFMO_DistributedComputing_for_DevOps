@@ -1,0 +1,147 @@
+---
+- name: Deploy WordPress with standalone MariaDB
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Install dependencies (Debian family)
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - python3-pip
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Install dependencies (RHEL family)
+      ansible.builtin.dnf:
+        name:
+          - dnf-plugins-core
+          - curl
+          - python3-pip
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_facts['lsb']['codename'] }} stable"
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Install Docker on Debian-based systems
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Install dependencies (RHEL family)
+      dnf:
+        name:
+          - dnf-plugins-core
+          - curl
+          - python3-pip
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Add Docker YUM repository
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0644'
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Install Docker on RHEL-based systems
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Ensure Docker service is started and enabled
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Restart Docker service
+      systemd:
+        name: docker
+        state: restarted
+
+    - name: Install pymysql via apt (Debian-based systems)
+      ansible.builtin.apt:
+        name: python3-pymysql
+        state: present
+      when: ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_version'] is version('22.04', '>='))
+
+    - name: Project dir creation
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy WordPress and MariaDB
+      ansible.builtin.template:
+        src: docker-compose-basic.yml.j2
+        dest: "{{ docker_compose_dest }}"
+        mode: '0644'
+
+    - name: Launch containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
+
+    - name: Wait for MariaDB to become healthy
+      community.docker.docker_container_info:
+        name: db-master
+      register: master_info
+      until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Wait for WordPress to respond with HTTP 200
+      ansible.builtin.uri:
+        url: "http://localhost"
+        status_code: 200
+        validate_certs: false
+      register: wordpress_health
+      retries: 10
+      delay: 5
+      until: wordpress_health.status == 200
+
+    - name: Debug WordPress response
+      ansible.builtin.debug:
+        msg: "WP is up and returned HTTP {{ wordpress_health.status }}"
