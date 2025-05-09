@@ -1,0 +1,70 @@
+---
+- name: Display Configuration Variables
+  ansible.builtin.debug:
+    msg:
+      - "monitoring_url: {{ monitoring_url }}"
+
+- name: Создать директорию для настройки мониторинга
+  ansible.builtin.file:
+    path: "{{ home_path }}/monitoring"
+    state: directory
+    mode: '0755'
+
+- name: Копировать prometheus.yml файл
+  ansible.builtin.copy:
+    src: prometheus.yml
+    dest: "{{ home_path }}/monitoring/prometheus.yml"
+    force: true
+    mode: '0644'
+
+- name: Создать docker-compose файл из шаблона
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ home_path }}/monitoring/docker-compose.yml"
+    mode: '0644'
+    force: true
+  notify: Restart Docker containers
+
+- name: Поднять контейнеры Prometheus и Grafana
+  community.docker.docker_compose_v2:
+    project_src: "{{ home_path }}/monitoring"
+    state: present
+
+- name: Подождать поднятия Grafana
+  ansible.builtin.uri:
+    url: "{{ grafana_url }}/api/health"
+    status_code: 200
+    user: "{{ grafana_user }}"
+    password: "{{ grafana_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: grafana_status
+  retries: 10
+  delay: 10
+  until: grafana_status.status == 200
+
+- name: Добавить Prometheus как источник данных в Grafana
+  community.grafana.grafana_datasource:
+    grafana_url: "{{ grafana_url }}"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    name: "Prometheus datasource"
+    ds_type: "prometheus"
+    ds_url: "{{ prometheus_url }}"
+    is_default: true
+    validate_certs: false
+
+- name: Копировать настроенный дашборд
+  ansible.builtin.copy:
+    src: dashboard.json
+    dest: "{{ home_path }}/monitoring/dashboard.json"
+    force: true
+    mode: '0644'
+
+- name: Импортировать дашборд в Grafana
+  community.grafana.grafana_dashboard:
+    url: "{{ grafana_url }}"
+    url_username: "{{ grafana_user }}"
+    url_password: "{{ grafana_password }}"
+    path: "{{ home_path }}/monitoring/dashboard.json"
+    overwrite: true

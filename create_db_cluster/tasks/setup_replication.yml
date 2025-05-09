@@ -1,0 +1,31 @@
+- name: Получить статус master
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: SHOW MASTER STATUS;
+  register: master_status
+
+- name: Записать координаты репликации
+  ansible.builtin.set_fact:
+    master_log_file: "{{ master_status.query_result[0][0].File }}"
+    master_log_pos: "{{ master_status.query_result[0][0].Position }}"
+
+- name: Настроить репликацию на slave
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_port: "{{ mysql_slave_port }}"
+    query: >
+      CHANGE MASTER TO
+        MASTER_HOST='{{ master_container_name }}',
+        MASTER_USER='{{ mysql_replication_user }}',
+        MASTER_PASSWORD='{{ mysql_replication_password }}',
+        MASTER_LOG_FILE='{{ master_log_file }}',
+        MASTER_LOG_POS={{ master_log_pos }};
+
+- name: Запуск репликации на slave
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_port: "{{ mysql_slave_port }}"
+    query: "START REPLICA;"

@@ -1,0 +1,5 @@
+---
+- name: Restart Docker containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ home_path }}"
+    state: restarted

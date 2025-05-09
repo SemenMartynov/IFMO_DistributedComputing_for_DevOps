@@ -1,0 +1,10 @@
+---
+mysql_user: admin
+mysql_password: admin22
+mysql_database: wordpress
+mysql_root_password: qwerty22
+is_wordpress: true
+wordpress_port: 80
+wordpress_db_name: wordpress
+db_host: db_master
+db_pass: qwerty22

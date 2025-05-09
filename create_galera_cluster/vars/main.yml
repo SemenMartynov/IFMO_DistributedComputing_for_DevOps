@@ -1,0 +1,22 @@
+---
+mysql_root_password: qwerty22
+mysql_slave_port: 3307
+mariadb_root_password: qwerty22
+mariadb_backup_password: qwerty44
+mariadb_user: admin
+mariadb_password: admin22
+dump_path: /tmp/dump_master.sql
+master_container_name: db_master
+slave_container_name: db_slave
+network_name: "{{ ansible_user }}_app-network"
+is_wordpress: true
+wordpress_port: 80
+wordpress_db_name: wordpress
+db1_host: galera_node_1
+db2_host: galera_node_2
+db3_host: galera_node_3
+db4_host: galera_node_4
+db5_host: galera_node_5
+db_pass: qwerty22
+loadbalancer: haproxy
+monitoring_url: "http://{{ ansible_host }}:3000"

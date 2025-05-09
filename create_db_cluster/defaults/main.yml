@@ -1,0 +1,5 @@
+---
+dump_path: /tmp/dump.sql
+master_container_name: db_master
+slave_container_name: db_slave
+config_file: /etc/my.cnf
