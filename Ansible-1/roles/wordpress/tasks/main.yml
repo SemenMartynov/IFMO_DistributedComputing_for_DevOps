@@ -1,0 +1,16 @@
+---
+- name: Create WordPress container
+  docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    restart_policy: always
+    env:
+      WORDPRESS_DB_HOST: mysql_db:3306
+      WORDPRESS_DB_NAME: "{{ mysql_database }}"
+      WORDPRESS_DB_USER: "{{ mysql_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+    networks:
+      - name: "{{ wp_network }}"
+    published_ports:
+      - "80:80"
