@@ -2,7 +2,6 @@
 # Лабораторная работа 1.
 #
 # студент 475114 - Емельянов Вадим
-
 ---
 - name: Установка Docker
   hosts: web
@@ -19,4 +18,3 @@
     db_password: "pass"
   roles:
     - wordpress
-    
