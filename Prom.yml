@@ -1,0 +1,172 @@
+- name: Развертывание WordPress с Docker + Prometheus
+  hosts: all
+  become: true
+  vars:
+    mysql_root_password: "my_root_password"
+    prometheus_network: "monitoring_net"
+    prometheus_volume: "prometheus_data"
+    prometheus_config_dir: "/opt/prometheus"
+    mysql_exporter_password: "sql_exporter_pass"
+
+
+  tasks:
+    - name: Создаю сеть для мониторинга
+      community.docker.docker_network:
+        name: "{{ prometheus_network }}"
+        state: present
+
+    - name: Создаю volume для Prometheus
+      community.docker.docker_volume:
+        name: "{{ prometheus_volume }}"
+        state: present
+
+    - name: Создаю volume для graf
+      community.docker.docker_volume:
+        name: "grafana_data"
+        state: present
+
+    - name: Создаю директорию для конфига Prometheus
+      ansible.builtin.file:
+        path: "{{ prometheus_config_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Копирую конфиг Prometheus
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/prometheus.yml.j2"
+        dest: "{{ prometheus_config_dir }}/prometheus.yml"
+        mode: '0644'
+
+    - name: Запускаю Prometheus
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ prometheus_network }}"
+        published_ports:
+          - "9090:9090"
+        volumes:
+          - "{{ prometheus_volume }}:/prometheus"
+          - "{{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+        command:
+          - "--config.file=/etc/prometheus/prometheus.yml"
+          - "--storage.tsdb.path=/prometheus"
+
+
+#Для сбора системных метрик
+    - name: Запускаю Node Exporter 
+      community.docker.docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ prometheus_network }}"
+        published_ports:
+          - "9100:9100"
+        command: --path.rootfs=/host
+        volumes:
+          - "/:/host:ro,rslave"
+
+    - name: Запускаю cAdvisor
+      community.docker.docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:latest
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ prometheus_network }}"
+        published_ports:
+          - "8080:8080"
+        volumes:
+          - "/:/rootfs:ro"
+          - "/var/run:/var/run:rw"
+          - "/sys:/sys:ro"
+          - "/var/lib/docker/:/var/lib/docker:ro"
+          
+    - name: Ожидание полной инициализации MySQL Master
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_port: 3307
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT 1"
+      register: master_ready
+      until: master_ready is succeeded
+      retries: 10
+      delay: 10
+      
+    - name: Создать пользователя для мониторинга MySQL
+      community.mysql.mysql_user:
+        login_host: "localhost"
+        login_port: 3307 
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        name: "exporter"
+        host: "%"  
+        password: "{{ mysql_exporter_password }}"  
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        state: present
+
+
+    - name: Запускаю mysqld_exporter
+      community.docker.docker_container:
+        name: mysqld_exporter
+        image: prom/mysqld-exporter:latest
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ prometheus_network }}"
+          - name: "{{ docker_network }}"  # Добавьте сеть WordPress!
+        published_ports:
+          - "9104:9104"
+        env:
+          DATA_SOURCE_NAME: "exporter:{{ mysql_exporter_password }}@tcp(wp_db_master:3306)/"
+        labels:
+          prometheus.io/scrape: "true"
+
+    - name: Проверяю существование пользователя exporter
+      community.mysql.mysql_query:
+        login_host: "wp_db_master"
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT user FROM mysql.user WHERE user = 'exporter'"
+      register: mysql_user_check
+
+    - name: Создаю пользователя если не существует
+      community.mysql.mysql_user:
+        login_host: "wp_db_master"
+        login_user: "root"
+        login_password: "{{ mysql_root_password }}"
+        name: "exporter"
+        host: "%"
+        password: "{{ mysql_exporter_password }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        state: present
+      when: mysql_user_check.rowcount == 0
+
+    - name: Проверка работы Prometheus
+      ansible.builtin.wait_for:
+        host: wp_db_master
+        port: 9104
+        delay: 10
+        timeout: 60
+        state: started
+
+    - name: Запускаю Grafana
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ prometheus_network }}"
+        published_ports:
+          - "3000:3000"
+        volumes:
+          - "grafana_data:/var/lib/grafana"
+        environment:
+          - GF_SECURITY_ADMIN_USER=admin
+          - GF_SECURITY_ADMIN_PASSWORD=admin
