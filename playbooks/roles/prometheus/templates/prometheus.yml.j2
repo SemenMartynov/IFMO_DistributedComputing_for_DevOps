@@ -17,10 +17,10 @@ scrape_configs:
 
   - job_name: 'mysql-master'
     static_configs:
-      - targets: [ "localhost:{{ mysql_exporter_master_port }}" ]
+      - targets: [ "localhost:{{ prometheus_mysql_exporter_master_port }}" ]
     metrics_path: /metrics
 
   - job_name: 'mysql-slave'
     static_configs:
-      - targets: [ "localhost:{{ mysql_exporter_slave_port }}" ]
+      - targets: [ "localhost:{{ prometheus_mysql_exporter_slave_port }}" ]
     metrics_path: /metrics

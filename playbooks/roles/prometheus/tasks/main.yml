@@ -9,7 +9,7 @@
 
 - name: Скачать Prometheus
   ansible.builtin.get_url:
-    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ arch }}.tar.gz"
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}.tar.gz"
     dest: "/tmp/prometheus.tar.gz"
     checksum: "sha256:https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/sha256sums.txt"
     mode: '0644'
@@ -55,12 +55,12 @@
   ansible.builtin.get_url:
     url: >-
       https://github.com/prometheus/node_exporter/releases/download/v{{
-      node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{
-      arch }}.tar.gz
+      prometheus_node_exporter_version }}/node_exporter-{{ prometheus_node_exporter_version }}.{{
+      prometheus_arch }}.tar.gz
     dest: "/tmp/node_exporter.tar.gz"
     checksum: >-
       sha256:https://github.com/prometheus/node_exporter/releases/download/v{{
-      node_exporter_version }}/sha256sums.txt
+      prometheus_node_exporter_version }}/sha256sums.txt
     mode: '0644'
 
 - name: Создать каталоги для Node Exporter
@@ -72,12 +72,12 @@
     group: prometheus
     mode: '0755'
   loop:
-    - "{{ node_exporter_dir }}"
+    - "{{ prometheus_node_exporter_dir }}"
 
 - name: Распаковать архив с Node Exporter
   ansible.builtin.unarchive:
     src: "/tmp/node_exporter.tar.gz"
-    dest: "{{ node_exporter_dir }}"
+    dest: "{{ prometheus_node_exporter_dir }}"
     remote_src: true
     mode: '0750'
     owner: prometheus
@@ -112,7 +112,7 @@
     state: started
     restart_policy: unless-stopped
     ports:
-      - "{{ mysql_exporter_master_port }}:9104"
+      - "{{ prometheus_mysql_exporter_master_port }}:9104"
     command:
       - "--mysqld.username=root:{{ mysql_root_password }}"
       - "--mysqld.address={{ ansible_host }}:{{ db_port }}"
@@ -124,7 +124,7 @@
     state: started
     restart_policy: unless-stopped
     ports:
-      - "{{ mysql_exporter_slave_port }}:9104"
+      - "{{ prometheus_mysql_exporter_slave_port }}:9104"
     command:
       - "--mysqld.username=root:{{ mysql_root_password }}"
       - "--mysqld.address={{ ansible_host }}:{{ slave_mysql_port }}"
