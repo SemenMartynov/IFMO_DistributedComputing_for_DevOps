@@ -1,0 +1,14 @@
+- name: Ensure WordPress directory exists
+  file:
+    path: /home/user/wordpress
+    state: directory
+
+- name: Generate docker-compose.yml from template
+  template:
+    src: docker-compose.yml.j2
+    dest: /home/user/wordpress/docker-compose.yml
+
+- name: Start WordPress and MySQL containers
+  command: docker-compose up -d
+  args:
+    chdir: /home/user/wordpress
