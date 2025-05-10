@@ -128,39 +128,15 @@
         group: "{{ project_group }}"
         mode: '0600'
 
-    - name: Deploy WordPress stack with monitoring
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        state: present
-      become_user: "{{ project_user }}"
+    - name: Остановить и удалить старые сервисы (если нужно)
+      shell: docker compose -f {{ project_dir }}/docker-compose.yml down
+      args:
+        chdir: "{{ project_dir }}"
 
-    - name: Run Prometheus container
-      community.docker.docker_container:
-        name: prometheus
-        image: prom/prometheus:latest
-        state: started
-        restart_policy: unless-stopped
-        pull: true
-        recreate: false
-        published_ports:
-          - "9090:9090"
-        volumes:
-          - "{{ project_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
-        networks:
-          - name: wp_network
-
-    - name: Run Grafana container
-      community.docker.docker_container:
-        name: grafana
-        image: grafana/grafana:latest
-        state: started
-        restart_policy: unless-stopped
-        pull: true
-        recreate: false
-        published_ports:
-          - "3000:3000"
-        networks:
-          - name: wp_network
+    - name: Запустить основной стек (WordPress, БД и т.д.)
+      shell: docker compose -f {{ project_dir }}/docker-compose.yml up -d
+      args:
+        chdir: "{{ project_dir }}"
 
     - name: Шаблонизировать docker-compose-monitoring.yml
       template:
@@ -168,13 +144,13 @@
         dest: "{{ project_dir }}/docker-compose-monitoring.yml"
         mode: '0644'
 
-    - name: Запустить мониторинг через docker compose
-      shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
-      args:
-        chdir: "{{ project_dir }}"
-
     - name: Шаблонизировать prometheus.yml
       template:
         src: prometheus.yml.j2
         dest: "{{ project_dir }}/prometheus.yml"
         mode: '0644'
+
+    - name: Запустить мониторинг через docker compose
+      shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
+      args:
+        chdir: "{{ project_dir }}"
