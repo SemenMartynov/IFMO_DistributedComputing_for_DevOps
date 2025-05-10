@@ -1,1 +1,1 @@
-192.168.0.20 ansible_user=server ansible_password=server ansible_become_method=sudo ansible_become_pass=server
+192.168.0.17 ansible_user=server ansible_password=server ansible_become_method=sudo ansible_become_pass=server
