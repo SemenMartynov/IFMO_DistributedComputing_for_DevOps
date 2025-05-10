@@ -1,0 +1,31 @@
+---
+- hosts: carrier
+
+  tasks:
+    - name: Remove dump file from Patroni container
+      community.docker.docker_container_exec:
+        container: "{{ patroni_node01_container_name }}"
+        command: rm -f /tmp/pg_backup.dump
+
+    - name: Remove restored database (if created by -C option)
+      community.docker.docker_container_exec:
+        container: "{{ patroni_node01_container_name }}"
+        command: >
+          psql -U {{ pg_postgres_user }} -h localhost -d postgres -c "DROP DATABASE IF EXISTS {{ pg_database }};"
+        env:
+          PGPASSWORD: "{{ pg_postgres_password }}"
+
+    - name: Remove dump file from pg_master container
+      community.docker.docker_container_exec:
+        container: "{{ pg_master_container_name }}"
+        command: rm -f /tmp/pg_backup.dump
+
+    - name: Remove backup from host
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/backup/pg_backup.dump"
+        state: absent
+
+    - name: Remove backup directory if empty
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/backup"
+        state: absent

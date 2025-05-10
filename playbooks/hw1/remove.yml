@@ -1,3 +1,4 @@
+---
 - hosts: carrier
 
   tasks:
@@ -19,6 +20,7 @@
         state: absent
 
     - name: Remove Docker CE packages
+      become: true
       ansible.builtin.apt:
         name:
           - docker-ce
@@ -29,24 +31,28 @@
         autoremove: true
 
     - name: Remove Docker apt repository
+      become: true
       ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
         state: absent
       ignore_errors: true
 
     - name: Remove Docker GPG apt Key
+      become: true
       ansible.builtin.apt_key:
         id: 0EBFCD88
         state: absent
       ignore_errors: true
 
     - name: Remove docker group
+      become: true
       ansible.builtin.group:
         name: docker
         state: absent
       ignore_errors: true
 
     - name: Remove /var/lib/docker directory if exists
+      become: true
       ansible.builtin.file:
         path: /var/lib/docker
         state: absent
@@ -65,9 +71,9 @@
       changed_when: false
 
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "Docker and all related resources successfully removed."
 
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "Cleanup for HW1 completed."

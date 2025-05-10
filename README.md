@@ -1,6 +1,11 @@
 ## 📦 Distributed Computing Project: Ansible + Docker + PostgreSQL + Strapi
 
-Проект автоматизирует развёртывание CMS Strapi и PostgreSQL-кластера (мастер + слейв) с помощью **Ansible**, **Docker** и централизованного управления конфигурацией через `.env`.
+Проект автоматизирует развёртывание CMS Strapi и PostgreSQL-кластера (мастер + слейв) с помощью **Ansible** и **Docker**
+
+---
+
+### 🏃‍♀️‍➡️ Шаги домашних работ
+![hw_steps.png](hw_steps.png)
 
 ---
 
@@ -40,11 +45,11 @@ IFMO_DistributedComputing_for_DevOps/
 │   │   ├── install.yml     # Развёртывание HW3 (cAdvisor + Prometheus + Grafana)
 │   │   ├── remove.yml      # Очистка HW3
 ├── roles/
-│   ├── pg_cluster_master/  # Роль для развертывания мастер-базы
+│   ├── pg_master/          # Роль для развертывания мастер-базы
 │   │   └── tasks/
 │   │       └── main.yml
 │   │
-│   ├── pg_cluster_replica/ # Роль для развертывания реплики базы
+│   ├── pg_replica/         # Роль для развертывания реплики базы
 │   │   └── tasks/
 │   │       └── main.yml
 │   │

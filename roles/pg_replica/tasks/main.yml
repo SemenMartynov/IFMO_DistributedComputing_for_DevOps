@@ -1,0 +1,7 @@
+---
+- name: Create Docker volume for PostgreSQL replica
+  community.docker.docker_volume:
+    name: "{{ pg_replica_volume }}"
+
+- name: Run PostgreSQL master container
+  include_tasks: run_pg_replica.yml

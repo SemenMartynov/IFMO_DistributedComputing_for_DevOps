@@ -1,0 +1,43 @@
+---
+- name: Dump postgres database inside container
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      pg_dump -U {{ pg_postgres_user }} -d {{ pg_database }} -Fc -f /tmp/pg_backup.dump
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+
+- name: Create ~/backup directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/backup"
+    state: "{{ folder_state }}"
+    mode: "{{ folder_mode }}"
+
+- name: Copy dump file from container to host
+  ansible.builtin.command: >
+    docker cp {{ pg_master_container_name }}:/tmp/pg_backup.dump {{ ansible_env.HOME }}/backup/pg_backup.dump
+
+- name: Copy backup file into Patroni container
+  ansible.builtin.command: >
+    docker cp {{ ansible_env.HOME }}/backup/pg_backup.dump {{ patroni_node01_container_name }}:/tmp/pg_backup.dump
+
+- name: Restore data in Patroni node
+  community.docker.docker_container_exec:
+    container: "{{ patroni_node01_container_name }}"
+    command: >
+      pg_restore -U {{ pg_postgres_user }} -h localhost -C -d postgres /tmp/pg_backup.dump
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+
+- name: Verify restored data on Patroni
+  community.docker.docker_container_exec:
+    container: "{{ patroni_node01_container_name }}"
+    command: >
+      psql -U {{ pg_postgres_user }} -h localhost -d {{ pg_database }} -c 'SELECT * FROM users;'
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+  register: verify_output
+
+- name: Show restored user records
+  debug:
+    var: verify_output.stdout_lines

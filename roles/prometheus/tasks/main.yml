@@ -1,3 +1,4 @@
+---
 - name: Create folder
   become: true
   ansible.builtin.file:
@@ -15,14 +16,24 @@
   community.docker.docker_container:
     name: "{{ prometheus_container_name }}"
     image: "{{ prometheus_image }}"
-    restart_policy: "{{ prometheus_restart_policy }}"
+    restart_policy: "{{ default_restart_policy }}"
     ports:
-      - "{{ prometheus_ports }}"
+      - "{{ prometheus_outside_port }}:9090"
     volumes:
-      - "{{ prometheus_volume }}"
+      - "{{ prometheus_data_path }}:{{ prometheus_config_path }}"
     networks:
       - name: "{{ pg_network }}"
 
+- name: Waiting {{ prometheus_check_delay }}s for Prometheus to become available
+  uri:
+    url: "http://{{ hostvars[inventory_hostname].ansible_host }}:{{ prometheus_outside_port }}"
+    method: GET
+    status_code: 200
+  register: prometheus_check
+  retries: "{{ prometheus_check_retries }}"
+  delay: "{{ prometheus_check_delay }}"
+  until: prometheus_check.status == 200
+
 - name: Confirm Prometheus is live
-  ansible.builtin.debug:
-    msg: "Prometheus is live at http://{{ hostvars[inventory_hostname].ansible_host }}:9090"
+  debug:
+    msg: "Prometheus is live at http://{{ hostvars[inventory_hostname].ansible_host }}:{{ prometheus_outside_port }}"

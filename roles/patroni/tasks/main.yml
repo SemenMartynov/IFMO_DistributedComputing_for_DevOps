@@ -1,6 +1,7 @@
+---
 - name: Pull Patroni image
   community.docker.docker_image:
-    name: ongres/patroni:latest
+    name: "{{ patroni_image }}"
     source: pull
 
 - name: Add node01

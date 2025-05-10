@@ -1,3 +1,4 @@
+---
 - hosts: carrier
 
   tasks:
@@ -8,5 +9,5 @@
         force_kill: true
 
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "Strapi and all related resources successfully removed."

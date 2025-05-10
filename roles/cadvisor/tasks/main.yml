@@ -1,17 +1,28 @@
+---
 - name: Run cAdvisor container
   community.docker.docker_container:
     name: "{{ cadvisor_container_name }}"
     image: "{{ cadvisor_image }}"
-    restart_policy: always
-    ports:
-      - "{{ cadvisor_ports }}"
+    restart_policy: "{{ default_restart_policy }}"
     volumes:
       - "{{ cadvisor_volume_path_root }}"
       - "{{ cadvisor_volume_path_var }}"
       - "{{ cadvisor_volume_path_sys }}"
+    ports:
+      - "{{ cadvisor_port_outside }}:8080"
     networks:
       - name: "{{ pg_network }}"
 
+- name: Waiting {{ cadvisor_check_delay }}s for cAdvisor to become available
+  uri:
+    url: "http://{{ hostvars[inventory_hostname].ansible_host }}:{{ cadvisor_port_outside }}"
+    method: GET
+    status_code: 200
+  register: cAdvisor_check
+  retries: "{{ cadvisor_check_retries }}"
+  delay: "{{ cadvisor_check_delay }}"
+  until: cAdvisor_check.status == 200
+
 - name: Confirm cAdvisor is live
-  ansible.builtin.debug:
-    msg: "cAdvisor is live at http://{{ hostvars[inventory_hostname].ansible_host }}:8080"
+  debug:
+    msg: "cAdvisor is live at http://{{ hostvars[inventory_hostname].ansible_host }}:{{ cadvisor_port_outside }}"

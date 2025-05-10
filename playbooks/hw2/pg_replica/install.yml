@@ -1,4 +1,5 @@
+---
 - hosts: carrier
 
   roles:
-    - pg_cluster_replica
+    - pg_replica

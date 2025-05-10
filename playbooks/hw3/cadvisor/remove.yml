@@ -1,12 +1,13 @@
+---
 - hosts: carrier
 
   tasks:
     - name: Stop and remove cAdvisor container
       community.docker.docker_container:
-        name: cadvisor
+        name: "{{ cadvisor_container_name }}"
         state: absent
         force_kill: true
 
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "cAdvisor and all related resources successfully removed."

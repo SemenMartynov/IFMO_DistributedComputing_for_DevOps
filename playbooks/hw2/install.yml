@@ -1,9 +1,13 @@
+---
 - hosts: carrier
 
   roles:
-    - pg_cluster_replica
+    - pg_replica
 
   post_tasks:
+    - name: Test replication
+      include_tasks: test.yml
+
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "Replica added. PostgreSQL cluster now has master and slave running."

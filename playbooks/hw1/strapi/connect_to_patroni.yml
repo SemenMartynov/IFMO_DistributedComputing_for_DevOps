@@ -1,0 +1,21 @@
+---
+- hosts: carrier
+
+  tasks:
+    - name: Run Strapi CMS
+      community.docker.docker_container:
+        name: "{{ strapi_container_name }}"
+        image: "{{ strapi_image }}"
+        restart_policy: "{{ default_restart_policy }}"
+        recreate: true
+        env:
+          DATABASE_CLIENT: "{{ strapi_database_client }}"
+          DATABASE_HOST: "{{ haproxy_container_name }}"
+          DATABASE_PORT: "{{ pg_port }}"
+          DATABASE_NAME: "{{ pg_database }}"
+          DATABASE_USERNAME: "{{ pg_username }}"
+          DATABASE_PASSWORD: "{{ pg_password }}"
+        ports:
+          - "{{ strapi_port_outside }}:1337"
+        networks:
+          - name: "{{ pg_network }}"

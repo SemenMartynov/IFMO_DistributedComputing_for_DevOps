@@ -1,41 +1,44 @@
+---
 - name: ⚙️ NODE_03 Ensure Patroni config directory exists
   ansible.builtin.file:
-    path: /opt/patroni
-    state: directory
-    mode: '0755'
+    path: "{{ patroni_config_path }}"
+    state: "{{ folder_state }}"
+    mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_03 Ensure Patroni data directory exists with correct permissions
+  become: true
   ansible.builtin.file:
-    path: /opt/postgres-data-node03
-    state: directory
-    owner: 1000
-    group: 1000
-    mode: "0700"
+    path: "{{ patroni_node03_config_path }}"
+    state: "{{ folder_state }}"
+    owner: "{{ file_owner_root }}"
+    group: "{{ file_group_root }}"
+    mode: "{{ patroni_folder_mode }}"
 
 - name: ⚙️ NODE_03 Ensure /run/postgresql exists
   ansible.builtin.file:
-    path: /run/postgresql
-    state: directory
-    owner: 1000
-    group: 1000
-    mode: '0755'
+    path: "{{ patroni_postgres_run_path }}"
+    state: "{{ folder_state }}"
+    owner: "{{ file_owner_root }}"
+    group: "{{ file_group_root }}"
+    mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_03 Copy Patroni config file
+  become: true
   ansible.builtin.copy:
-    src: files/patroni_node03.yml
-    dest: /opt/patroni/patroni03.yml
-    mode: '0644'
+    src: "{{ patroni_node03_config_path_src }}"
+    dest: "{{ patroni_node03_config_path_dest }}"
+    mode: "{{ file_mode }}"
 
 - name: ⚙️ NODE_03 Run Patroni container
   community.docker.docker_container:
-    name: patroni_node03
-    image: ongres/patroni:latest
+    name: "{{ patroni_node03_container_name }}"
+    image: "{{ patroni_image }}"
     state: started
-    restart_policy: always
+    restart_policy: "{{ default_restart_policy }}"
     command: ["patroni", "/config/patroni.yml"]
     volumes:
-      - /opt/patroni/patroni03.yml:/config/patroni.yml
-      - /opt/postgres-data-node03:/var/lib/postgresql/data
-      - /run/postgresql:/run/postgresql
+      - "{{ patroni_node03_config_path_dest }}:{{ patroni_config_path_inside }}"
+      - "{{ patroni_node03_config_path }}:{{ patroni_postgres_data_path }}"
+      - "{{ patroni_postgres_run_path }}:{{ patroni_postgres_run_path }}"
     networks:
       - name: "{{ pg_network }}"

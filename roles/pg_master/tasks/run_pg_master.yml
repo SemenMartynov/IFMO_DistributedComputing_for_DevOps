@@ -1,0 +1,31 @@
+---
+- name: Run PostgreSQL master container
+  community.docker.docker_container:
+    name: "{{ pg_master_container_name }}"
+    image: "{{ pg_master_image }}"
+    restart_policy: "{{ default_restart_policy }}"
+    env:
+      POSTGRESQL_REPLICATION_MODE: "{{ pg_replication_mode_master }}"
+      POSTGRESQL_REPLICATION_USER: "{{ pg_replication_user }}"
+      POSTGRESQL_REPLICATION_PASSWORD: "{{ pg_replication_password }}"
+      POSTGRESQL_USERNAME: "{{ pg_username }}"
+      POSTGRESQL_PASSWORD: "{{ pg_password }}"
+      POSTGRESQL_DATABASE: "{{ pg_database }}"
+      POSTGRESQL_POSTGRES_PASSWORD: "{{ pg_postgres_password }}"
+    volumes:
+      - "{{ pg_master_volume }}:{{ pg_master_volume_path_inside }}"
+    networks:
+      - name: "{{ pg_network }}"
+
+- name: Wait for PostgreSQL master to become ready
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      bash -c "until pg_isready -U {{ pg_postgres_user }} -h localhost; do sleep 1; done"
+  register: pg_ready_check
+  changed_when: false
+
+- name: PostgreSQL is ready
+  debug:
+    msg: "PostgreSQL master container is ready and accepting connections."
+  when: pg_ready_check.rc == 0

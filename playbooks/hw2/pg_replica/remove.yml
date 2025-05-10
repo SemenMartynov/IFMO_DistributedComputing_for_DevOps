@@ -1,3 +1,4 @@
+---
 - hosts: carrier
 
   tasks:
@@ -12,11 +13,6 @@
         name: "{{ pg_replica_volume }}"
         state: absent
 
-    - name: Remove pg_network
-      community.docker.docker_network:
-        name: "{{ pg_network }}"
-        state: absent
-
     - name: Status
-      ansible.builtin.debug:
+      debug:
         msg: "PG cluster replica and all related resources successfully removed."
