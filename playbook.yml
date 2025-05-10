@@ -4,23 +4,23 @@
   become: true
   tasks:
     - name: Create ansible user
-      user:
+      ansible.builtin.user:
         name: ansible
         shell: /bin/bash
         groups: sudo
-        append: yes
-        create_home: yes
+        append: true
+        create_home: true
         state: present
 
     - name: Set up sudo for ansible user
-      copy:
+      ansible.builtin.copy:
         content: "ansible ALL=(ALL) NOPASSWD:ALL"
         dest: /etc/sudoers.d/ansible
-        mode: 0440
+        mode: "0o440"
         validate: /usr/sbin/visudo -cf %s
 
     # - name: Add authorized key
-    #   authorized_key:
+    #   ansible.builtin.authorized_key:
     #     user: ansible
     #     state: present
     #     key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
@@ -33,7 +33,7 @@
 
   tasks:
     - name: Install required packages
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -42,115 +42,115 @@
           - lsb-release
           - software-properties-common
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Add Docker GPG key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
     - name: Add Docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
         state: present
         filename: docker
 
     - name: Install Docker and Docker Compose plugin
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
           - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Create docker group
-      group:
+      ansible.builtin.group:
         name: docker
         state: present
 
     - name: Create project user
-      user:
+      ansible.builtin.user:
         name: "{{ project_user }}"
         group: "{{ project_group }}"
         home: "{{ project_home }}"
         shell: /bin/bash
-        create_home: yes
+        create_home: true
         state: present
 
     - name: Add user to docker group
-      user:
+      ansible.builtin.user:
         name: "{{ project_user }}"
         groups: docker
-        append: yes
+        append: true
 
     - name: Wait for group changes to take effect
       meta: flush_handlers
 
     - name: Create project directory
-      file:
+      ansible.builtin.file:
         path: "{{ project_dir }}"
         state: directory
-        mode: '0755'
+        mode: "0o755"
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
 
     - name: Copy prometheus config
-      copy:
+      ansible.builtin.copy:
         src: prometheus.yml
         dest: "{{ project_dir }}/prometheus.yml"
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
-        mode: '0644'
+        mode: "0o644"
 
     - name: Copy docker-compose.yml
-      copy:
+      ansible.builtin.copy:
         src: docker-compose.yml
         dest: "{{ project_dir }}/docker-compose.yml"
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
-        mode: '0644'
+        mode: "0o644"
 
     - name: Copy MySQL configuration
-      copy:
+      ansible.builtin.copy:
         src: mysql.cnf
         dest: "{{ project_dir }}/mysql.cnf"
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
-        mode: '0644'
+        mode: "0o644"
 
     - name: Copy environment file
-      copy:
+      ansible.builtin.copy:
         src: .env
         dest: "{{ project_dir }}/.env"
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
-        mode: '0600'
+        mode: "0o600"
 
     - name: Остановить и удалить старые сервисы (если нужно)
-      shell: docker compose -f {{ project_dir }}/docker-compose.yml down
+      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose.yml down
       args:
         chdir: "{{ project_dir }}"
 
     - name: Запустить основной стек (WordPress, БД и т.д.)
-      shell: docker compose -f {{ project_dir }}/docker-compose.yml up -d
+      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose.yml up -d
       args:
         chdir: "{{ project_dir }}"
 
     - name: Шаблонизировать docker-compose-monitoring.yml
-      template:
+      ansible.builtin.template:
         src: docker-compose-monitoring.yml.j2
         dest: "{{ project_dir }}/docker-compose-monitoring.yml"
-        mode: '0644'
+        mode: "0o644"
 
     - name: Шаблонизировать prometheus.yml
-      template:
+      ansible.builtin.template:
         src: prometheus.yml.j2
         dest: "{{ project_dir }}/prometheus.yml"
-        mode: '0644'
+        mode: "0o644"
 
     - name: Запустить мониторинг через docker compose
-      shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
+      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
       args:
         chdir: "{{ project_dir }}"
