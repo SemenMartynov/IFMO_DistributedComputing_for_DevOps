@@ -28,8 +28,8 @@
   retries: 5
   delay: 2
   until:
-    user_check.query_result is defined and 
-    user_check.query_result | length > 0 and 
+    user_check.query_result is defined and
+    user_check.query_result | length > 0 and
     user_check.query_result[0][0]['User'] == mysql_exporter_user
 
 - name: Restart exporter containers
