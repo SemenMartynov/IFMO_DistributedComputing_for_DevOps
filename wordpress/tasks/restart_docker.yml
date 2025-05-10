@@ -15,14 +15,6 @@
     group: "{{ ansible_user }}"
     mode: "0644"
 
-- name: Copy Grafana config
-  ansible.builtin.template:
-    src: datasources.yaml.j2
-    dest: /home/{{ ansible_user }}/datasources.yaml
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0644"
-
 - name: Start WordPress and MySQL containers
   community.docker.docker_compose_v2:
     project_src: /home/{{ ansible_user }}

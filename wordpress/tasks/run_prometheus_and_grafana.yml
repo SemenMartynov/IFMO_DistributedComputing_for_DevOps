@@ -14,9 +14,23 @@
     - "{{ db_master_port }}"
     - "{{ db_replica_port }}"
 
-- name: Sleep for 5 seconds
-  ansible.builtin.wait_for:
-    timeout: 5
+- name: Check if MySQL exporter users exist
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_host: 127.0.0.1
+    login_port: "{{ item | int }}"
+    query: "SELECT User, Host FROM mysql.user WHERE User = '{{ mysql_exporter_user }}';"
+  register: user_check
+  loop:
+    - "{{ db_master_port }}"
+    - "{{ db_replica_port }}"
+  retries: 5
+  delay: 2
+  until:
+    user_check.query_result is defined and 
+    user_check.query_result | length > 0 and 
+    user_check.query_result[0][0]['User'] == mysql_exporter_user
 
 - name: Restart exporter containers
   community.docker.docker_container:
@@ -26,3 +40,47 @@
   loop:
     - "{{ master_exporter_container_name }}"
     - "{{ replica_exporter_container_name }}"
+
+- name: Add Prometheus datasource to Grafana
+  community.grafana.grafana_datasource:
+    url: "http://127.0.0.1:3000"
+    url_username: "{{ grafana_admin_username }}"
+    url_password: "{{ grafana_admin_password }}"
+    name: "Prometheus"
+    ds_type: "prometheus"
+    ds_url: "http://{{ prometheus_container_name }}:{{ prometheus_port }}"
+    access: "proxy"
+    is_default: true
+    state: present
+
+- name: Download a dashboard for Grafana
+  ansible.builtin.get_url:
+    url: "https://grafana.com/api/dashboards/7362/revisions/1/download"
+    dest: "/home/{{ ansible_user }}/{{ grafana_dashboard_name }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+
+- name: Read dashboard JSON from file
+  ansible.builtin.slurp:
+    src: "/home/{{ ansible_user }}/{{ grafana_dashboard_name }}"
+  register: raw_dashboard
+
+- name: Import dashboard via Grafana HTTP API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port }}/api/dashboards/import"
+    method: POST
+    user: "{{ grafana_admin_username }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      dashboard: "{{ raw_dashboard['content'] | b64decode | from_json }}"
+      inputs:
+        - name: "DS_PROMETHEUS"
+          type: "datasource"
+          pluginId: "prometheus"
+          value: "Prometheus"
+      overwrite: true

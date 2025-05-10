@@ -26,16 +26,11 @@
     login_db: "{{ wordpress_db_name }}"
     query: "SELECT name FROM {{ test_table_name }} WHERE id = {{ test_row_id | int }}"
   register: test_query_result
-
-- name: Sleep for 5 seconds
-  ansible.builtin.wait_for:
-    timeout: 5
-
-- name: Check result
-  ansible.builtin.assert:
-    that:
-      - test_query_result.query_result[0][0]['name'] == test_row_name
-    success_msg: "Replication is working correctly"
+  retries: 10
+  delay: 5
+  until: test_query_result.query_result is defined and
+    test_query_result.query_result | length > 0 and
+    test_query_result.query_result[0][0]['name'] == test_row_name
 
 - name: Drop test Table
   community.mysql.mysql_query:

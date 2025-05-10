@@ -113,7 +113,7 @@ services:
     image: grafana/grafana-enterprise
     restart: always
     ports:
-      - "3000:3000"
+      - "{{ grafana_port }}:3000"
     networks:
       - wordpress-network
     environment:
@@ -122,7 +122,6 @@ services:
       GF_INSTALL_PLUGINS: "grafana-piechart-panel"
     volumes:
       - grafana_data:/var/lib/grafana
-      - /home/{{ ansible_user }}/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     depends_on:
       - prometheus
 
