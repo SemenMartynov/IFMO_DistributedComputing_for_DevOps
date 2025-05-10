@@ -1,0 +1,4 @@
+---
+postgres_user: redmine
+postgres_password: redmine
+postgres_db_name: redmine
