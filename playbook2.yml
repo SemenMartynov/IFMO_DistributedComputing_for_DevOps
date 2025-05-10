@@ -1,13 +1,94 @@
 ---
-- name: Home work 2
-  hosts: carrier
+- name: Convert standalone MariaDB to Galera cluster
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
   tasks:
-    - name: Display Configuration Variables
+    - name: Stoping WordPress and MariaDB containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: absent
+
+    - name: Deploying Galera-enabled docker-compose
+      ansible.builtin.template:
+        src: docker-compose-galera.yml.j2
+        dest: "{{ docker_compose_dest }}"
+        mode: '0644'
+
+    - name: Starting Galera cluster
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
+
+    - name: Waiting for db-master healthy
+      community.docker.docker_container_info:
+        name: db-master
+      register: master_info
+      until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Waiting for db-slave healthy
+      community.docker.docker_container_info:
+        name: db-slave
+      register: slave_info
+      until: slave_info.container.State.Health is defined and slave_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Checking Galera cluster on db-master
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: supersecure
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_master
+      become: false
+      retries: 10
+      delay: 5
+      until: galera_check_master.query_result[0][0].Value | int >= 2 and galera_check_master.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-master staus
       ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_master: {{ db_master }}" # container name
-          - "db_replica: {{ db_replica }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for master and replica
+        var: galera_check_master
+      when: galera_check_master is defined
+
+    - name: Checking Galera cluster on db-slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+        query:
+          - "SHOW STATUS LIKE 'wsrep_cluster_size';"
+          - "SHOW STATUS LIKE 'wsrep_ready';"
+      register: galera_check_slave
+      become: false
+      retries: 15
+      delay: 10
+      until: galera_check_slave.query_result[0][0].Value | int >= 2 and galera_check_slave.query_result[1][0].Value == "ON"
+
+    - name: Debug for db-slave staus
+      ansible.builtin.debug:
+        var: galera_check_slave
+      when: galera_check_slave is defined
+
+    - name: Wait for WordPress to respond with HTTP 200
+      ansible.builtin.uri:
+        url: "http://localhost"
+        status_code: 200
+        validate_certs: false
+      register: wordpress_health
+      retries: 15
+      delay: 10
+      until: wordpress_health.status == 200
+
+    - name: Debug WordPress response
+      ansible.builtin.debug:
+        msg: "WP is up and returned HTTP {{ wordpress_health.status }}"

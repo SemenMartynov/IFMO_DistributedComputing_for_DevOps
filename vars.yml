@@ -1,0 +1,19 @@
+grafana_url: http://localhost:3000
+grafana_user: admin
+grafana_password: 3l337supersecure
+grafana_dashboard_id: 193
+grafana_dashboard_json: /tmp/cadvisor-dashboard.json
+project_dir: /opt/wordpress
+monitoring_dir: /opt/monitoring
+monitoring_compose_file: docker-compose-monitoring.yml
+prometheus_config: /opt/monitoring/prometheus.yml
+docker_compose_dest: "{{ project_dir }}/docker-compose.yml"
+mariadb_root_password: supersecure
+mariadb_user: wpuser
+mariadb_password: wp_pass
+mariadb_database: wpdb
+galera_cluster_name: galera_cluster
+galera_backup_user: backup
+galera_backup_password: backup_pass
+replication_user: replicator
+replication_password: repl_pass
