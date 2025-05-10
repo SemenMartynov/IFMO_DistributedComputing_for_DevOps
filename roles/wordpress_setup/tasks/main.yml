@@ -27,8 +27,8 @@
     container: wordpress_app
     command: wp core is-installed --path=/var/www/html --allow-root
   register: wp_core_check
-  failed_when: false
   changed_when: false
+  failed_when: wp_core_check.rc not in [0, 1]
 
 - name: Install WordPress core
   community.docker.docker_container_exec:
@@ -42,11 +42,11 @@
         --admin_email='{{ wordpress_admin_email }}'
         --path=/var/www/html
         --allow-root
-  when: wp_core_check.rc != 0
+  when: wp_core_check.rc == 1
   register: wp_core_install
   changed_when: "'WordPress has been installed' in wp_core_install.stdout"
 
 - name: Display final WordPress setup message
   ansible.builtin.debug:
-    msg: "WordPress + Nginx/PHP-FPM готовы: {{ wordpress_site_url }}"
+    msg: "WordPress + Nginx/PHP-FPM are ready: {{ wordpress_site_url }}"
   changed_when: false

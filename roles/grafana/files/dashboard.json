@@ -1,0 +1,215 @@
+{
+  "uid": "deklxw8u5bls0b",
+  "title": "Docker Monitoring",
+  "description": "Container-level metrics collected via cAdvisor → Prometheus",
+  "tags": ["docker", "prometheus", "cadvisor"],
+  "schemaVersion": 41,
+  "version": 2,
+  "refresh": "10s",
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "name": "Alerts & Annotations",
+        "type": "dashboard",
+        "uid": "-- Grafana --",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "builtIn": 1
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "container",
+        "type": "query",
+        "label": "Container",
+        "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+        "query": "label_values(container_last_seen{image!=\"\"}, name)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0
+      }
+    ]
+  },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Containers",
+      "id": 1,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 3, "w": 8, "x": 0, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "targets": [
+        { "expr": "count(container_last_seen{image!=\"\"})", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cluster Memory (GiB)",
+      "id": 2,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 3, "w": 8, "x": 8, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "gbytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{image!=\"\"}) / 1024 / 1024 / 1024",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cluster CPU (%)",
+      "id": 3,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 3, "w": 8, "x": 16, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "max": 100 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image!=\"\"}[5m])) * 100",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage per Container (%)",
+      "id": 4,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 3 },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{image!=\"\",name=~\"$container\"}[5m]) * 100",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["mean", "lastNotNull"]
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Usage per Container (MiB)",
+      "id": 5,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{image!=\"\",name=~\"$container\"} / 1024 / 1024",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mbytes",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["mean", "lastNotNull"]
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network RX (B/s)",
+      "id": 6,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 17 },
+      "targets": [
+        {
+          "expr": "irate(container_network_receive_bytes_total{image!=\"\",name=~\"$container\"}[5m])",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network TX (B/s)",
+      "id": 7,
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 17 },
+      "targets": [
+        {
+          "expr": "irate(container_network_transmit_bytes_total{image!=\"\",name=~\"$container\"}[5m])",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    }
+  ]
+}

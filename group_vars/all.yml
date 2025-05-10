@@ -19,7 +19,7 @@ db_replica: "mysql_slave1,mysql_slave2"
 
 wordpress_admin_user: admin
 wordpress_admin_password: admin_password
-wordpress_admin_email: admin@example.com
+wordpress_admin_email: admin@mail.ru
 wordpress_site_url: "http://{{ hostvars['carrier'].ansible_host }}:{{ wordpress_port }}"
 
 docker_network: wordpress-network
@@ -51,6 +51,7 @@ grafana_container_name: grafana
 grafana_image: grafana/grafana:latest
 grafana_restart_policy: always
 grafana_data_path: /opt/grafana
+grafana_dashboards_path: "{{ grafana_data_path }}/dashboards"
 grafana_admin_user: admin
 grafana_admin_password: admin
 grafana_users_allow_sign_up: 'false'
