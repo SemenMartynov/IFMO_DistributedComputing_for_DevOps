@@ -1,3 +1,4 @@
+---
 - name: Ensure Grafana data dir exists
   ansible.builtin.file:
     path: "{{ grafana_data_path }}"
@@ -5,10 +6,31 @@
     mode: '0755'
   become: true
 
-- name: Copy Grafana datasource
+- name: Ensure Grafana dashboards dir exists
+  ansible.builtin.file:
+    path: "{{ grafana_dashboards_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy Grafana datasource definition
   ansible.builtin.copy:
     src: datasource.yml
     dest: "{{ grafana_data_path }}/datasource.yml"
+    mode: '0644'
+  become: true
+
+- name: Copy Grafana dashboards provisioning config
+  ansible.builtin.copy:
+    src: dashboards.yml
+    dest: "{{ grafana_dashboards_path }}/dashboards.yml"
+    mode: '0644'
+  become: true
+
+- name: Copy default Docker dashboard JSON
+  ansible.builtin.copy:
+    src: dashboard.json
+    dest: "{{ grafana_dashboards_path }}/docker_dashboard.json"
     mode: '0644'
   become: true
 
@@ -24,7 +46,8 @@
     ports:
       - "{{ grafana_ports }}"
     volumes:
-      - "{{ grafana_data_path }}/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml"
+      - "{{ grafana_data_path }}/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro"
+      - "{{ grafana_dashboards_path }}:/etc/grafana/provisioning/dashboards:ro"
     networks:
       - name: "{{ docker_network }}"
 

@@ -1,156 +1,184 @@
 ---
 - name: Gather installed package facts
-  package_facts:
+  ansible.builtin.package_facts:
     manager: apt
 
-- name: Check if Docker is already installed
-  debug:
-    msg: "Docker CE {{ ansible_facts.packages['docker-ce'][0].version if 'docker-ce' in ansible_facts.packages else 'not installed' }}"
-  check_mode: yes
+- name: Show currently installed Docker version (check-only)
+  ansible.builtin.debug:
+    msg: >-
+      Docker CE
+      {{
+        ansible_facts.packages['docker-ce'][0].version
+          if 'docker-ce' in ansible_facts.packages
+          else 'not installed'
+      }}
+  check_mode: true
   changed_when: false
 
-- name: Check if Docker Compose Plugin is already installed
-  debug:
-    msg: "Docker Compose Plugin {{ ansible_facts.packages['docker-compose-plugin'][0].version if 'docker-compose-plugin' in ansible_facts.packages else 'not installed' }}"
-  check_mode: yes
+- name: Show currently installed Docker Compose plugin version (check-only)
+  ansible.builtin.debug:
+    msg: >-
+      Docker Compose Plugin
+      {{
+        ansible_facts.packages['docker-compose-plugin'][0].version
+          if 'docker-compose-plugin' in ansible_facts.packages
+          else 'not installed'
+      }}
+  check_mode: true
   changed_when: false
 
-- name: Verify installed Docker version meets requirements
-  block:
-    - name: Check Docker version
-      set_fact:
-        docker_installed: "{{ 'docker-ce' in ansible_facts.packages }}"
-        docker_version_ok: "{{ 'docker-ce' in ansible_facts.packages and ansible_facts.packages['docker-ce'][0].version is version('5:28.0.4', '>=') }}"
+- name: Determine whether required Docker versions are present
+  ansible.builtin.set_fact:
+    docker_installed: "{{ 'docker-ce' in ansible_facts.packages }}"
+    docker_version_ok: >-
+      {{
+        'docker-ce' in ansible_facts.packages and
+        ansible_facts.packages['docker-ce'][0].version is version('5:28.0.4', '>=')
+      }}
 
-    - name: Display Docker installation status
-      debug:
-        msg: "Docker CE status: {{ 'Installed with correct version' if docker_version_ok else 'Needs installation or upgrade' }}"
-      check_mode: yes
-      changed_when: false
+- name: Display Docker installation status (check-only)
+  ansible.builtin.debug:
+    msg: >-
+      Docker CE status:
+      {{
+        'Installed with correct version'
+        if docker_version_ok else 'Needs installation or upgrade'
+      }}
+  check_mode: true
+  changed_when: false
 
-- name: Verify installed Docker Compose Plugin version meets requirements
-  block:
-    - name: Check Docker Compose Plugin version
-      set_fact:
-        compose_plugin_installed: "{{ 'docker-compose-plugin' in ansible_facts.packages }}"
-        compose_plugin_version_ok: "{{ 'docker-compose-plugin' in ansible_facts.packages and ansible_facts.packages['docker-compose-plugin'][0].version is version('2.20.0', '>=') }}"
+- name: Determine whether required Compose plugin version is present
+  ansible.builtin.set_fact:
+    compose_plugin_installed: "{{ 'docker-compose-plugin' in ansible_facts.packages }}"
+    compose_plugin_version_ok: >-
+      {{
+        'docker-compose-plugin' in ansible_facts.packages and
+        ansible_facts.packages['docker-compose-plugin'][0].version is version('2.20.0', '>=')
+      }}
 
-    - name: Display Docker Compose Plugin installation status
-      debug:
-        msg: "Docker Compose Plugin status: {{ 'Installed with correct version' if compose_plugin_version_ok else 'Needs installation or upgrade' }}"
-      check_mode: yes
-      changed_when: false
+- name: Display Compose plugin installation status (check-only)
+  ansible.builtin.debug:
+    msg: >-
+      Docker Compose Plugin status:
+      {{
+        'Installed with correct version'
+        if compose_plugin_version_ok else 'Needs installation or upgrade'
+      }}
+  check_mode: true
+  changed_when: false
 
-- name: Compose Docker package version string
-  set_fact:
+- name: Compose exact package version strings
+  ansible.builtin.set_fact:
     docker_pkg_version: >-
       5:28.0.4-1~ubuntu.{{ ansible_distribution_version }}~{{ ansible_distribution_release }}
     compose_plugin_min_version: "2.20.0"
 
 - name: Add Docker official GPG key
-  apt_key:
+  ansible.builtin.apt_key:
     url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
     state: present
-  become: yes
-  when: not docker_version_ok | default(true) or not compose_plugin_version_ok | default(true)
+  become: true
+  when: not docker_version_ok or not compose_plugin_version_ok
 
 - name: Add Docker repository
-  apt_repository:
-    repo: "deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release }} stable
     state: present
     filename: docker
-    update_cache: yes
-  become: yes
-  when: not docker_version_ok | default(true) or not compose_plugin_version_ok | default(true)
+    update_cache: true
+  become: true
+  when: not docker_version_ok or not compose_plugin_version_ok
 
-- name: Install Docker Engine with specific version
-  apt:
+- name: Install Docker Engine at required version
+  ansible.builtin.apt:
     name:
       - "docker-ce={{ docker_pkg_version }}"
       - "docker-ce-cli={{ docker_pkg_version }}"
       - "containerd.io"
     state: present
-    update_cache: yes
-  become: yes
-  when: not docker_version_ok | default(true)
+    update_cache: true
+  become: true
+  when: not docker_version_ok
 
-- name: Install or upgrade Docker Compose Plugin (ensure ≥ {{ compose_plugin_min_version }})
-  apt:
+- name: Install / upgrade Docker Compose plugin
+  ansible.builtin.apt:
     name: docker-compose-plugin
-    state: latest          # ← ставим последнюю доступную версию
-    update_cache: yes
-  become: yes
-  when: not compose_plugin_version_ok | default(true)
+    state: present
+    update_cache: true
+  become: true
+  when: not compose_plugin_version_ok
 
-- name: Install Python Docker SDK on remote host
-  apt:
+- name: Install Python Docker SDK on host
+  ansible.builtin.apt:
     name: python3-docker
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
 
-- name: Install PyMySQL for Ansible MySQL modules
-  apt:
+- name: Install PyMySQL client library
+  ansible.builtin.apt:
     name: python3-pymysql
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
 
-- name: Ensure Docker service is started and enabled
-  service:
+- name: Ensure Docker service is running and enabled
+  ansible.builtin.service:
     name: docker
     state: started
-    enabled: yes
-  become: yes
+    enabled: true
+  become: true
 
 - name: Ensure project directory exists
-  file:
+  ansible.builtin.file:
     path: "{{ project_root }}"
     state: directory
-    mode: '0755'
-  become: yes
+    mode: "0755"
+  become: true
 
-- name: Copy docker-compose.yml
-  template:
+- name: Deploy docker-compose.yml
+  ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ project_root }}/docker-compose.yml"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
 
-- name: Copy Nginx configuration file
-  copy:
+- name: Copy Nginx configuration
+  ansible.builtin.copy:
     src: nginx.conf
     dest: "{{ project_root }}/nginx.conf"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
 
-- name: Copy MySQL master config
-  copy:
+- name: Copy MySQL master configuration
+  ansible.builtin.copy:
     src: master.cnf
     dest: "{{ project_root }}/master.cnf"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
 
-- name: Copy MySQL slave1 config
-  copy:
+- name: Copy MySQL slave-1 configuration
+  ansible.builtin.copy:
     src: slave1.cnf
     dest: "{{ project_root }}/slave1.cnf"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
 
-- name: Copy MySQL slave2 config
-  copy:
+- name: Copy MySQL slave-2 configuration
+  ansible.builtin.copy:
     src: slave2.cnf
     dest: "{{ project_root }}/slave2.cnf"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
 
 - name: Create dedicated Docker network
   community.docker.docker_network:
     name: "{{ docker_network }}"
     state: present
 
-- name: Deploy containers with community.docker.docker_compose_v2
+- name: Deploy application stack with docker-compose-v2
   community.docker.docker_compose_v2:
     project_src: "{{ project_root }}"
     state: present

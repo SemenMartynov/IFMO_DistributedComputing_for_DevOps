@@ -70,17 +70,19 @@
 - name: Dump all databases from legacy
   community.mysql.mysql_db:
     state: dump
+    name: all
     target: "{{ dump_tmp.path }}"
     login_host: "{{ legacy_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-    single_transaction: yes
+    single_transaction: true
     dump_extra_args: "--set-gtid-purged=OFF"
   when: legacy_vol.exists | default(false)
 
 - name: Import dump into master
   community.mysql.mysql_db:
     state: import
+    name: all
     target: "{{ dump_tmp.path }}"
     login_host: "{{ master_ip }}"
     login_user: root

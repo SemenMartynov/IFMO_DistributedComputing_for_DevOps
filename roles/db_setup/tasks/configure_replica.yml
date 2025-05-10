@@ -1,5 +1,5 @@
 ---
-- name: Wait until {{ slave_container }} is healthy
+- name: Wait until slave container is healthy
   community.docker.docker_container_info:
     name: "{{ slave_container }}"
   register: slave_info
@@ -17,9 +17,15 @@
     login_host: "{{ slave_ip }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-  ignore_errors: true
+  register: replica_stop
+  failed_when: >
+    replica_stop.failed and
+    (
+      replica_stop.msg is not defined or
+      'Not running replication' not in (replica_stop.msg | default(''))
+    )
 
-- name: Ensure replica configured for master
+- name: Ensure replica configured to master
   community.mysql.mysql_replication:
     mode: changeprimary
     login_host: "{{ slave_ip }}"
@@ -28,17 +34,15 @@
     primary_host: mysql_master
     primary_user: "{{ replication_user }}"
     primary_password: "{{ replication_password }}"
-    primary_auto_position: yes
-    primary_ssl: yes
-  register: replica_changed
+    primary_auto_position: true
+    primary_ssl: true
 
-- name: Start replica (only if changed)
+- name: Start mysql replica
   community.mysql.mysql_replication:
     mode: startreplica
     login_host: "{{ slave_ip }}"
     login_user: root
     login_password: "{{ mysql_root_password }}"
-  when: replica_changed.changed
 
 - name: Wait until replication lag ≤ 2 s on {{ slave_container }}
   community.mysql.mysql_replication:
