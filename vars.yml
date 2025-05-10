@@ -17,4 +17,3 @@ galera_backup_user: backup
 galera_backup_password: backup_pass
 replication_user: replicator
 replication_password: repl_pass
-ansible_user: user
