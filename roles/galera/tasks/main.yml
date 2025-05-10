@@ -1,0 +1,208 @@
+---
+- name: Check if cluster was previously created
+  ansible.builtin.stat:
+    path: /opt/galera/.bootstrapped
+  register: cluster_bootstrapped
+
+- name: Get first node container info
+  community.docker.docker_container_info:
+    name: "{{ galera_nodes[0] }}"
+  register: galera0_info
+  ignore_errors: true
+
+- name: Decide if bootstrap process is needed
+  ansible.builtin.set_fact:
+    bootstrap_needed: >-
+      {{
+        (not cluster_bootstrapped.stat.exists)           or
+        (galera0_info.container is undefined)            or
+        (galera0_info.container is none)                 or
+        (galera0_info.container.State is undefined)      or
+        (galera0_info.container.State.Status != 'running')
+      }}
+
+- name: Prepare Galera directory
+  ansible.builtin.file:
+    path: "/opt/galera"
+    state: directory
+    mode: '0755'
+
+- name: Prepare subdirectories for each Galera node
+  ansible.builtin.file:
+    path: "/opt/galera/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ galera_nodes }}"
+
+- name: Set owner, group and permissions for Galera data dirs
+  ansible.builtin.file:
+    path: "/opt/galera/{{ item }}"
+    owner: 1001
+    group: 1001
+    mode: '0755'
+    recurse: true
+    state: directory
+  loop: "{{ galera_nodes }}"
+
+- name: Get db-master container info
+  community.docker.docker_container_info:
+    name: "{{ db_master }}"
+  register: master_info
+  ignore_errors: true
+
+- name: Get db-slave container info
+  community.docker.docker_container_info:
+    name: "{{ db_replica }}"
+  register: replica_info
+  ignore_errors: true
+
+- name: Check if dump file exists
+  ansible.builtin.stat:
+    path: "{{ wordpress_install_dir }}/wp_dump.sql"
+  register: dump_stat
+
+- name: Dump WordPress database from old master
+  community.mysql.mysql_db:
+    name: "{{ wordpress_db_name }}"
+    state: dump
+    target: "{{ wordpress_install_dir }}/wp_dump.sql"
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: "{{ wordpress_db_root_password }}"
+  when:
+    - not dump_stat.stat.exists
+
+- name: Copy dump to host
+  community.docker.docker_container_copy_into:
+    container: "{{ db_master }}"
+    container_path: "/tmp/wp_dump.sql"
+    path: "{{ wordpress_install_dir }}/wp_dump.sql"
+  when:
+    - not dump_stat.stat.exists
+    - master_info.container is defined
+
+- name: Stop and remove DB services (Master/Slave) via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ wordpress_install_dir }}"
+    services:
+      - "{{ db_master }}"
+      - "{{ db_replica }}"
+    state: absent
+  when: bootstrap_needed
+
+- name: Wait for first Galera node to start
+  ansible.builtin.debug:
+    msg: "Starting node {{ galera_nodes[0] }} with cluster initialization"
+  when: bootstrap_needed
+
+- name: Start first Galera node (bootstrap)
+  community.docker.docker_container:
+    name: "{{ galera_nodes[0] }}"
+    image: "{{ galera_image }}"
+    pull: true
+    state: started
+    restart: true
+    env:
+      MARIADB_ROOT_PASSWORD: "{{ galera_root_password }}"
+      MARIADB_ROOT_HOST: "%"
+      MARIADB_DATABASE: "{{ galera_database }}"
+      MARIADB_USER: "{{ galera_user }}"
+      MARIADB_PASSWORD: "{{ galera_user_password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster_name }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ galera_backup_password }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ galera_user_password }}"
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://"
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          MYSQL_PWD="$MARIADB_ROOT_PASSWORD" \
+          /opt/bitnami/mariadb/bin/mysql -h127.0.0.1 -uroot -sNe \
+          "SHOW STATUS LIKE 'wsrep_local_state_comment';" \
+          | grep -q Synced
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - name: wordpress_default
+        aliases:
+          - "{{ galera_nodes[0] }}"
+    volumes:
+      - "{{ wordpress_install_dir }}/wp_dump.sql:/tmp/wp_dump.sql:ro"
+      - "/opt/galera/{{ galera_nodes[0] }}:/bitnami/mariadb"
+  when: bootstrap_needed
+
+- name: Wait until galera1 health is 'healthy'
+  community.docker.docker_container_info:
+    name: "{{ galera_nodes[0] }}"
+  register: galera1_info
+  retries: 40
+  delay: 5
+  until: >
+    galera1_info.container
+      .get('State', {})
+      .get('Health', {})
+      .get('Status', '') == 'healthy'
+  changed_when: false
+  failed_when: false
+  when: bootstrap_needed
+
+- name: Start remaining Galera nodes
+  community.docker.docker_container:
+    name: "{{ item }}"
+    image: "{{ galera_image }}"
+    pull: true
+    state: started
+    restart: true
+    env:
+      MARIADB_ROOT_PASSWORD: "{{ galera_root_password }}"
+      MARIADB_ROOT_HOST: "%"
+      MARIADB_DATABASE: "{{ galera_database }}"
+      MARIADB_USER: "{{ galera_user }}"
+      MARIADB_PASSWORD: "{{ galera_user_password }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster_name }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ galera_backup_password }}"
+      MARIADB_REPLICATION_PASSWORD: "{{ galera_user_password }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ galera_nodes[0] }}:4567"
+    networks:
+      - name: wordpress_default
+        aliases:
+          - "{{ item }}"
+    volumes:
+      - "/opt/galera/{{ item }}:/bitnami/mariadb"
+  loop: "{{ galera_nodes[1:] }}"
+  when: bootstrap_needed
+
+- name: Mark cluster bootstrapped
+  ansible.builtin.file:
+    path: /opt/galera/.bootstrapped
+    state: touch
+    mode: '0640'
+  when: bootstrap_needed
+
+- name: Import WordPress dump into cluster
+  community.mysql.mysql_db:
+    name: "{{ wordpress_db_name }}"
+    state: import
+    target: /tmp/wp_dump.sql
+    login_user: root
+    login_password: "{{ galera_root_password }}"
+  delegate_to: "{{ galera_nodes[0] }}"
+  vars:
+    ansible_connection: docker
+    ansible_python_interpreter: /usr/bin/python3
+  when:
+    - dump_stat.stat.exists
+    - not cluster_bootstrapped.stat.exists
+
+- name: Create marker file to avoid repeated import
+  ansible.builtin.file:
+    path: "{{ wordpress_install_dir }}/galera_imported.marker"
+    state: touch
+    mode: '0640'
+  when:
+    - dump_stat.stat.exists
+    - not cluster_bootstrapped.stat.exists

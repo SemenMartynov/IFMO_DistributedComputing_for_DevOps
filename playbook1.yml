@@ -1,16 +1,16 @@
 ---
 - name: Home work 1 - Deploy WordPress and Database
   hosts: carrier
-  become: true  # повышаем права для установки пакетов и управления Docker
+  become: true  # elevate privileges for package installation and Docker management
   roles:
-    - docker_install      # Установить Docker Engine и Docker Compose
-    - wordpress           # Развернуть WordPress и БД в docker
+    - docker_install
+    - wordpress
   tasks:
     - name: Show WordPress deployment info
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}"                     # True, если WordPress установлен
-          - "wordpress_port: {{ wordpress_port }}"              # Порт WordPress (например, 80)
-          - "wordpress_db_name: {{ wordpress_db_name }}"                  # Имя базы данных WordPress
-          - "db_host: {{ db_master }}"                          # Имя контейнера основной БД
-          - "db_pass: {{ wordpress_db_root_password }}"                # Пароль root для БД
+          - "wordpress: {{ is_wordpress }}"
+          - "wordpress_port: {{ wordpress_port }}"
+          - "wordpress_db_name: {{ wordpress_db_name }}"
+          - "db_host: {{ db_master }}"
+          - "db_pass: {{ wordpress_db_root_password }}"

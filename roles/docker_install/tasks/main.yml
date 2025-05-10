@@ -1,26 +1,23 @@
 ---
-# Создаём каталог для keyring’ов (если ещё нет)
+
 - name: Ensure /etc/apt/keyrings exists
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
     mode: '0755'
 
-# Сохраняем GPG‑ключ Docker в keyring
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     keyring: /etc/apt/keyrings/docker.gpg
     state: present
 
-# Удаляем возможную старую запись репозитория без signed‑by
 - name: Remove legacy Docker repo (no signed‑by)
   ansible.builtin.apt_repository:
     repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
     filename: docker
     state: absent
 
-# Добавляем корректный репозиторий с параметром signed‑by
 - name: Add Docker repository (signed‑by)
   ansible.builtin.apt_repository:
     repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
@@ -28,7 +25,6 @@
     state: present
     update_cache: true
 
-# Устанавливаем Docker CE + Compose plugin
 - name: Install Docker CE and Compose plugin
   ansible.builtin.apt:
     name:
@@ -38,14 +34,12 @@
       - docker-compose-plugin
     state: present
 
-# Запускаем и включаем сервис Docker
 - name: Ensure Docker daemon is running
   ansible.builtin.service:
     name: docker
     state: started
     enabled: true
 
-# Добавляем ansible_user в группу docker
 - name: Add user to docker group
   ansible.builtin.user:
     name: "{{ ansible_user }}"

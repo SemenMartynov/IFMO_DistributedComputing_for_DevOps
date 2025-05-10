@@ -1,0 +1,33 @@
+---
+# defaults for Galera Cluster role
+galera_cluster_name: "galera_cluster"
+
+# List of Galera node container names (must match inventory)
+galera_nodes:
+  - "galera1"
+  - "galera2"
+  - "galera3"
+  - "galera4"
+  - "galera5"
+
+# Galera Docker image (Bitnami MariaDB Galera)
+galera_image: "bitnami/mariadb-galera:10.5"
+
+# DB access: use root by default
+galera_root_password: "{{ wordpress_db_root_password }}"
+# Canonical user and password for database creation (default is root)
+galera_user: "{{ wordpress_db_user }}"
+galera_user_password: "{{ wordpress_db_password }}"
+
+galera_database: "{{ wordpress_db_name }}"
+
+# Password for backup (may be same as root)
+galera_backup_password: "{{ wordpress_db_root_password }}"
+
+# Galera ports (MySQL and Galera)
+galera_ports:
+  - "3306"
+  - "4567"
+  - "4567/udp"
+  - "4568"
+  - "4444"

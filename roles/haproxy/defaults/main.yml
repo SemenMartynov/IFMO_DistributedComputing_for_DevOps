@@ -1,0 +1,11 @@
+---
+haproxy_image: "haproxy:latest"
+haproxy_cfg_dir: "/opt/haproxy"
+haproxy_cfg_file: "haproxy.cfg"
+haproxy_container_name: "haproxy"
+haproxy_listen_port: 3309
+haproxy_backend_name: "mysql-cluster"
+haproxy_frontend_name: "mysql"
+haproxy_mode: "tcp"
+haproxy_balance: "roundrobin"
+haproxy_check_type: "tcp-check"

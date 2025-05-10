@@ -11,7 +11,7 @@
     dest: "{{ wordpress_install_dir }}/docker-compose.yml"
     mode: '0644'
 
-# 1. Запускаем master‑БД
+# 1. Start master DB
 - name: Start DB master service
   community.docker.docker_compose_v2:
     project_src: "{{ wordpress_install_dir }}"
@@ -36,7 +36,7 @@
     delay: 5
     timeout: 120
 
-# 2. Запускаем WordPress
+# 2. Start WordPress
 - name: Start WordPress service
   community.docker.docker_compose_v2:
     project_src: "{{ wordpress_install_dir }}"

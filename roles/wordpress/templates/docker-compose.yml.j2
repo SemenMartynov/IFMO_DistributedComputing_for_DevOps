@@ -4,18 +4,29 @@ services:
     ports:
       - "{{ wordpress_port }}:80"
     environment:
-      WORDPRESS_DB_HOST: {{ db_master }}:3306
-      WORDPRESS_DB_USER: "{{ wordpress_db_user }}"
+      {% if db_host == 'haproxy' %}
+WORDPRESS_DB_HOST: "{{ db_host }}:{{ haproxy_listen_port }}"
+      {% else %}
+WORDPRESS_DB_HOST: "{{ db_host | default('db-master') }}:3306"
+      {% endif %}
+WORDPRESS_DB_USER: "{{ wordpress_db_user }}"
       WORDPRESS_DB_PASSWORD: "{{ wordpress_db_password }}"
       WORDPRESS_DB_NAME: "{{ wordpress_db_name }}"
     volumes:
       - wp_data:/var/www/html
+{% if db_host != 'haproxy' %}
     depends_on:
       - db-master
+{% endif %}
 
+{% if db_host != 'haproxy' %}
   db-master:
+    container_name: db-master
     image: {{ wordpress_mysql_image }}
-    command: ["--server-id={{ wordpress_master_server_id }}", "--log-bin=mysql-bin", "--binlog-format=ROW"]
+    command:
+      - "--server-id={{ wordpress_master_server_id }}"
+      - "--log-bin=mysql-bin"
+      - "--binlog-format=ROW"
     ports:
       - "3306:3306"
     environment:
@@ -28,8 +39,13 @@ services:
       - db_master_data:/var/lib/mysql
 
   db-slave:
+    container_name: db-slave
     image: {{ wordpress_mysql_image }}
-    command: ["--server-id={{ wordpress_slave_server_id }}", "--log-bin=mysql-bin", "--binlog-format=ROW", "--read-only=ON"]
+    command:
+      - "--server-id={{ wordpress_slave_server_id }}"
+      - "--log-bin=mysql-bin"
+      - "--binlog-format=ROW"
+      - "--read-only=ON"
     ports:
       - "3307:3306"
     depends_on:
@@ -42,8 +58,11 @@ services:
       MYSQL_PASSWORD: "{{ wordpress_db_password }}"
     volumes:
       - db_slave_data:/var/lib/mysql
+{% endif %}
 
 volumes:
   wp_data:
+{% if db_host != 'haproxy' %}
   db_master_data:
   db_slave_data:
+{% endif %}

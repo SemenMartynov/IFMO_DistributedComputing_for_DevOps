@@ -1,0 +1,22 @@
+global
+    log stdout format raw local0
+
+defaults
+    log     global
+    mode    {{ haproxy_mode }}
+    option  dontlognull
+    timeout connect 10s
+    timeout client  1m
+    timeout server  1m
+
+frontend {{ haproxy_frontend_name }}
+    bind *:{{ haproxy_listen_port }}
+    default_backend {{ haproxy_backend_name }}
+
+backend {{ haproxy_backend_name }}
+    mode {{ haproxy_mode }}
+    balance {{ haproxy_balance }}
+    option {{ haproxy_check_type }}
+{% for node in galera_nodes %}
+    server {{ node }} {{ node }}:3306 check
+{% endfor %}
