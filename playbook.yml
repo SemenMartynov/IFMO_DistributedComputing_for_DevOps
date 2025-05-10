@@ -1,0 +1,155 @@
+- name: Installation Docker and launch WordPress with MySQL Master-Slave
+  hosts: praktikum
+  become: yes
+
+  tasks:
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - containerd
+          - containerd.io
+          - docker-compose
+          - docker-ce
+          - docker-ce-cli
+        state: absent
+        purge: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename | default('focal') }} stable
+        state: present
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is started
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: korney1978
+        groups: docker
+        append: yes
+
+    - name: Make directory for WordPress
+      file:
+        path: /opt/wordpress
+        state: directory
+        owner: korney1978
+        group: korney1978
+
+    - name: Remove old docker-compose.yml
+      file:
+        path: /opt/wordpress/docker-compose.yml
+        state: absent
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: files/docker-compose.yml
+        dest: /opt/wordpress/docker-compose.yml
+        owner: korney1978
+        group: korney1978
+
+    - name: Stop and remove existing containers
+      command: docker compose down -v
+      args:
+        chdir: /opt/wordpress
+      ignore_errors: yes
+      become_user: korney1978
+
+    - name: Run WordPress and MySQL from Docker Compose
+      command: docker compose up -d
+      args:
+        chdir: /opt/wordpress
+      become_user: korney1978
+
+    - name: Wait for MySQL Master to be ready
+      command: docker exec db-master mysql -uroot -proot -e "SELECT 1"
+      register: mysql_master_ready
+      retries: 30
+      delay: 5
+      until: mysql_master_ready.rc == 0
+      become_user: korney1978
+
+    - name: Configure MySQL Master for replication
+      command: docker exec db-master mysql -uroot -proot -e "{{ item }}"
+      loop:
+        - "CREATE USER 'repl'@'%' IDENTIFIED BY 'replpass';"
+        - "GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';"
+        - "FLUSH PRIVILEGES;"
+        - "SHOW MASTER STATUS;"
+      become_user: korney1978
+
+    - name: Create mydb on master AFTER replication configured
+      command: docker exec db-master mysql -uroot -proot -e "CREATE DATABASE mydb;"
+      become_user: korney1978
+
+    - name: Create WordPress user and grant privileges on mydb
+      command: docker exec db-master mysql -uroot -proot -e "{{ item }}"
+      loop:
+        - "CREATE USER IF NOT EXISTS 'user'@'%' IDENTIFIED BY 'password';"
+        - "GRANT ALL PRIVILEGES ON mydb.* TO 'user'@'%';"
+        - "FLUSH PRIVILEGES;"
+      become_user: korney1978
+
+    - name: Get Master log file and position
+      command: docker exec db-master mysql -uroot -proot -e "SHOW MASTER STATUS;"
+      register: master_status
+      changed_when: false
+      become_user: korney1978
+
+    - name: Debug master_status output
+      debug:
+        msg: "{{ master_status.stdout }}"
+      when: master_status.stdout is defined
+
+    - name: Extract log file and position
+      set_fact:
+        master_log_file: "{{ master_status.stdout | regex_search('mysql-bin\\.\\d+') }}"
+        master_log_pos: "{{ master_status.stdout | regex_search('(\\d+)\\s+.*$', multiline=True) | first | default('0') }}"
+      when: master_status.stdout is defined
+
+    - name: Wait for MySQL Slave to be ready
+      command: docker exec db-slave mysql -uroot -proot -e "SELECT 1"
+      register: mysql_slave_ready
+      retries: 30
+      delay: 5
+      until: mysql_slave_ready.rc == 0
+      become_user: korney1978
+
+    - name: Configure MySQL Slave for replication
+      command: docker exec db-slave mysql -uroot -proot -e "{{ item }}"
+      loop:
+        - "CHANGE MASTER TO MASTER_HOST='db-master', MASTER_USER='repl', MASTER_PASSWORD='replpass', MASTER_LOG_FILE='{{ master_log_file }}', MASTER_LOG_POS={{ master_log_pos }};"
+        - "START SLAVE;"
+      become_user: korney1978

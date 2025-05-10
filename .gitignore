@@ -1,0 +1,45 @@
+# Операционные системы
+.DS_Store
+Thumbs.db
+
+backend/app/files/*
+*.mp3
+
+# PyCharm
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv
+env/
+.env
+*.egg-info/
+*.egg
+
+# Лог-файлы и кеши
+*.log
+*.cache
+*.sqlite
+*.db
+
+# Файлы виртуальных окружений
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# Файлы Docker (если используете Docker)
+docker-compose.override.yml
+*.env
+
+# PostgreSQL и миграции
+migrations/*.pyc
+migrations/*.pyo
+migrations/*.log
+migrations/__pycache__/
+*.sql-journal
+*.dump
