@@ -133,3 +133,31 @@
         project_src: "{{ project_dir }}"
         state: present
       become_user: "{{ project_user }}"
+
+    - name: Run Prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        pull: true
+        recreate: false
+        published_ports:
+          - "9090:9090"
+        volumes:
+          - "{{ project_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+        networks:
+          - name: wp_network
+
+    - name: Run Grafana container
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        pull: true
+        recreate: false
+        published_ports:
+          - "3000:3000"
+        networks:
+          - name: wp_network
