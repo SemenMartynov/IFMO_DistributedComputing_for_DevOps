@@ -86,7 +86,7 @@
         append: true
 
     - name: Wait for group changes to take effect
-      meta: flush_handlers
+      ansible.builtin.meta: flush_handlers
 
     - name: Create project directory
       ansible.builtin.file:
