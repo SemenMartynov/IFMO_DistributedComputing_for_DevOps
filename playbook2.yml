@@ -18,11 +18,13 @@
 
     - name: Deploy a new version of application
       block:
-        - community.docker.docker_container_info:
+        - name: Receive info about db2 container
+          community.docker.docker_container_info:
             name: webapp-db2-1
           register: dbinfo2
 
-        - ansible.builtin.meta: end_host
+        - name: Stop processing if db2 exists
+          ansible.builtin.meta: end_host
           when:
             - dbinfo2.exists
 
