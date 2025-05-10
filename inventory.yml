@@ -1,9 +1,32 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 192.168.56.101         # IP address of the remote server
+      ansible_user: wurt83ow               # SSH user
+      ansible_ssh_pass: your_ssh_password  # User password
+      ansible_become: true                 # Use root privileges
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
-      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_become_pass: "Vb[jnbh25"     # Password for sudo
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+      wordpress_db_user: wordpress
+      wordpress_db_password: wordpress
+
+      # Deployment parameters
+      is_wordpress: true                   # Flag for output
+      wordpress_install_dir: /opt/wordpress       # WordPress installation directory
+      wordpress_port: 80                   # WordPress port
+      wordpress_db_root_password: somewordpress   # Root password for MySQL
+      wordpress_db_name: wordpress         # WordPress database name
+      db_master: "db-master"               # MySQL Master container name
+      db_replica: "db-slave"               # MySQL Slave container name
+      wordpress_replication_password: somewordpress  # Replication user password
+
+      # Galera and HAProxy
+      db_host: "db-master"                   # Load balancer container (HAProxy)
+      galera_cluster_name: "mygaleracluster"  # Galera cluster name
+      galera_nodes:                        # Galera node container names
+        - "galera1"
+        - "galera2"
+        - "galera3"
+        - "galera4"
+        - "galera5"

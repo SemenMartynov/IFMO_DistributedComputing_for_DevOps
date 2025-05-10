@@ -1,0 +1,47 @@
+---
+
+- name: Ensure /etc/apt/keyrings exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    keyring: /etc/apt/keyrings/docker.gpg
+    state: present
+
+- name: Remove legacy Docker repo (no signed‑by)
+  ansible.builtin.apt_repository:
+    repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    filename: docker
+    state: absent
+
+- name: Add Docker repository (signed‑by)
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    filename: docker
+    state: present
+    update_cache: true
+
+- name: Install Docker CE and Compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: Ensure Docker daemon is running
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true

@@ -1,12 +1,16 @@
 ---
-- name: Home work 1
+- name: Home work 1 - Deploy WordPress and Database
   hosts: carrier
+  become: true  # elevate privileges for package installation and Docker management
+  roles:
+    - docker_install
+    - wordpress
   tasks:
-    - name: Display Configuration Variables
+    - name: Show WordPress deployment info
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_host: {{ db_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password
+          - "wordpress: {{ is_wordpress }}"
+          - "wordpress_port: {{ wordpress_port }}"
+          - "wordpress_db_name: {{ wordpress_db_name }}"
+          - "db_host: {{ db_master }}"
+          - "db_pass: {{ wordpress_db_root_password }}"

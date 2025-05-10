@@ -1,18 +1,29 @@
----
 - name: Home work 4
   hosts: carrier
+  become: true
+
+  roles:
+    - galera
+    - haproxy
+
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db1_host: {{ db1_host }}" # container name
-          - "db2_host: {{ db2_host }}" # container name
-          - "db3_host: {{ db3_host }}" # container name
-          - "db4_host: {{ db4_host }}" # container name
-          - "db5_host: {{ db5_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for DBs
-          - "loadbalancer: {{ loadbalancer }}" # container name
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: Update WordPress settings to work via HAProxy
+      ansible.builtin.set_fact:
+        db_master: "haproxy"
+        db_host: "haproxy"
+
+    - name: Include variables from defaults
+      ansible.builtin.include_vars:
+        file: roles/wordpress/defaults/main.yml
+
+    - name: Regenerate WordPress docker-compose with new DB host
+      ansible.builtin.template:
+        src: roles/wordpress/templates/docker-compose.yml.j2
+        dest: "{{ wordpress_install_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Restart WordPress services
+      community.docker.docker_compose_v2:
+        project_src: "{{ wordpress_install_dir }}"
+        state: present
+        recreate: auto

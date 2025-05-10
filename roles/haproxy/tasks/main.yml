@@ -1,0 +1,26 @@
+---
+- name: Create directory for HAProxy
+  ansible.builtin.file:
+    path: "{{ haproxy_cfg_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ haproxy_cfg_dir }}/{{ haproxy_cfg_file }}"
+    mode: '0644'
+
+- name: Start HAProxy container
+  community.docker.docker_container:
+    name: "{{ haproxy_container_name }}"
+    image: "{{ haproxy_image }}"
+    pull: true
+    state: started
+    restart: true
+    published_ports:
+      - "{{ haproxy_listen_port }}:{{ haproxy_listen_port }}"
+    networks:
+      - name: wordpress_default
+    volumes:
+      - "{{ haproxy_cfg_dir }}/{{ haproxy_cfg_file }}:/usr/local/etc/haproxy/haproxy.cfg"
