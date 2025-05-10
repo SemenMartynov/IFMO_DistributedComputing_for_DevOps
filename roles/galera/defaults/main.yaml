@@ -1,0 +1,6 @@
+---
+replication_user: replicator
+replication_password: replicatorpassword
+mariabackup_user: mariabackup
+mariabackup_password: mariabackuppassword
+cluster_name: mygalera

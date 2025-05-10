@@ -3,15 +3,15 @@
   ansible.builtin.file:
     path: "{{ monitoring_dir }}/mysql-exporter"
     state: directory
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0755'
 
 - name: Configure exporter connection to db
   ansible.builtin.copy:
     dest: "{{ monitoring_dir }}/mysql-exporter/config.my-cnf"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
     content: |
       [client]

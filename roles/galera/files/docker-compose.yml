@@ -1,0 +1,98 @@
+services:
+  db:
+    image: bitnami/mariadb-galera:latest
+    restart: always
+    volumes:
+      - db_data:/bitnami/mariadb
+    environment:
+      MARIADB_GALERA_CLUSTER_NAME: ${MARIADB_GALERA_CLUSTER_NAME}
+      MARIADB_GALERA_MARIABACKUP_USER: ${MARIADB_GALERA_MARIABACKUP_USER}
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: ${MARIADB_GALERA_MARIABACKUP_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: 'yes'
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: 'yes'
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_REPLICATION_USER: ${MARIADB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${MARIADB_REPLICATION_PASSWORD}
+  db-1:
+    image: bitnami/mariadb-galera:latest
+    restart: always
+    volumes:
+      - db-1_data:/bitnami/mariadb
+    environment:
+      MARIADB_GALERA_CLUSTER_NAME: ${MARIADB_GALERA_CLUSTER_NAME}
+      MARIADB_GALERA_CLUSTER_ADDRESS: gcomm://db:4567,0.0.0.0:4567
+      MARIADB_GALERA_MARIABACKUP_USER: ${MARIADB_GALERA_MARIABACKUP_USER}
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: ${MARIADB_GALERA_MARIABACKUP_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_REPLICATION_USER: ${MARIADB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${MARIADB_REPLICATION_PASSWORD}
+  db-2:
+    image: bitnami/mariadb-galera:latest
+    restart: always
+    volumes:
+      - db-2_data:/bitnami/mariadb
+    environment:
+      MARIADB_GALERA_CLUSTER_NAME: ${MARIADB_GALERA_CLUSTER_NAME}
+      MARIADB_GALERA_CLUSTER_ADDRESS: gcomm://db:4567,0.0.0.0:4567
+      MARIADB_GALERA_MARIABACKUP_USER: ${MARIADB_GALERA_MARIABACKUP_USER}
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: ${MARIADB_GALERA_MARIABACKUP_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_REPLICATION_USER: ${MARIADB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${MARIADB_REPLICATION_PASSWORD}
+  db-3:
+    image: bitnami/mariadb-galera:latest
+    restart: always
+    volumes:
+      - db-3_data:/bitnami/mariadb
+    environment:
+      MARIADB_GALERA_CLUSTER_NAME: ${MARIADB_GALERA_CLUSTER_NAME}
+      MARIADB_GALERA_CLUSTER_ADDRESS: gcomm://db:4567,0.0.0.0:4567
+      MARIADB_GALERA_MARIABACKUP_USER: ${MARIADB_GALERA_MARIABACKUP_USER}
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: ${MARIADB_GALERA_MARIABACKUP_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_REPLICATION_USER: ${MARIADB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${MARIADB_REPLICATION_PASSWORD}
+  db-4:
+    image: bitnami/mariadb-galera:latest
+    restart: always
+    volumes:
+      - db-4_data:/bitnami/mariadb
+    environment:
+      MARIADB_GALERA_CLUSTER_NAME: ${MARIADB_GALERA_CLUSTER_NAME}
+      MARIADB_GALERA_CLUSTER_ADDRESS: gcomm://db:4567,0.0.0.0:4567
+      MARIADB_GALERA_MARIABACKUP_USER: ${MARIADB_GALERA_MARIABACKUP_USER}
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: ${MARIADB_GALERA_MARIABACKUP_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_REPLICATION_USER: ${MARIADB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${MARIADB_REPLICATION_PASSWORD}
+  haproxy:
+    image: haproxy:3.1
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - 3306:3306
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+  wordpress:
+    image: wordpress:latest
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - 80:80
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: haproxy
+      WORDPRESS_DB_USER: ${DB_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${DB_NAME}
+
+volumes:
+  wp_data:
+  db_data:
+  db-1_data:
+  db-2_data:
+  db-3_data:
+  db-4_data:

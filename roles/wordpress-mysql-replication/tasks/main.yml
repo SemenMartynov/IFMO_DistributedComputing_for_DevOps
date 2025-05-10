@@ -1,11 +1,12 @@
 ---
-- name: Install pymysql
+- name: Install dependencies
   ansible.builtin.apt:
     update_cache: true
     force_apt_get: true
     state: present
     pkg: 
       - python3-pymysql
+      - mysql-client
 
 # Создание и восстановление дампа будет выполнено только в том случае, если бинарный лог не включен ранее.
 # Это позволит избежать потери данных при повторном запуске плейбука.
@@ -21,20 +22,23 @@
   ansible.builtin.debug:
     var: my_status.master_status
 
-- name: Dump all databases
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db
-    command: >
-      sh -c 'mariadb-dump --add-drop-database -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE > /var/lib/mysql/dump.sql'
+- name: Dump database
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    dump_extra_args: "--column-statistics=0"
+    target: "/tmp/{{ db_name }}_dump.sql"
   when: my_status.master_status | length == 0
 
 - name: Create directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0755'
   loop:
     - "{{ project_dir }}/mariadb-master/config"
@@ -45,16 +49,16 @@
   ansible.builtin.template:
     src: "{{ role_path }}/files/docker-compose.yml"
     dest: "{{ project_dir }}/docker-compose.yml"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
 - name: Configure MariaDB master
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-master/config/my.cnf"
       mode: '0644'
-      owner: "{{ ansible_ssh_user }}"
-      group: "{{ ansible_ssh_user }}"
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
       content: |
         [mariadb]
         log-bin
@@ -66,8 +70,8 @@
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-replica/config/my.cnf"
       mode: '0644'
-      owner: "{{ ansible_ssh_user }}"
-      group: "{{ ansible_ssh_user }}"
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
       content: |
         [mariadb]
         server_id={{ replica_server_id }}
@@ -78,8 +82,8 @@
   ansible.builtin.copy:
       dest: "{{ project_dir }}/mariadb-replica/init/init.sql"
       mode: '0644'
-      owner: "{{ ansible_ssh_user }}"
-      group: "{{ ansible_ssh_user }}"
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
       content: |
         CHANGE MASTER TO
           MASTER_HOST='db',
@@ -92,8 +96,8 @@
   ansible.builtin.template:
     src: "{{ role_path }}/files/env.tpl"
     dest: "{{ project_dir }}/.env"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
 - name: Apply updated compose file
@@ -141,13 +145,15 @@
     priv: "*.*:REPLICATION SLAVE"
     state: present
 
-- name: Restore master databases
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ project_dir }}"
-    service: db
-    command: >
-      sh -c 'mariadb -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < /var/lib/mysql/dump.sql'
-  when: my_status.master_status | length == 0
+- name: Restore database
+  community.mysql.mysql_db:
+    state: import
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: my_status.master_status | length == 0    
 
 - name: Wait for replication and check replica status
   community.mysql.mysql_replication:

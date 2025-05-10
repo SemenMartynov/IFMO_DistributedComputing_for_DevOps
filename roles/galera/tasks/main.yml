@@ -1,0 +1,142 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+    state: present
+    pkg: 
+      - python3-pymysql
+      - mysql-client
+
+# Создание и восстановление дампа будет выполнено только в том случае, если кластера еще нет.
+# Это позволит избежать потери данных при повторном запуске плейбука.
+- name: Check if galera cluster is already enabled
+  community.mysql.mysql_info:
+    login_host: "127.0.0.1"
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: global_status
+  register: my_status
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Show wsrep status
+  ansible.builtin.debug:
+    var: my_status.global_status.wsrep_cluster_size
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Dump all databases
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    dump_extra_args: "--column-statistics=0"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Stop services
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    state: stopped
+  register: output
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+
+- name: Update docker-compose
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Upload environment variables
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Upload haproxy config
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/haproxy.cfg"
+    dest: "{{ project_dir }}/haproxy.cfg"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Apply updated compose file
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    remove_orphans: true
+  register: output
+
+- name: Show compose results
+  ansible.builtin.debug:
+    var: output
+
+- name: Verify that services are running
+  ansible.builtin.assert:
+    that:
+      - wp_container.State == 'running'
+      - db_container.State == 'running'
+      - db_1_container.State == 'running'
+  vars:
+    wp_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
+    db_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db") | first }}
+    db_1_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-1") | first }}
+    db_2_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-2") | first }}
+    db_3_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-3") | first }}
+    db_4_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-4") | first }}
+
+- name: Wait until cluster is up
+  community.mysql.mysql_query:
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    query: "SELECT 1;"
+  register: result
+  retries: 5
+  delay: 60
+  until:   
+    - result.failed == false
+
+- name: Restore database
+  community.mysql.mysql_db:
+    state: import
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  tags: 
+    - restore
+
+- name: Check galera cluster status
+  community.mysql.mysql_info:
+    login_host: "127.0.0.1"
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: global_status
+  register: my_status
+
+- name: Show wsrep status
+  ansible.builtin.debug:
+    var: my_status.global_status.wsrep_cluster_size

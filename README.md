@@ -31,31 +31,32 @@
 
 Необходимо задать переменные окружения *TELEGRAM_BOT_TOKEN* и *TELEGRAM_CHAT_ID* - например, поместить в файл `.env` в корне проекта и выполнить `export $(grep -v '^#' .env | xargs)`
 
-Мониторинг реализован для развертывания отдельно от хоста с wordpress и базой, но для проверки можно развернуть все на одном. Для этого в inventory указать один IP для обоих хостов и запустить плейбук с параметром `-t singlehost` для пропуска шагов с копированием сертификатов.
-
 Доступы к prometheus и grafana:
 
 https://monitoring-host-ip:9090/
-http://monitoring-host-ip:3000/
+http://monitoring-host-ip:3000/ (admin:admin)
 
 **Доработки по заданию 2:**
 
 ✅ Вернул vault
-
 ✅ Исправил ошибку при повторных запусках, если пользователь уже существует
-
 ✅ Пропускаем таски с созданием и восстановлением дампа, если репликация была включена ранее
-
 ✅ server_id в vars
 
 
 ## Task 4
+
+Реализовать полноценный кластер на базе Galera Cluster (из 5 узлов). Приложение (WordPress) не обязано уметь определять состояние конкретного узла и перебирать подключения, поэтому между приложением и кластером устанавливается балансировщик нагрузки (HAProxy), который определяет "здоровье" узлов кластера и распределяет запросы.
 
 **Доработки по заданию 3:**
 
 ✅ Добавление экспортеров через Prometheus Scrape Configs вместо blockinfile
 ✅ Исправлена работа на arm64 
 ✅ Предустановлены дашборды в Grafana
+
+**Доработки по заданию 2:**
+
+✅ Снятие и восстановление дампов через модуль mysql_db вместо exec
 
 # Использование
 
@@ -73,7 +74,7 @@ http://monitoring-host-ip:3000/
 
 ## Проверка связи
 
-`ansible all -m ping -i inventory/hosts.yml --ask-vault-pass`
+`ansible all -m ping`
 
 ## Vault
 
@@ -83,8 +84,10 @@ http://monitoring-host-ip:3000/
 
 Плейбуки запускать последовательно:
 
-`ansible-playbook playbooks/task1.yml -i inventory/hosts.yml --ask-vault-pass`
+`ansible-playbook playbooks/playbook1.yml`
 
-`ansible-playbook playbooks/task2.yml -i inventory/hosts.yml --ask-vault-pass`
+`ansible-playbook playbooks/playbook2.yml`
 
-`ansible-playbook playbooks/task3.yml -i inventory/hosts.yml --ask-vault-pass` (для развертывания на одном хосте `ansible-playbook playbooks/task3.yml -i inventory/hosts.yml --ask-vault-pass -t singlehost`)
+`ansible-playbook playbooks/playbook3.yml`
+
+`ansible-playbook playbooks/playbook4.yml` 

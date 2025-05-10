@@ -1,0 +1,9 @@
+MYSQL_ROOT_PASSWORD={{ db_root_password }}
+DB_NAME={{ db_name }}
+DB_USER={{ db_user }}
+DB_PASSWORD={{ db_password }}
+MARIADB_GALERA_MARIABACKUP_USER={{ mariabackup_user }}
+MARIADB_GALERA_MARIABACKUP_PASSWORD={{ mariabackup_password }}
+MARIADB_REPLICATION_USER={{ replication_user }}
+MARIADB_REPLICATION_PASSWORD={{ replication_password }}
+MARIADB_GALERA_CLUSTER_NAME={{ cluster_name }}

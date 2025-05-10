@@ -3,16 +3,16 @@
   ansible.builtin.file:
     path: "{{ monitoring_dir }}/common"
     state: directory
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0755'
 
 - name: Generate a 2048-bit RSA private key
   community.crypto.openssl_privatekey:
     path: "{{ monitoring_dir }}/common/exporter.key"
     size: 2048
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
 - name: Generate an OpenSSL Certificate Signing Request
@@ -20,8 +20,8 @@
     path: "{{ monitoring_dir }}/common/exporter.csr"
     privatekey_path: "{{ monitoring_dir }}/common/exporter.key"
     common_name: "{{ certificate_common_name }}"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
 - name: Generate a Self Signed OpenSSL certificate
@@ -30,8 +30,8 @@
     privatekey_path: "{{ monitoring_dir }}/common/exporter.key"
     csr_path: "{{ monitoring_dir }}/common/exporter.csr"
     provider: selfsigned
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
 - name: Encrypt password
@@ -41,8 +41,8 @@
 - name: Creating web config file
   ansible.builtin.copy:
     dest: "{{ monitoring_dir }}/common/config.yml"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
     content: |
       tls_server_config:

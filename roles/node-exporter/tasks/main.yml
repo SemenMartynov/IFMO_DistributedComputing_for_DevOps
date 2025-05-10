@@ -31,9 +31,13 @@
       Restart=always
       [Install]
       WantedBy=multi-user.target
-  notify:
-    - Start node_exporter service
-
+      
 - name: Force systemd to reread configs
   ansible.builtin.systemd_service:
     daemon_reload: true
+
+- name: Start node_exporter service
+  ansible.builtin.service:
+    name: node_exporter
+    enabled: true
+    state: started

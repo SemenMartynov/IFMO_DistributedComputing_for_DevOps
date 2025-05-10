@@ -1,3 +1,4 @@
 ---
+monitoring_dir: /srv/docker/monitoring
 monitoring_user: "{{ vault_monitoring_user }}"
 monitoring_password: "{{ vault_monitoring_password }}"

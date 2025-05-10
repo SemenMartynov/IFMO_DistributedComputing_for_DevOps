@@ -1,0 +1,22 @@
+---
+- name: Setup galera cluster
+  hosts: blog
+  become: true
+  roles:
+    - galera
+    - mysql-exporter
+
+- name: Update monitoring config
+  #hosts: monitoring
+  hosts: blog
+  roles:
+    - prometheus
+  vars:
+    bot_token: "{{ lookup('ansible.builtin.env', 'TELEGRAM_BOT_TOKEN') }}"
+    chat_id: "{{ lookup('ansible.builtin.env', 'TELEGRAM_CHAT_ID') }}"
+    db_nodes:
+      - db:3306
+      - db-1:3306
+      - db-2:3306
+      - db-3:3306
+      - db-4:3306
