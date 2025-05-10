@@ -1,0 +1,58 @@
+---
+is_wordpress: true
+wordpress_port: 8080
+wordpress_db_name: wordpress_db
+
+mysql_root_password: root_password
+db_pass: "{{ mysql_root_password }}"
+
+database_name: "{{ wordpress_db_name }}"
+database_user: wordpress_user
+database_password: wordpress_password
+
+replication_user: repl
+replication_password: replication_password
+
+db_host: mysql_master
+db_master: mysql_master
+db_replica: "mysql_slave1,mysql_slave2"
+
+wordpress_admin_user: admin
+wordpress_admin_password: admin_password
+wordpress_admin_email: admin@mail.ru
+wordpress_site_url: "http://{{ hostvars['carrier'].ansible_host }}:{{ wordpress_port }}"
+
+docker_network: wordpress-network
+docker_compose_version: '3.8'
+project_root: "/opt/wordpress"
+docker_exact_version: "5:28.0.4"
+
+monitoring_url: "http://{{ hostvars['carrier'].ansible_host }}:3000"
+
+cadvisor_port: 8081
+prometheus_port: 9091
+grafana_port: 3000
+
+cadvisor_container_name: cadvisor
+cadvisor_image: gcr.io/cadvisor/cadvisor:latest
+cadvisor_ports: "{{ cadvisor_port }}:8080"
+cadvisor_volume_path_root: /:/rootfs:ro
+cadvisor_volume_path_var: /var/run:/var/run:ro
+cadvisor_volume_path_sys: /sys:/sys:ro
+
+prometheus_container_name: prometheus
+prometheus_image: prom/prometheus:latest
+prometheus_restart_policy: always
+prometheus_data_path: /opt/prometheus
+prometheus_volume: "/opt/prometheus:/etc/prometheus"
+prometheus_ports: "{{ prometheus_port }}:9090"
+
+grafana_container_name: grafana
+grafana_image: grafana/grafana:latest
+grafana_restart_policy: always
+grafana_data_path: /opt/grafana
+grafana_dashboards_path: "{{ grafana_data_path }}/dashboards"
+grafana_admin_user: admin
+grafana_admin_password: admin
+grafana_users_allow_sign_up: 'false'
+grafana_ports: "{{ grafana_port }}:3000"

@@ -1,0 +1,107 @@
+---
+- name: Wait until MySQL master is healthy
+  community.docker.docker_container_info:
+    name: mysql_master
+  register: master_info
+  until: master_info.container.State.Health.Status == 'healthy'
+  retries: 30
+  delay: 5
+
+- name: Capture MySQL master IP
+  ansible.builtin.set_fact:
+    master_ip: "{{ master_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
+
+- name: Ensure replication user exists (idempotent)
+  community.mysql.mysql_query:
+    login_host: "{{ master_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    single_transaction: true
+    query:
+      - >-
+        CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%'
+        IDENTIFIED WITH caching_sha2_password BY '{{ replication_password }}'
+        REQUIRE SSL;
+      - >-
+        GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';
+      - FLUSH PRIVILEGES;
+  changed_when: false
+
+- name: Check if legacy volume db_data exists
+  community.docker.docker_volume_info:
+    name: db_data
+  register: legacy_vol
+  failed_when: false
+
+- name: Create temporary file for dump
+  ansible.builtin.tempfile:
+    state: file
+    suffix: ".sql"
+  register: dump_tmp
+  when: legacy_vol.exists | default(false)
+
+- name: Start temporary legacy MySQL container
+  community.docker.docker_container:
+    name: mysql_legacy
+    image: mysql:8.4.4
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - name: "{{ docker_network }}"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p{{ mysql_root_password }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    state: started
+  when: legacy_vol.exists | default(false)
+
+- name: Wait until legacy container is healthy
+  community.docker.docker_container_info:
+    name: mysql_legacy
+  register: legacy_info
+  until: legacy_info.container.State.Health.Status == 'healthy'
+  retries: 30
+  delay: 5
+  when: legacy_vol.exists | default(false)
+
+- name: Dump all databases from legacy
+  community.mysql.mysql_db:
+    state: dump
+    name: all
+    target: "{{ dump_tmp.path }}"
+    login_host: "{{ legacy_info.container.NetworkSettings.Networks[docker_network].IPAddress }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    single_transaction: true
+    dump_extra_args: "--set-gtid-purged=OFF"
+  when: legacy_vol.exists | default(false)
+
+- name: Import dump into master
+  community.mysql.mysql_db:
+    state: import
+    name: all
+    target: "{{ dump_tmp.path }}"
+    login_host: "{{ master_ip }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  when: legacy_vol.exists | default(false)
+
+- name: Remove legacy container
+  community.docker.docker_container:
+    name: mysql_legacy
+    state: absent
+    force_kill: true
+  when: legacy_vol.exists | default(false)
+
+- name: Collect slaves into a list
+  ansible.builtin.set_fact:
+    slave_names: ["mysql_slave1", "mysql_slave2"]
+
+- name: Configure replication on each slave
+  ansible.builtin.include_tasks: configure_replica.yml
+  loop: "{{ slave_names }}"
+  loop_control:
+    loop_var: slave_container
