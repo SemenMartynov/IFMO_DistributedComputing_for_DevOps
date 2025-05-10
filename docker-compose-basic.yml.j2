@@ -1,0 +1,44 @@
+services:
+  db:
+    image: bitnami/mariadb:11.3
+    container_name: db
+    restart: always
+    environment:
+      - MARIADB_ROOT_PASSWORD={{ mariadb_root_password }}
+      - MARIADB_DATABASE={{ mariadb_database }}
+      - MARIADB_USER={{ mariadb_user }}
+      - MARIADB_PASSWORD={{ mariadb_password }}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - wpnet
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p{{ mariadb_root_password }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  wordpress:
+    image: wordpress:6.7
+    container_name: wordpress
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "80:80"
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER={{ mariadb_user }}
+      - WORDPRESS_DB_PASSWORD={{ mariadb_password }}
+      - WORDPRESS_DB_NAME={{ mariadb_database }}
+    networks:
+      - wpnet
+
+volumes:
+  db_data:
+
+networks:
+  wpnet:
