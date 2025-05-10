@@ -1,0 +1,73 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_app
+    restart: always
+    depends_on:
+      - mysql_node_1
+    ports:
+      - "80:80"
+    env_file: .env
+    volumes:
+      - ./wordpress_data:/var/www/html
+    networks:
+      - {{ wp_mysql_cluster_name }}
+
+  mysql_node_1:
+    image: mysql:8.0
+    container_name: mysql_node_1
+    restart: always
+    env_file: .env
+    environment:
+      - MYSQL_REPLICATION_MODE=master
+    ports:
+      - "3306:3306"
+    command: ["mysqld",
+      "--server-id=1",
+      "--log_bin=mysql-bin",
+      "--binlog_do_db={{ mysql_database }}",
+      "--max_allowed_packet=128M"]
+    volumes:
+      - ./mysql_data_1:/var/lib/mysql
+      - ./init-primary.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - {{ wp_mysql_cluster_name }}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+{% for i in range(2, mysql_cluster_nodes + 1) %}
+  mysql_node_{{ i }}:
+    image: mysql:8.0
+    container_name: mysql_node_{{ i }}
+    restart: always
+    env_file: .env
+    environment:
+      - MYSQL_REPLICATION_MODE=slave
+      - MYSQL_MASTER_HOST=mysql_node_1
+      - MYSQL_MASTER_PORT_NUMBER=3306
+    ports:
+      - "{{ 3307 + i - 2 }}:3306"
+    command: ["mysqld",
+      "--server-id={{ i }}",
+      "--relay-log=relay-bin",
+      "--read_only=1",
+      "--log_bin=mysql-bin"]
+    volumes:
+      - ./mysql_data_{{ i }}:/var/lib/mysql
+    networks:
+      - {{ wp_mysql_cluster_name }}
+    depends_on:
+      - mysql_node_1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+{% endfor %}
+
+networks:
+  {{ wp_mysql_cluster_name }}:
+    external: true
