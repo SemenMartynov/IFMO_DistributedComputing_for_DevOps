@@ -161,3 +161,20 @@
           - "3000:3000"
         networks:
           - name: wp_network
+
+    - name: Шаблонизировать docker-compose-monitoring.yml
+      template:
+        src: docker-compose-monitoring.yml.j2
+        dest: "{{ project_dir }}/docker-compose-monitoring.yml"
+        mode: '0644'
+
+    - name: Запустить мониторинг через docker compose
+      shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Шаблонизировать prometheus.yml
+      template:
+        src: prometheus.yml.j2
+        dest: "{{ project_dir }}/prometheus.yml"
+        mode: '0644'

@@ -26,3 +26,6 @@ cluster_nodes:
     ip: "10.0.0.12"
   - name: "node3"
     ip: "10.0.0.13"
+
+grafana_user: admin
+grafana_password: admin
