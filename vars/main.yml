@@ -25,4 +25,4 @@ cluster_nodes:
   - name: "node2"
     ip: "10.0.0.12"
   - name: "node3"
-    ip: "10.0.0.13" 
+    ip: "10.0.0.13"
