@@ -1,0 +1,80 @@
+services:
+  db-master:
+    image: bitnami/mariadb-galera:latest
+    container_name: db-master
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p{{ mariadb_root_password }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    environment:
+      - MARIADB_ROOT_PASSWORD={{ mariadb_root_password }}
+      - MARIADB_DATABASE={{ mariadb_database }}
+      - MARIADB_USER={{ mariadb_user }}
+      - MARIADB_PASSWORD={{ mariadb_password }}
+      - MARIADB_GALERA_CLUSTER_NAME={{ galera_cluster_name }}
+      - MARIADB_GALERA_CLUSTER_BOOTSTRAP=yes
+      - MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP=yes
+      - MARIADB_GALERA_MARIABACKUP_USER={{ galera_backup_user }}
+      - MARIADB_GALERA_MARIABACKUP_PASSWORD={{ galera_backup_password }}
+      - MARIADB_REPLICATION_USER={{ replication_user }}
+      - MARIADB_REPLICATION_PASSWORD={{ replication_password }}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_master_data:/bitnami/mariadb
+    networks:
+      - wpnet
+
+  db-slave:
+    image: bitnami/mariadb-galera:latest
+    container_name: db-slave
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p{{ mariadb_root_password }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    environment:
+      - MARIADB_ROOT_PASSWORD={{ mariadb_root_password }}
+      - MARIADB_DATABASE={{ mariadb_database }}
+      - MARIADB_USER={{ mariadb_user }}
+      - MARIADB_PASSWORD={{ mariadb_password }}
+      - MARIADB_GALERA_CLUSTER_NAME={{ galera_cluster_name }}
+      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://db-master
+      - MARIADB_GALERA_MARIABACKUP_USER={{ galera_backup_user }}
+      - MARIADB_GALERA_MARIABACKUP_PASSWORD={{ galera_backup_password }}
+      - MARIADB_REPLICATION_USER={{ replication_user }}
+      - MARIADB_REPLICATION_PASSWORD={{ replication_password }}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_slave_data:/bitnami/mariadb
+    networks:
+      - wpnet
+
+  wordpress:
+    image: wordpress:6.7
+    container_name: wordpress
+    depends_on:
+      - db-master
+      - db-slave
+    ports:
+      - "80:80"
+    environment:
+      - WORDPRESS_DB_HOST=db-master
+      - WORDPRESS_DB_USER={{ mariadb_user }}
+      - WORDPRESS_DB_PASSWORD={{ mariadb_password }}
+      - WORDPRESS_DB_NAME={{ mariadb_database }}
+    networks:
+      - wpnet
+
+volumes:
+  db_master_data:
+  db_slave_data:
+
+networks:
+  wpnet:
