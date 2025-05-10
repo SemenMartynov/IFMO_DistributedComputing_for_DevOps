@@ -1,0 +1,5 @@
+- name: Deploy WP + MySql
+  hosts: wp_servers
+  become: yes
+  roles:
+    - wordpress
