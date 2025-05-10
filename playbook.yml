@@ -1,0 +1,251 @@
+- name: Installation Docker and launch WordPress with MySQL Master-Slave
+  hosts: praktikum
+  become: true
+  collections:
+    - community.docker
+    - community.mysql
+    - community.general
+
+  vars_files:
+    - vars.yml
+
+  pre_tasks:
+    - name: Ensure Docker SDK for Python is installed
+      apt:
+        name: python3-docker
+        state: present
+        update_cache: true
+
+    - name: Ensure Python MySQL driver is installed
+      apt:
+        name: python3-pymysql
+        state: present
+        update_cache: true
+
+  tasks:
+    - name: Install prerequisite APT packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: true
+
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - containerd
+          - containerd.io
+          - docker-compose
+          - docker-ce
+          - docker-ce-cli
+        state: absent
+        purge: true
+
+    - name: Clean APT cache
+      apt:
+        autoclean: true
+
+    - name: Update APT cache (retry)
+      apt:
+        update_cache: true
+      register: apt_update
+      retries: 3
+      delay: 5
+      until: apt_update is success
+
+    - name: Remove legacy Docker GPG key
+      apt_key:
+        id: 7EA0A9C3F273FCD8
+        state: absent
+
+    - name: Remove legacy keyring files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/trusted.gpg
+        - /etc/apt/trusted.gpg.d/docker.gpg
+        - /usr/share/keyrings/docker-archive-keyring.gpg
+        - /tmp/docker.gpg
+
+    - name: Download Docker’s GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /tmp/docker.gpg
+        mode: '0644'
+
+    - name: Convert GPG key to keyring
+      ansible.builtin.command:
+        cmd: gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
+      args:
+        creates: /usr/share/keyrings/docker-archive-keyring.gpg
+      register: gpg_result
+      changed_when: gpg_result.rc == 0
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu jammy stable"
+        state: present
+        update_cache: true
+
+    - name: Install Docker and Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add ansible user to docker group
+      user:
+        name: "{{ wp_user }}"
+        groups: docker
+        append: true
+
+    - name: Create project directory
+      file:
+        path: "{{ wp_path }}"
+        state: directory
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: files/docker-compose.yml
+        dest: "{{ wp_path }}/docker-compose.yml"
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0644'
+
+    - name: Clean up any old containers & volumes
+      community.docker.docker_compose_v2:
+        project_src: "{{ wp_path }}"
+        state: absent
+        remove_volumes: true
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Start only MySQL Master & Slave
+      community.docker.docker_compose_v2:
+        project_src: "{{ wp_path }}"
+        state: present
+        services:
+          - "{{ mysql_master_container_name }}"
+          - "{{ mysql_slave_container_name }}"
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Wait for MySQL Master to accept connections
+      community.docker.docker_container_exec:
+        container: "{{ mysql_master_container_name }}"
+        command: >-
+          mysql -uroot -p{{ mysql_root_password }} -e "SELECT 1"
+        tty: false
+      register: master_ready
+      retries: 30
+      delay: 5
+      until: master_ready.rc == 0
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Wait for MySQL Slave to accept connections
+      community.docker.docker_container_exec:
+        container: "{{ mysql_slave_container_name }}"
+        command: >-
+          mysql -uroot -p{{ mysql_root_password }} -e "SELECT 1"
+        tty: false
+      register: slave_ready
+      retries: 30
+      delay: 5
+      until: slave_ready.rc == 0
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Create replication user on master
+      community.mysql.mysql_user:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ mysql_repl_user }}"
+        password: "{{ mysql_repl_password }}"
+        host: '%'
+        priv: '*.*:REPLICATION SLAVE'
+        state: present
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Get master status
+      community.mysql.mysql_replication:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        mode: getprimary
+      register: master_status
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Configure slave to replicate from master
+      community.mysql.mysql_replication:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        mode: changeprimary
+        primary_host: "{{ mysql_master_container_name }}"
+        primary_user: "{{ mysql_repl_user }}"
+        primary_password: "{{ mysql_repl_password }}"
+        primary_log_file: "{{ master_status.File }}"
+        primary_log_pos: "{{ master_status.Position }}"
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Create application database on master
+      community.mysql.mysql_db:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ wp_db_name }}"
+        state: present
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Create WordPress user and grant privileges
+      community.mysql.mysql_user:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ mysql_wp_user }}"
+        password: "{{ mysql_wp_password }}"
+        priv: "{{ wp_db_name }}.*:ALL"
+        state: present
+      become: true
+      become_user: "{{ wp_user }}"
+
+    - name: Finally start WordPress container
+      community.docker.docker_compose_v2:
+        project_src: "{{ wp_path }}"
+        state: present
+        services:
+          - wordpress
+      become: true
+      become_user: "{{ wp_user }}"

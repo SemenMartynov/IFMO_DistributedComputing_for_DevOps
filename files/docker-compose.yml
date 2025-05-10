@@ -1,0 +1,62 @@
+services:
+  db-master:
+    image: mysql:5.7
+    container_name: db-master
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_master_data:/var/lib/mysql
+    command: --log-bin=mysql-bin --server-id=1
+    networks:
+      - default
+      - monitoring_net
+
+  db-slave:
+    image: mysql:5.7
+    container_name: db-slave
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+    volumes:
+      - db_slave_data:/var/lib/mysql
+    command: --server-id=2 --log-slave-updates
+    depends_on:
+      - db-master
+    networks:
+      - default
+      - monitoring_net
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    ports:
+      - "80:80"
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db-master:3306
+      WORDPRESS_DB_USER: "user"
+      WORDPRESS_DB_PASSWORD: "password"
+      WORDPRESS_DB_NAME: "mydb"
+    volumes:
+      - wordpress_data:/var/www/html
+    depends_on:
+      - db-master
+    networks:
+      - default
+      - monitoring_net
+
+volumes:
+  db_master_data:
+  db_slave_data:
+  wordpress_data:
+
+networks:
+  monitoring_net:
+    external: true

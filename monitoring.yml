@@ -1,0 +1,66 @@
+- name: Deploy Prometheus + Grafana monitoring stack
+  hosts: praktikum
+  become: true
+
+  collections:
+    - community.mysql
+    - community.docker
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create exporter user for mysqld_exporter
+      community.mysql.mysql_user:
+        login_host: 127.0.0.1
+        login_port: 3306
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ mysql_exporter_user }}"
+        password: "{{ mysql_exporter_password }}"
+        host: '%'
+        priv: '*.*:PROCESS,REPLICATION CLIENT'
+        state: present
+      ignore_errors: true
+      register: exporter_user_creation
+
+    - name: Ensure Docker network exists
+      community.docker.docker_network:
+        name: monitoring_net
+        state: present
+
+    - name: Create /opt/monitoring directory
+      file:
+        path: /opt/monitoring
+        state: directory
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0755'
+
+    - name: Copy Prometheus config
+      copy:
+        src: files/prometheus.yml
+        dest: /opt/monitoring/prometheus.yml
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0644'
+
+    - name: Copy Docker-Compose for monitoring
+      copy:
+        src: files/docker-compose-monitoring.yml
+        dest: /opt/monitoring/docker-compose.yml
+        owner: "{{ wp_user }}"
+        group: "{{ wp_group }}"
+        mode: '0644'
+
+    - name: Pull monitoring images
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+        pull: always
+      become_user: "{{ wp_user }}"
+
+    - name: Launch monitoring stack
+      community.docker.docker_compose_v2:
+        project_src: /opt/monitoring
+        state: present
+      become_user: "{{ wp_user }}"
