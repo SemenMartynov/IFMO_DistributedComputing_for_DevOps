@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - wordpress_network
+    healthcheck:
+      test: ["CMD", "mysql", "--user=wp_user", "--password=${MYSQL_PASSWORD}", "--database=wordpress", "-e", "SELECT 1"]
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    expose:
+      - "8080"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - wordpress_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8080 || exit 1"]
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/ssl/wordpress:/etc/ssl/wordpress
+      - wordpress_data:/var/www/html
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - wordpress
+    networks:
+      - wordpress_network
+
+networks:
+  wordpress_network:
+    driver: bridge
+
+volumes:
+  db_data:
+  wordpress_data:

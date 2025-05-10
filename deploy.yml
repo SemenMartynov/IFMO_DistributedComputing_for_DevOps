@@ -1,0 +1,92 @@
+- name: Deploy WordPress
+  hosts: all
+  become: true
+  vars:
+      docker_compose_path: "{{ lookup('env', 'DOCKER_COMPOSE_PATH') }}"
+      env_file_path: "{{ lookup('env', 'ENV_FILE_PATH') }}"
+      wordpress_db_name: "{{ lookup('env', 'WORDPRESS_DB_NAME') }}"
+      wordpress_db_user: "{{ lookup('env', 'WORDPRESS_DB_USER') }}"
+      wordpress_db_password: "{{ lookup('env', 'WORDPRESS_DB_PASSWORD') }}"
+      wordpress_db_root_password: "{{ lookup('env', 'WORDPRESS_DB_ROOT_PASSWORD') }}"
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - ufw
+        state: present
+        update_cache: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Allow necessary ports in UFW
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+        - "22"
+      notify:
+        - Reload UFW
+
+    - name: Create Docker Compose directory
+      file:
+        path: "{{ docker_compose_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy Docker Compose file
+      copy:
+        src: docker-compose.yml
+        dest: "{{ docker_compose_path }}/docker-compose.yml"
+        mode: '0644'
+      notify:
+        - Restart Docker Compose
+
+    - name: Ensure .env file is present
+      copy:
+        src: .env
+        dest: "{{ env_file_path }}"
+        mode: '0644'
+
+    - name: Ensure Nginx Config File is present
+      copy:
+        src: nginx.conf
+        dest: "{{ docker_compose_path }}/nginx.conf"
+        mode: '0644'
+
+    - name: Stop and remove existing containers (if any)
+      docker_compose:
+        project_src: "{{ docker_compose_path }}"
+        state: absent
+        remove_orphans: true
+      ignore_errors: true
+
+    - name: Start Docker Compose
+      docker_compose:
+        project_src: "{{ docker_compose_path }}"
+        state: present
+        restarted: yes
+
+    - name: Ensure UFW is enabled
+      ufw:
+        state: enabled
+      notify:
+        - Reload UFW
+
+  handlers:
+    - name: Reload UFW
+      ufw:
+        state: reloaded
+
+    - name: Restart Docker Compose
+      docker_compose:
+        project_src: "{{ docker_compose_path }}"
+        state: restarted

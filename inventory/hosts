@@ -1,0 +1,6 @@
+[wordpress_servers]
+server1.example.com ansible_user=your_user ansible_ssh_pass=your_password
+
+
+[wordpress_servers:vars]
+ansible_ssh_private_key_file=/path/to/your/private/key
