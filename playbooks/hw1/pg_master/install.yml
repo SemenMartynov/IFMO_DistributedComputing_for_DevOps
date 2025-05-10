@@ -1,0 +1,6 @@
+---
+- name: Install pg_master
+  hosts: carrier
+
+  roles:
+    - pg_master

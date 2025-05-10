@@ -1,7 +1,10 @@
-- hosts: carrier
+---
+- name: Remove Docker from carrier
+  hosts: carrier
 
   tasks:
     - name: Remove Docker CE packages
+      become: true
       ansible.builtin.apt:
         name:
           - docker-ce
@@ -12,39 +15,43 @@
         autoremove: true
 
     - name: Remove Docker apt repository
+      become: true
       ansible.builtin.apt_repository:
         repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
         state: absent
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove Docker GPG apt Key
+      become: true
       ansible.builtin.apt_key:
         id: 0EBFCD88
         state: absent
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove docker group
+      become: true
       ansible.builtin.group:
         name: docker
         state: absent
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove /var/lib/docker directory if exists
+      become: true
       ansible.builtin.file:
         path: /var/lib/docker
         state: absent
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove /etc/docker directory if exists
       ansible.builtin.file:
         path: /etc/docker
         state: absent
-      ignore_errors: true
+      failed_when: false
 
     - name: Verify Docker binary is removed
       ansible.builtin.command: which docker
       register: docker_bin_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Status

@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Install Strapi
+  hosts: carrier
 
   roles:
     - strapi

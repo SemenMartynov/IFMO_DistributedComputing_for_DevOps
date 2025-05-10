@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Install Grafana
+  hosts: carrier
 
   roles:
     - grafana

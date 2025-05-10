@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Remove Strapi
+  hosts: carrier
 
   tasks:
     - name: Stop and remove Strapi container

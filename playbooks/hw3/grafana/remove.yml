@@ -1,9 +1,11 @@
-- hosts: carrier
+---
+- name: Remove Grafana
+  hosts: carrier
 
   tasks:
     - name: Stop and remove Grafana container
       community.docker.docker_container:
-        name: grafana
+        name: "{{ grafana_container_name }}"
         state: absent
         force_kill: true
 

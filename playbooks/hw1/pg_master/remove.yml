@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Remove pg_master
+  hosts: carrier
 
   tasks:
     - name: Stop and remove PostgreSQL master container

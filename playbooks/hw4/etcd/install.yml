@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Install etcd
+  hosts: carrier
 
   roles:
     - etcd

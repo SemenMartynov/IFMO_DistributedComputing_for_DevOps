@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Install Prometheus
+  hosts: carrier
 
   roles:
     - prometheus

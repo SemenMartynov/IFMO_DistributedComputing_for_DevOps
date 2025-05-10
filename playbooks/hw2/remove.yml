@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Remove HW2
+  hosts: carrier
 
   tasks:
     - name: Stop and remove PostgreSQL replica container
@@ -10,11 +12,6 @@
     - name: Remove PostgreSQL replica volume
       community.docker.docker_volume:
         name: "{{ pg_replica_volume }}"
-        state: absent
-
-    - name: Remove pg_network
-      community.docker.docker_network:
-        name: "{{ pg_network }}"
         state: absent
 
     - name: Status

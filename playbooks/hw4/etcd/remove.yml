@@ -1,15 +1,18 @@
-- hosts: carrier
+---
+- name: Remove etcd
+  hosts: carrier
 
   tasks:
     - name: Remove etcd container
       community.docker.docker_container:
-        name: etcd
+        name: "{{ etcd_container_name }}"
         state: absent
         force_kill: true
 
     - name: Remove etcd data directory
+      become: true
       ansible.builtin.file:
-        path: /opt/etcd/data
+        path: "{{ etcd_data_path }}"
         state: absent
 
     - name: Status

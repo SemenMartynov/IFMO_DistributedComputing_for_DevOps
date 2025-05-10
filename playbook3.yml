@@ -6,7 +6,7 @@
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "monitoring_url: http://{{ hostvars[inventory_hostname].ansible_host }}:{{ grafana_port_outside }}"
 
   roles:
     - cadvisor

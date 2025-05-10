@@ -1,7 +1,24 @@
-- hosts: carrier
+---
+- name: Install HW4
+  hosts: carrier
 
   roles:
     - etcd
     - patroni
     - haproxy
-    #- monitoring-restart
+    - migration
+
+- name: Reconnect strapi to patroni
+  ansible.builtin.import_playbook: ./reconnect_to_patroni.yml
+
+- name: Remove pg_master
+  ansible.builtin.import_playbook: ../hw1/pg_master/remove.yml
+
+- name: Remove pg_replica
+  ansible.builtin.import_playbook: ../hw2/pg_replica/remove.yml
+
+- name: Remove monitoring
+  ansible.builtin.import_playbook: ../hw3/remove.yml
+
+- name: Launch monitoring
+  ansible.builtin.import_playbook: ../hw3/install.yml

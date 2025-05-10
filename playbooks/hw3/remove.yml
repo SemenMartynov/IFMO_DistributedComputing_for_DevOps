@@ -1,21 +1,23 @@
-- hosts: carrier
+---
+- name: Remove HW3
+  hosts: carrier
 
   tasks:
     - name: Stop and remove Grafana container
       community.docker.docker_container:
-        name: grafana
+        name: "{{ grafana_container_name }}"
         state: absent
         force_kill: true
 
     - name: Stop and remove Prometheus container
       community.docker.docker_container:
-        name: prometheus
+        name: "{{ prometheus_container_name }}"
         state: absent
         force_kill: true
 
     - name: Stop and remove cAdvisor container
       community.docker.docker_container:
-        name: cadvisor
+        name: "{{ cadvisor_container_name }}"
         state: absent
         force_kill: true
 

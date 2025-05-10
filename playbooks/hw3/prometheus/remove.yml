@@ -1,9 +1,11 @@
-- hosts: carrier
+---
+- name: Remove Prometheus
+  hosts: carrier
 
   tasks:
     - name: Stop and remove Prometheus container
       community.docker.docker_container:
-        name: prometheus
+        name: "{{ prometheus_container_name }}"
         state: absent
         force_kill: true
 

@@ -1,4 +1,6 @@
-- hosts: carrier
+---
+- name: Install Docker
+  hosts: carrier
 
   roles:
     - docker

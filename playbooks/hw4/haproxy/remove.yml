@@ -1,20 +1,24 @@
-- hosts: carrier
+---
+- name: Remove HAProxy
+  hosts: carrier
 
   tasks:
     - name: Stop and remove HAProxy container
       community.docker.docker_container:
-        name: haproxy
+        name: "{{ haproxy_container_name }}"
         state: absent
         force_kill: true
 
     - name: Remove HAProxy config file
+      become: true
       ansible.builtin.file:
-        path: /opt/haproxy/haproxy.cfg
+        path: "{{ haproxy_config_file_path_outside }}"
         state: absent
 
     - name: Remove HAProxy config directory if empty
+      become: true
       ansible.builtin.file:
-        path: /opt/haproxy
+        path: "{{ haproxy_config_path }}"
         state: absent
 
     - name: Status

@@ -6,21 +6,21 @@
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatever
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_host: {{ db_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password
+          - "wordpress: {{ is_wordpress }}"
+          - "strapi_port: {{ strapi_outside_port }}"
+          - "strapi_db_name: {{ pg_database }}"
+          - "db_host: {{ strapi_database_host }}"
+          - "db_pass: {{ pg_postgres_password }}"
 
   roles:
     - docker
-    - pg_cluster_master
+    - pg_master
     - strapi
 
   post_tasks:
-    - name: Waiting {{ strapi_check_delay }}s for Strapi to become available
-      uri:
-        url: "http://{{ hostvars[inventory_hostname].ansible_host }}:1337"
+    - name: Waiting for Strapi to become available
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname].ansible_host }}:{{ strapi_port_outside }}"
         method: GET
         status_code: 200
       register: strapi_check
@@ -30,4 +30,4 @@
 
     - name: Confirm Strapi is live
       ansible.builtin.debug:
-        msg: "Strapi is live at http://{{ hostvars[inventory_hostname].ansible_host }}:1337"
+        msg: "Strapi is live at http://{{ hostvars[inventory_hostname].ansible_host }}:{{ strapi_port_outside }}"

@@ -1,8 +1,9 @@
+---
 - name: Run Strapi CMS
   community.docker.docker_container:
     name: "{{ strapi_container_name }}"
     image: "{{ strapi_image }}"
-    restart_policy: "{{ strapi_restart_policy }}"
+    restart_policy: "{{ default_restart_policy }}"
     env:
       DATABASE_CLIENT: "{{ strapi_database_client }}"
       DATABASE_HOST: "{{ strapi_database_host }}"
@@ -11,6 +12,6 @@
       DATABASE_USERNAME: "{{ pg_username }}"
       DATABASE_PASSWORD: "{{ pg_password }}"
     ports:
-      - "{{ strapi_ports }}"
+      - "{{ strapi_port_outside }}:1337"
     networks:
       - name: "{{ pg_network }}"
