@@ -1,8 +1,8 @@
 ---
-- name: Установка Docker и запуск Wordpress с отдельной БД
+- name: Установка Docker и запуск WordPress с реплицируемой БД
   hosts: all
   become: yes
-  vars:                                                                                                                                                                                                                                                                                                                                                                                                           
+  vars:
     docker_users: [server]
     mysql_root_password: root
 
@@ -10,66 +10,95 @@
     - name: Установить Docker
       import_tasks: ./install_docker.yml
 
-    - name: Создать Docker-сеть для связи контейнеров с БД и контейнера с Wordpress
+    - name: Копировать master.cnf на хост
+      copy:
+        src: ../master.cnf
+        dest: /tmp/master.cnf
+
+    - name: Копировать slave.cnf на хост
+      copy:
+        src: ../slave.cnf
+        dest: /tmp/slave.cnf
+
+    - name: Создать Docker-сеть
       docker_network:
         name: wordpress_network
-      
 
-    - name: Запустить контейнер mysql_master 
+    - name: Запустить контейнер mysql_master
       docker_container:
-          name: mysql_master
-          image: mysql:8.0
-          restart_policy: always
-          env:
-            MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-            MYSQL_DATABASE: wordpress
-            MASTER_USER: wp_user
-            MASTER_PASSWORD: wp_password
-          ports:
-            - "3307:3306"
-          networks:
-            - name: wordpress_network
-          volumes:
-            - "{{ lookup('pipe', 'realpath ../master.cnf') }}:/etc/mysql/conf.d/master.cnf"
-          state: started
-          recreate: yes
-   
+        name: mysql_master
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE: wordpress
+          MASTER_USER: wp_user
+          MASTER_PASSWORD: wp_password
+        ports:
+          - "3307:3306"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - /tmp/master.cnf:/etc/mysql/conf.d/master.cnf
+        state: started
+        recreate: yes
 
-    - name: Запустить контейнер mysql_slave 
+    - name: Ожидать MySQL внутри контейнера
+      community.mysql.mysql_info:
+          login_user: root
+          login_password: "{{ mysql_root_password }}"
+          login_host: 127.0.0.1
+          login_port: 3307
+      register: ping_result
+      retries: 20
+      delay: 3
+      until: ping_result is succeeded
+
+    - name: Запустить контейнер mysql_slave
       docker_container:
-          name: mysql_slave
-          image: mysql:8.0
-          restart_policy: always
-          env:
-            MYSQL_ROOT_PASSWORD: root
-          ports:
-            - "3308:3306"
-          volumes:
-            - "{{ lookup('pipe', 'realpath ../slave.cnf') }}:/etc/mysql/conf.d/slave.cnf"
-          networks:
-            - name: wordpress_network
-          state: started
-          recreate: yes
-            
+        name: mysql_slave
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        ports:
+          - "3308:3306"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - /tmp/slave.cnf:/etc/mysql/conf.d/slave.cnf
+        state: started
+        recreate: yes
+
+    - name: Ожидать MySQL внутри контейнера mysql_slave
+      community.mysql.mysql_info:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3308          # порт слейва
+      register: slave_ping
+      retries: 20                 # попытаемся до 20 раз
+      delay: 3                    # с интервалом 3 секунды
+      until: slave_ping is succeeded
 
     - name: Запустить контейнер с WordPress
-      docker_container: 
-          name: wordpress
-          image: wordpress:latest
-          restart_policy: always
-          env:
-            WORDPRESS_DB_HOST: mysql_master:3306
-            WORDPRESS_DB_NAME: wordpress
-            WORDPRESS_DB_USER: wp_user
-            WORDPRESS_DB_PASSWORD: wp_password
-          ports:
-            - "8080:80"
-          networks:
-            - name: wordpress_network
-          volumes:
-            - wordpress_data:/var/www/html
-          state: started
-          recreate: yes
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: mysql_master:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wp_user
+          WORDPRESS_DB_PASSWORD: wp_password
+        ports:
+          - "8080:80"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - wordpress_data:/var/www/html
+        state: started
+        recreate: yes
 
     - name: Создать пользователя для репликации на мастере
       community.mysql.mysql_user:
@@ -80,62 +109,60 @@
         state: present
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        login_host: 127.0.0.1
+        login_host: 127.0.0.1   
         login_port: 3307
-      delegate_to: localhost
-        
+          
+
+    - name: Получить binlog и позицию
+      community.mysql.mysql_replication:
+        mode: getprimary
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3307
+      register: master_status
+
     - name: Остановить репликацию на слейве
       community.mysql.mysql_replication:
         mode: stopreplica
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        login_host: 127.0.0.1
+        login_host: 127.0.0.1   
         login_port: 3308
-      delegate_to: localhost
 
-        
     - name: Настроить мастер на слейве
       community.mysql.mysql_replication:
         mode: changeprimary
-        master_host: 127.0.0.1
-        master_port: 3307
+        master_host: mysql_master
+        master_port: 3306
         master_user: repl_user
         master_password: repl_pass
-        master_log_file: mysql-bin.000002
-        master_log_pos: 157
+        master_log_file: "{{ master_status.File }}"
+        master_log_pos: "{{ master_status.Position }}"
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        login_host: 127.0.0.1
+        login_host: 127.0.0.1   
         login_port: 3308
-      delegate_to: localhost
 
-        
     - name: Запустить репликацию на слейве
       community.mysql.mysql_replication:
         mode: startreplica
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        login_host: 127.0.0.1
+        login_host: 127.0.0.1   
         login_port: 3308
-      delegate_to: localhost
 
     - name: Проверить статус репликации на слейве
       community.mysql.mysql_replication:
         mode: getreplica
         login_user: root
         login_password: "{{ mysql_root_password }}"
-        login_host: 127.0.0.1
+        login_host: 127.0.0.1   
         login_port: 3308
       register: replication_status
-      delegate_to: localhost
 
     - name: Вывести статус репликации
       debug:
         var: replication_status
 
-
-
       
-
-        
-
