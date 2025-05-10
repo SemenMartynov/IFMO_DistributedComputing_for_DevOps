@@ -1,0 +1,98 @@
+- name: Deploy wordpress with MySQL cluster
+  hosts: cloud
+  become: yes
+  vars:
+    app_path: /opt/app
+    dump_file: /tmp/mysql_dump.sql
+
+  tasks:
+    - name: Fail if not Ubuntu
+      fail:
+        msg: "This playbook supports only Ubuntu"
+      when: ansible_facts['distribution'] != "Ubuntu"
+    - name: Update APT package cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages for Docker repository
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb https://download.docker.com/linux/debian buster stable"
+        state: present
+
+    - name: Update APT package cache again
+      apt:
+        update_cache: yes
+
+    - name: Install docker-compose
+      apt:
+        name:
+          - docker-ce
+          - docker-compose-plugin
+        state: present
+
+    - name: Verify Docker Compose installation
+      command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    - name: Print Docker Compose version
+      debug:
+        msg: "{{ compose_version.stdout }}"
+
+    - name: Create app folder
+      file:
+        path: "{{ app_path }}"
+        state: directory
+
+    - name: Copy docker compose file
+      copy:
+        src: docker-compose.yaml
+        dest: "{{ app_path }}/docker-compose.yaml"
+
+    - name: Start docker compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_path }}"
+        state: present
+
+    - name: Wait for MySQL master to be ready
+      wait_for:
+        host: 127.0.0.1
+        port: 3306
+        delay: 10
+        timeout: 300
+        state: started
+
+    - name: Wait for WordPress to be available
+      wait_for:
+        host: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+        port: 8080
+        delay: 10
+        timeout: 300
+        state: started
+
+    - name: Checking if WordPress is up
+      uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_host'] }}:8080"
+        return_content: yes
+      register: result
+      until: result.status == 200
+      retries: 5
+      delay: 10
+
+    - name: Print result of WordPress check
+      debug:
+        var: result.status

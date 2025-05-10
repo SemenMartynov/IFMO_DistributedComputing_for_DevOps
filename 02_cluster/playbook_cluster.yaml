@@ -1,0 +1,188 @@
+- name: Configure MySQL master-slave replication
+  hosts: cloud
+  become: yes
+  vars:
+    app_path: /opt/app
+    dump_file: /tmp/db_dump.sql
+    slave_container: slave
+    master_container: master
+    mysql_root_password: wordpress
+    master_host: 127.0.0.1
+    master_port: 3306
+    slave_host: 127.0.0.1
+    slave_port: 3307
+    replica_user: replica
+    replica_password: password
+
+  tasks:
+    - name: Copy docker compose file
+      copy:
+        src: docker-compose.yaml
+        dest: "{{ app_path }}/docker-compose.yaml"
+
+    - name: Create mysql folder
+      file:
+        path: "{{ app_path }}/mysql"
+        state: directory
+
+    - name: Copy master MySQL config
+      copy:
+        src: mysql/master.cnf
+        dest: "{{ app_path }}/mysql/master.cnf"
+
+    - name: Copy slave MySQL config
+      copy:
+        src: mysql/slave.cnf
+        dest: "{{ app_path }}/mysql/slave.cnf"
+
+    - name: Start docker compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_path }}"
+        state: present
+
+    - name: Install mysql client and pymysql
+      apt:
+        name:
+          - mysql-client
+          - python3-pip
+          - python3-pymysql
+        state: present
+      become: yes
+
+    - name: Wait for MySQL master port
+      wait_for:
+        host: "{{ master_host }}"
+        port: "{{ master_port }}"
+        delay: 5
+        timeout: 60
+        state: started
+
+    - name: Check if MySQL is ready
+      community.mysql.mysql_query:
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT 1;"
+
+    - name: Wait for MySQL slave port
+      wait_for:
+        host: "{{ slave_host }}"
+        port: "{{ slave_port }}"
+        delay: 5
+        timeout: 60
+        state: started
+
+    - name: Check if MySQL slave is ready
+      community.mysql.mysql_query:
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        query: "SELECT 1;"
+
+    - name: Initialize replication user on master
+      community.mysql.mysql_user:
+        name: "{{ replica_user }}"
+        host: "%"
+        password: "{{ replica_password }}"
+        priv: "*.*:REPLICATION SLAVE"
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        state: present
+
+    - name: Get master log file and position
+      community.mysql.mysql_replication:
+        mode: getprimary
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: master_status
+
+    - name: Stop slave IO thread
+      community.mysql.mysql_replication:
+        mode: stopreplica
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Reset slave IO thread
+      community.mysql.mysql_replication:
+        mode: resetreplica
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Configure replication on slave
+      community.mysql.mysql_replication:
+        mode: changeprimary
+        primary_host: "{{ master_container }}"
+        primary_user: "{{ replica_user }}"
+        primary_password: "{{ replica_password }}"
+        primary_log_file: "{{ master_status.File }}"
+        primary_log_pos: "{{ master_status.Position }}"
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Start replication on slave
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Check wordpress database exists on slave
+      community.mysql.mysql_db:
+        name: wordpress
+        state: present
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Dump existing MySQL data from master
+      community.mysql.mysql_db:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        name: wordpress
+        state: dump
+        target: "{{ dump_file }}"
+
+    - name: Copy dump into master container
+      community.docker.docker_container_copy_into:
+        container: "{{ master_container }}"
+        path: "{{ dump_file }}"
+        container_path: "{{ dump_file }}"
+
+    - name: Load dump back into master to generate full binlog
+      community.mysql.mysql_db:
+        state: import
+        name: wordpress
+        target: "{{ dump_file }}"
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Show replication status
+      community.mysql.mysql_replication:
+        mode: getreplica
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      register: final_slave_status
+
+    - name: Print slave IO and SQL running status
+      debug:
+        var: final_slave_status
