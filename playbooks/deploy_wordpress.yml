@@ -75,10 +75,10 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: 127.0.0.1
-        login_port: 3308          # порт слейва
+        login_port: 3308          
       register: slave_ping
-      retries: 20                 # попытаемся до 20 раз
-      delay: 3                    # с интервалом 3 секунды
+      retries: 20                 
+      delay: 3                    
       until: slave_ping is succeeded
 
     - name: Запустить контейнер с WordPress
