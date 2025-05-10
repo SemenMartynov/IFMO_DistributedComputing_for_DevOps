@@ -1,0 +1,88 @@
+---
+- name: Deploy monitoring (cadvisor/prometheus/grafana)
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Creating monitoring directory
+      ansible.builtin.file:
+        path: "{{ monitoring_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Creating confgi for prometheus
+      ansible.builtin.template:
+        src: prometheus.yml.j2
+        dest: "{{ monitoring_dir }}/prometheus.yml"
+        mode: '0644'
+
+    - name: Deploing monitoring Docker Compose
+      ansible.builtin.template:
+        src: docker-compose-monitoring.yml.j2
+        dest: "{{ monitoring_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Starting monitoring
+      community.docker.docker_compose_v2:
+        project_src: "{{ monitoring_dir }}"
+        state: present
+
+    - name: Waiting for grafana to be accessible
+      ansible.builtin.uri:
+        url: http://localhost:3000
+        status_code: 200
+        timeout: 30
+      register: grafana_check
+      retries: 10
+      delay: 5
+      until: grafana_check.status == 200
+
+    - name: Add prometheus data source
+      community.grafana.grafana_datasource:
+        name: DS_PROMETHEUS
+        ds_type: prometheus
+        ds_url: http://prometheus:9090
+        access: proxy
+        is_default: true
+        state: present
+        grafana_url: "{{ grafana_url }}"
+        grafana_user: "{{ grafana_user }}"
+        grafana_password: "{{ grafana_password }}"
+
+    - name: Debug grafana status
+      ansible.builtin.debug:
+        msg: "Grafana is up and running!"
+
+    - name: Downloading json dashboard from grafana site
+      ansible.builtin.get_url:
+        url: "https://grafana.com/api/dashboards/{{ grafana_dashboard_id }}/revisions/1/download"
+        dest: "{{ grafana_dashboard_json }}"
+        mode: '0644'
+
+    - name: Reading downloaded dashboard json
+      ansible.builtin.slurp:
+        src: "{{ grafana_dashboard_json }}"
+      register: cadvisor_dashboard_raw
+
+    - name: Importing cadvisor dashboard to grafana
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/dashboards/import"
+        method: POST
+        user: "{{ grafana_user }}"
+        password: "{{ grafana_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          dashboard: "{{ cadvisor_dashboard_raw['content'] | b64decode | from_json }}"
+          inputs:
+            - name: "DS_PROMETHEUS"
+              type: "datasource"
+              pluginId: "prometheus"
+              value: "DS_PROMETHEUS"
+          overwrite: true
+      when: grafana_check.status == 200
