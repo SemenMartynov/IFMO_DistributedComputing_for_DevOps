@@ -12,5 +12,13 @@ ansible-playbook wordpress.yaml
 
 # Playbook для разворачивания кластера БД mysql
 ```bash
-ansible-playbook mysql_cluster.yaml
+ansible-playbook playbook_cluster.yaml
 ```
+
+# Playbook для настройки мониторинга с Prometheus и Grafana
+```bash
+ansible-playbook playbook_monitoring.yaml
+```
+
+- Prometheus будет доступен по адресу http://<ip_адрес_сервера>:9090/query
+- Grafana будет доступна по адресу http://<ip_адрес_сервера>:3000/dashboards

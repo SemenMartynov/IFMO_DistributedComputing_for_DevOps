@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'mysql-master'
+    static_configs:
+      - targets: ['mysqld-exporter-master:9104']  # Здесь будет экспортер MySQL
+
+  - job_name: 'mysql-slave'
+    static_configs:
+      - targets: ['mysqld-exporter-slave:9104']

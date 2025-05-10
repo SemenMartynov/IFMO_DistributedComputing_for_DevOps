@@ -1,0 +1,91 @@
+- name: Install Prometheus, Grafana and mysql exporter
+  hosts: cloud
+  become: yes
+  vars:
+    mysql_root_password: wordpress
+    exporter_user: exporter
+    exporter_password: exporter_password
+    master_host: 127.0.0.1
+    master_port: 3306
+    slave_host: 127.0.0.1
+    slave_port: 3307
+    app_path: /opt/app
+
+  tasks:
+    - name: Initialize exporter user on master
+      community.mysql.mysql_user:
+        name: "{{ exporter_user }}"
+        host: "%"
+        password: "{{ exporter_user }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        state: present
+
+    - name: Initialize exporter user on slave
+      community.mysql.mysql_user:
+        name: "{{ exporter_user }}"
+        host: "%"
+        password: "{{ exporter_user }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        state: present
+
+    - name: Check exporter user exists on master
+      community.mysql.mysql_user:
+        name: "{{ exporter_user }}"
+        password: "{{ exporter_password }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        host: "%"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ master_host }}"
+        login_port: "{{ master_port }}"
+
+    - name: Check exporter user exists on slave
+      community.mysql.mysql_user:
+        name: "{{ exporter_user }}"
+        password: "{{ exporter_password }}"
+        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+        host: "%"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: "{{ slave_host }}"
+        login_port: "{{ slave_port }}"
+
+    - name: Copy docker-compose file
+      copy:
+        src: docker-compose.yaml
+        dest: "{{ app_path }}/docker-compose.yaml"
+
+    - name: Create prometheus folder
+      file:
+        path: "{{ app_path }}/prometheus"
+        state: directory
+
+    - name: Copy Prometheus config
+      copy:
+        src: prometheus/prometheus.yml
+        dest: "{{ app_path }}/prometheus/prometheus.yml"
+
+    - name: Create grafana folder
+      file:
+        path: "{{ app_path }}/grafana"
+        state: directory
+
+    - name: Copy Grafana config
+      copy:
+        src: grafana/
+        dest: "{{ app_path }}/grafana/"
+
+    - name: Start monitoring stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_path }}"
+        state: present

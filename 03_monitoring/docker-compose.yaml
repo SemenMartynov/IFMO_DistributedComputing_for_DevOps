@@ -1,0 +1,115 @@
+networks:
+  docker-network:
+    driver: bridge
+
+services:
+  master:
+    image: mysql:8.0.27
+    container_name: master
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql/master.cnf:/etc/mysql/conf.d/master.cnf
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress
+      - MYSQL_DATABASE=wordpress
+    ports:
+      - "3306:3306"
+    networks:
+      - docker-network
+
+  slave:
+    image: mysql:8.0.27
+    container_name: slave
+    depends_on:
+      - master
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=wordpress
+      - MYSQL_REPLICATION_USER=replica
+      - MYSQL_REPLICATION_PASSWORD=password
+    volumes:
+      - db_slave_data:/var/lib/mysql
+      - ./mysql/slave.cnf:/etc/mysql/conf.d/slave.cnf
+    ports:
+      - "3307:3306"
+    networks:
+      - docker-network
+
+  wordpress:
+    image: wordpress:latest
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - 8080:80
+    restart: always
+    environment:
+      - WORDPRESS_DB_HOST=master:3306
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress
+      - WORDPRESS_DB_NAME=wordpress
+    depends_on:
+      - master
+    networks:
+      - docker-network
+
+  mysqld-exporter-master:
+    image: prom/mysqld-exporter
+    container_name: mysqld-exporter-master
+    restart: always
+    environment:
+      - MYSQLD_EXPORTER_PASSWORD=exporter_password
+    command:
+      - "--mysqld.address=master:3306"
+      - "--mysqld.username=exporter"
+    ports:
+      - "9104:9104"
+    depends_on:
+      - master
+    networks:
+      - docker-network
+
+  mysqld-exporter-slave:
+    image: prom/mysqld-exporter
+    container_name: mysqld-exporter-slave
+    restart: always
+    environment:
+      - MYSQLD_EXPORTER_PASSWORD=exporter_password
+    command:
+      - "--mysqld.address=slave:3306"
+      - "--mysqld.username=exporter"
+    ports:
+      - "9105:9104"
+    depends_on:
+      - slave
+    networks:
+      - docker-network
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - docker-network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - docker-network
+
+volumes:
+  db_data:
+  db_slave_data:
+  wp_data:
