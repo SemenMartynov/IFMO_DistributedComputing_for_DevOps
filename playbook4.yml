@@ -14,13 +14,9 @@
       - "{{ db_replica_host }}"
       - "{{ db_host }}_exporter"
       - "{{ db_replica_host }}_exporter"
-      - "{{ gf_host }}"
-      - "{{ prom_host }}"
     volumes_to_remove:
       - "{{ db_host }}_data"
       - "{{ db_replica_host }}_data"
-      - "{{ gf_host }}_data"
-      - "{{ prom_host }}_data"
 
     galera_cluster_address: "gcomm://{{ galera_nodes | join(',') }}"
 
@@ -186,13 +182,89 @@
         timeout: 180
         state: started
 
+    - name: Удалить неактуальные конфигурационные файлы для MySQL Exporter
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}
+        state: absent
+      loop:
+        - db_exporter_config.my-cnf
+        - db_slave_exporter_config.my-cnf
+
+    - name: Создать конфигурационные файлы для MySQL Exporter
+      ansible.builtin.template:
+        src: config.my-cnf.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf
+        mode: '0644'
+      loop: "{{ galera_nodes }}"
+
+    - name: Установить Exporter на Galera Cluster с конфигурационными файлами
+      community.docker.docker_container:
+        name: "{{ item }}_exporter"
+        image: "{{ mysqld_exporter_image }}"
+        restart_policy: always
+        command: '--config.my-cnf=/cfg/config.my-cnf'
+        volumes:
+          - "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf:/cfg/config.my-cnf:ro"
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+      loop: "{{ galera_nodes }}"
+
+    - name: Установить Exporter на HAProxy
+      docker_container:
+        name: haproxy_exporter
+        image: "{{ haproxy_exporter_image }}"
+        restart_policy: always
+        command: --haproxy.scrape-uri="http://{{ haproxy_user }}:{{ haproxy_password }}@{{ db_host }}:{{ haproxy_stats_port }}/stats;csv"
+        networks:
+          - name: "{{ wp_host }}_net"
+
+    - name: Скачать дашборд HAProxy
+      ansible.builtin.uri:
+        url: "{{ dashboard_haproxy_url }}"
+        dest: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        method: GET
+        headers:
+          Accept: "application/json"
+        return_content: true
+
+    - name: Установить в JSON актуальную переменную DS_PROMETHEUS
+      ansible.builtin.replace:
+        path: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        regexp: '\${DS_PROMETHEUS}'
+        replace: '{{ prom_uid }}'
+
+    - name: Добавить обновленный дашборд в Grafana
+      community.grafana.grafana_dashboard:
+        url: "http://localhost:{{ gf_port }}"
+        grafana_user: "{{ gf_user }}"
+        grafana_password: "{{ gf_password }}"
+        dashboard_url: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        state: present
+        overwrite: true
+
+    - name: Обновить конфигурационный файл Prometheus
+      template:
+        src: prometheus-galera.yml.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Перезапустить Prometheus с обновленной конфигурацией
+      community.docker.docker_container:
+        name: "{{ prom_host }}"
+        state: started
+        restart: true
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
           - "WordPress запущен по адресу: http://{{ ansible_host }}:{{ wp_port }}"
           - "Имя DB: {{ db_name }}"
-          - "Галера узлы: {{ galera_nodes }}"
-          - "db_root_pass: {{ db_root_pass }}"
-          - "galera_cluster_address: {{ galera_cluster_address }}"
-          - "loadbalancer: {{ db_host }}"
-          - "monitoring_url: http://{{ ansible_host }}:{{ haproxy_stats_port }}/stats"
+          - "Galera узлы: {{ galera_nodes }}"
+          - "Пароль root пользователя: {{ db_root_pass }}"
+          - "Балансировщик HAProxy: {{ db_host }}"
+          - "Grafana запущена по адресу: http://{{ ansible_host }}:{{ gf_port }}"
+          - "Prometheus запущен по адресу: http://{{ ansible_host }}:{{ prom_port }}/targets"
+          - "Дефолтный мониторинг HAProxy: http://{{ ansible_host }}:{{ haproxy_stats_port }}/stats"

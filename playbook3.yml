@@ -69,7 +69,7 @@
     - name: Установить Exporter на DB и DB Slave с конфигурационными файлами
       community.docker.docker_container:
         name: "{{ item }}_exporter"
-        image: "{{ exporter_image }}"
+        image: "{{ mysqld_exporter_image }}"
         restart_policy: always
         command: '--config.my-cnf=/cfg/config.my-cnf'
         volumes:
@@ -88,7 +88,7 @@
       register: grafana_health
       until: grafana_health.status == 200
       retries: 5
-      delay: 10
+      delay: 25
 
     - name: Настроить Prometheus как источник данных в Grafana
       community.grafana.grafana_datasource:
@@ -106,8 +106,8 @@
 
     - name: Скачать дашборд MySQL Overview
       ansible.builtin.uri:
-        url: "{{ dashboard_url }}"
-        dest: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        url: "{{ dashboard_db_url }}"
+        dest: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_db_file }}"
         method: GET
         headers:
           Accept: "application/json"
@@ -115,7 +115,7 @@
 
     - name: Установить в JSON актуальную переменную DS_PROMETHEUS
       ansible.builtin.replace:
-        path: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        path: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_db_file }}"
         regexp: '\${DS_PROMETHEUS}'
         replace: '{{ prom_uid }}'
 
@@ -124,7 +124,7 @@
         url: "http://localhost:{{ gf_port }}"
         grafana_user: "{{ gf_user }}"
         grafana_password: "{{ gf_password }}"
-        dashboard_url: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_file }}"
+        dashboard_url: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_db_file }}"
         state: present
         overwrite: true
 

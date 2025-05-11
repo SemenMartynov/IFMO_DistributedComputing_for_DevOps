@@ -1,7 +1,7 @@
 all:
   hosts:
     carrier:
-      ansible_host: 89.169.129.103
+      ansible_host: 51.250.2.146
       ansible_user: boev
       ansible_become_method: sudo
       ansible_python_interpreter: /usr/bin/python3

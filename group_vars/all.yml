@@ -7,7 +7,8 @@ galera_image: bitnami/mariadb-galera:latest
 wp_image: wordpress:latest
 prom_image: prom/prometheus:latest
 gf_image: grafana/grafana:latest
-exporter_image: prom/mysqld-exporter:latest
+mysqld_exporter_image: prom/mysqld-exporter:latest
+haproxy_exporter_image: prom/haproxy-exporter:latest
 haproxy_image: haproxy:latest
 
 # ХОСТЫ
@@ -45,5 +46,7 @@ haproxy_password: adminpass
 gf_user: admin
 gf_password: adminpass
 prom_uid: prometheusdatasource
-dashboard_file: mysql_overview_dashboard.json
-dashboard_url: https://grafana.com/api/dashboards/7362/revisions/5/download
+dashboard_db_file: mysql_overview_dashboard.json
+dashboard_haproxy_file: haproxy_dashboard.json
+dashboard_db_url: https://grafana.com/api/dashboards/7362/revisions/5/download
+dashboard_haproxy_url: https://grafana.com/api/dashboards/367/revisions/3/download

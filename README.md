@@ -2,9 +2,9 @@
 
 ## Описание
 
-Этот проект предоставляет Ansible Playbook для автоматического развертывания WordPress с использованием MySQL в Docker-контейнерах. В процессе установки на сервер будет настроена репликация между двумя экземплярами MySQL (Master и Slave). Также включена система мониторинга с использованием Prometheus, Grafana и MySQL Exporter.
+Этот проект предоставляет Ansible Playbook для автоматического развертывания WordPress с использованием MySQL/MariaDB в Docker-контейнерах. В процессе установки на сервер будет настроена репликация между двумя экземплярами MySQL (Master и Slave), а также полноценный Galera Cluster. Также включена система мониторинга с использованием Prometheus, Grafana, MySQL Exporter и HAproxy Servers.
 
-Проект доступен по следующему адресу: http://89.169.129.103
+Проект доступен по следующему адресу: http://51.250.2.146
 
 ---
 
@@ -73,34 +73,44 @@ ansible-playbook playbook.yml
 - **Prometheus**: Система сбора и хранения метрик.
 - **Grafana**: Визуализация метрик и создание дашбордов.
 - **MySQL Exporter**: Экспортер метрик MySQL для Prometheus.
+- **HAproxy Servers | HAproxy**: Экспортер метрик HAproxy для Prometheus.
 
 ### Настройка
 
 1. **Prometheus**:
-   - Конфигурация Prometheus хранится в файле `roles/monitoring/files/prometheus.yml`.
-   - Prometheus собирает метрики с MySQL Exporter для Master и Slave.
+   - Конфигурация Prometheus хранится в файле `prometheus.yml`, он генерируется из j2 шаблона.
+   - Prometheus собирает метрики с MySQL Exporter и HAproxy Servers.
 
 2. **Grafana**:
    - Grafana автоматически настраивается с помощью Ansible.
    - Источник данных Prometheus добавляется в Grafana.
-   - Загружается и настраивается дашборд "MySQL Overview".
+   - Загружаются и настраиваются дашборды "MySQL Overview" и "HAproxy Servers".
 
 3. **MySQL Exporter**:
-   - Экспортеры запускаются для MySQL Master и Slave.
+   - Экспортеры запускаются для MySQL и HAproxy.
    - Конфигурационные файлы для экспортеров создаются динамически с использованием шаблона `roles/monitoring/templates/config.my-cnf.j2`.
+
+3. **HAproxy**:
+   - Конфигурация балансировщика HAproxy хранится в файле `haproxy.cfg`, он генерируется из j2 шаблона.
 
 ### Как проверить
 
 1. **Prometheus**:
-   - Откройте в браузере: `http://89.169.129.103:9090/targets`.
+   - Откройте в браузере: `http://51.250.2.146:9090/targets`.
    - Убедитесь, что метрики собираются.
 
 2. **Grafana**:
-   - Откройте в браузере: `http://89.169.129.103:3000`.
+   - Откройте в браузере: `http://51.250.2.146:3000/dashboards`.
    - Войдите с использованием учетных данных:
      - Логин: `admin`
      - Пароль: `adminpass`
-   - Перейдите на дашборд "MySQL Overview".
+   - Перейдите на конкретный дашборд ("MySQL Overview" и "HAproxy Servers").
+
+3. **HAproxy**
+   - Дополнительно HAproxy можно проверить по адресу `http://51.250.2.146:8404/stats`
+   - Войдите с использованием учетных данных:
+     - Логин: `admin`
+     - Пароль: `adminpass`
 
 ---
 
@@ -108,15 +118,28 @@ ansible-playbook playbook.yml
 
 ```none
 /
+├── group_vars/
+|   └── all.yml                      # Переменные окружения
 ├── roles/
-|    ├── docker_installation/
-|    |   └── tasks/
-|    |       └── main.yml             # Установка Docker
-├── ansible.cfg                       # Конфигурация Ansible
-├── inventory.yml                     # Конфигурация хостов для Ansible
+|   └── docker_installation/
+|        └── tasks/
+|            └── main.yml             # Установка Docker
+├── roles/
+|   └── templates/                    # Шаблоны для генерации конфигураций
+|       ├── config.my-cnf.j2
+|       ├── haproxy.cfg.j2
+|       ├── mysql-cnf.j2
+|       ├── prometheus-galera.yml.j2
+|       └── prometheus.yml.j2
 ├── playbook1.yml                     # Playbook: Установка WordPress с базой данных MySQL
 ├── playbook2.yml                     # Playbook: Настройка Master-Slave репликации MySQL
 ├── playbook3.yml                     # Playbook: Развёртывание мониторинга Prometheus и Grafana
 ├── playbook4.yml                     # Playbook: Создание кластера из 5 узлов на базе Galera Cluster
-└── README.md                         # Описание проекта
+├── ansible.cfg
+├── inventory.yml
+├── .gitignore
+├── .ansible-lint.yaml
+├── requirements.yml
+├── LICENSE
+└── README.md
 ```

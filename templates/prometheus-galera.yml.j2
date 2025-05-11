@@ -3,9 +3,9 @@ scrape_configs:
     static_configs:
       - targets:
 {% for host in galera_nodes %}
-          - {{ host }}:9104
+          - {{ host }}_exporter:9104
 {% endfor %}
 
   - job_name: 'haproxy'
     static_configs:
-      - targets: ['{{ haproxy_host }}:9101']
+      - targets: ['haproxy_exporter:9101']
