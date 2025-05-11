@@ -2,9 +2,6 @@
   hosts: wordpress_server
   become: true
 
-  collections:
-    - community.docker
-  
   vars:
     db_name: wordpress
     db_user: wordpress_user
@@ -13,14 +10,6 @@
     wordpress_port: 8080
 
   tasks:
-    - name: Install Docker
-      apt:
-        name:
-          - docker.io
-          - docker-compose
-        state: present
-        update_cache: yes
-
     - name: Ensure Docker running
       service:
         name: docker
@@ -70,8 +59,9 @@
             wordpress_data:
 
     - name: Launch WordPress and MySQL containers
-      community.docker.docker_compose:
-        project_src: /opt/wordpress
+      command: docker-compose up -d
+      args:
+        chdir: /opt/wordpress
 
     - name: Wait for WordPress to be active
       wait_for:
