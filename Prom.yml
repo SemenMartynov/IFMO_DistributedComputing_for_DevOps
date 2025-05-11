@@ -2,19 +2,12 @@
   hosts: all
   become: true
   vars:
-    mysql_root_password: "my_root_password"
-    prometheus_network: "monitoring_net"
+    # mysql_root_password: "my_root_password"
     prometheus_volume: "prometheus_data"
     prometheus_config_dir: "/opt/prometheus"
     docker_network: "wp_network"
 
-
   tasks:
-    - name: Создаю сеть для мониторинга
-      community.docker.docker_network:
-        name: "{{ prometheus_network }}"
-        state: present
-
     - name: Создаю volume для Prometheus
       community.docker.docker_volume:
         name: "{{ prometheus_volume }}"
@@ -44,16 +37,12 @@
         state: started
         restart_policy: unless-stopped
         networks:
-          - name: "{{ prometheus_network }}"
+          - name: "{{ docker_network }}"
         published_ports:
           - "9090:9090"
         volumes:
           - "{{ prometheus_volume }}:/prometheus"
           - "{{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
-        command:
-          - "--config.file=/etc/prometheus/prometheus.yml"
-          - "--storage.tsdb.path=/prometheus"
-
 
 #Для сбора системных метрик
     - name: Запускаю Node Exporter 
@@ -63,12 +52,13 @@
         state: started
         restart_policy: unless-stopped
         networks:
-          - name: "{{ prometheus_network }}"
+          - name: "{{ docker_network }}"
         published_ports:
           - "9100:9100"
         command: --path.rootfs=/host
         volumes:
           - "/:/host:ro,rslave"
+
 
     - name: Запускаю cAdvisor
       community.docker.docker_container:
@@ -77,14 +67,14 @@
         state: started
         restart_policy: unless-stopped
         networks:
-          - name: "{{ prometheus_network }}"
+          - name: "{{ docker_network }}"
         published_ports:
           - "8080:8080"
         volumes:
           - "/:/rootfs:ro"
           - "/var/run:/var/run:rw"
           - "/sys:/sys:ro"
-          - "/var/lib/docker/:/var/lib/docker:ro"   
+          - "/var/lib/docker/:/var/lib/docker:ro"
 
     - name: Проверка работы Prometheus
       ansible.builtin.wait_for:
@@ -101,7 +91,7 @@
         state: started
         restart_policy: unless-stopped
         networks:
-          - name: "{{ prometheus_network }}"
+          - name: "{{ docker_network }}"
         published_ports:
           - "3000:3000"
         volumes:
@@ -114,3 +104,12 @@
         delay: 10
         timeout: 60
         state: started
+
+    - name: Set monitoring URL
+      ansible.builtin.set_fact:
+        monitoring_url: "http://{{ ansible_host }}:3000"
+
+    - name: Вывожу информацию об адресе grafana
+      ansible.builtin.debug:
+        msg:
+          - "monitoring_url: {{ monitoring_url }}"  # URL Grafana
