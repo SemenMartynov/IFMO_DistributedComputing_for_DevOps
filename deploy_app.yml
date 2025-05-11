@@ -1,0 +1,40 @@
+---
+- name: Deploy Application Stack (WordPress + DB)
+  hosts: app_servers
+  become: true
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: Ensure project user exists
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        groups: sudo
+        append: true
+        create_home: true
+        state: present
+
+    - name: Ensure project directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0o755"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Copy application docker-compose file
+      ansible.builtin.template:
+        src: app-docker-compose.yml.j2
+        dest: "{{ app_dir }}/docker-compose.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0o644"
+
+    - name: Copy environment file
+      ansible.builtin.copy:
+        src: .env
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0o600" 

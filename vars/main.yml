@@ -29,3 +29,10 @@ cluster_nodes:
 
 grafana_user: admin
 grafana_password: admin
+
+app_user: wpadmin
+app_dir: /opt/wp_app
+monitoring_dir: /opt/wp_monitoring
+monitoring_grafana_user: monadmin
+monitoring_grafana_password: monpassword
+monitoring_network: monnet
