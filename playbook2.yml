@@ -1,0 +1,182 @@
+- name: MySQL replica with docker
+  hosts: wordpress_server
+  become: true
+
+  vars:
+    db_root_password: root_pass
+    replication_user: replicauser
+    replication_pass: replicapassword
+
+  tasks:
+    - name: Stop all docker containers
+      community.docker.docker_compose:
+        project_src: /opt/wordpress
+        state: absent
+        remove_orphans: true
+
+    - name: Update docker-compose.yml
+      copy:
+        dest: /opt/wordpress/docker-compose.yml
+        content: |
+          version: '3.8'
+          services:
+            db-master:
+              container_name: wordpress_db-master
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: {{ db_root_password }}
+              volumes:
+                - db_master_data:/var/lib/mysql
+              ports:
+                - "3306:3306"
+              command: >
+                --server-id=1
+                --log-bin=mysql-bin
+                --gtid-mode=OFF
+              healthcheck:
+                test: ["CMD", "mysqladmin", "ping", "-uroot", "-p{{ db_root_password }}"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+
+            db-replica:
+              container_name: wordpress_db-replica
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: {{ db_root_password }}
+              volumes:
+                - db_replica_data:/var/lib/mysql
+              depends_on:
+                - db-master
+              command: >
+                --server-id=2
+                --relay-log=relay-log
+                --log-bin=mysql-bin
+                --read-only=1
+              healthcheck:
+                test: ["CMD", "mysqladmin", "ping", "-uroot", "-p{{ db_root_password }}"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+              ports:
+                - "3307:3306"
+
+          volumes:
+            db_master_data:
+            db_replica_data:
+
+    - name: Start db containers
+      community.docker.docker_compose:
+        project_src: /opt/wordpress
+
+    - name: Wait for db-master to answer
+      community.docker.docker_container_info:
+        name: wordpress_db-master
+      register: master_info
+      until: master_info.container.State.Health is defined and master_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Wait for db-replica to answer healthy
+      community.docker.docker_container_info:
+        name: wordpress_db-replica
+      register: replica_info
+      until: replica_info.container.State.Health is defined and replica_info.container.State.Health.Status == "healthy"
+      retries: 15
+      delay: 5
+
+    - name: Create replication user
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3306
+        login_unix_socket: ""
+        query: "CREATE USER IF NOT EXISTS '{{ replication_user }}'@'%' IDENTIFIED BY '{{ replication_pass }}';"
+
+    - name: Grant replication privilege
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3306
+        login_unix_socket: ""
+        query: "GRANT REPLICATION SLAVE ON *.* TO '{{ replication_user }}'@'%';"
+
+    - name: Flush privileges
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3306
+        login_unix_socket: ""
+        query: "FLUSH PRIVILEGES;"
+
+    - name: Get master log file and position
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3306
+        login_unix_socket: ""
+        query: SHOW MASTER STATUS
+      register: master_status
+
+    - name: Debug master_status query_result
+      debug:
+        var: master_status.query_result
+
+    - name: Extract MASTER_LOG_FILE and MASTER_LOG_POS
+      set_fact:
+        master_log_file: "{{ master_status.query_result[0][0].File }}"
+        master_log_pos: "{{ master_status.query_result[0][0].Position | int }}"
+
+
+    - name: Stop slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_unix_socket: ""
+        query: "STOP SLAVE;"
+
+    - name: Configure CHANGE MASTER
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_unix_socket: ""
+        query: >
+          CHANGE MASTER TO
+            MASTER_HOST='db-master',
+            MASTER_USER='{{ replication_user }}',
+            MASTER_PASSWORD='{{ replication_pass }}',
+            MASTER_LOG_FILE='{{ master_log_file }}',
+            MASTER_LOG_POS={{ master_log_pos }};
+
+    - name: Start slave
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_port: 3307
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_unix_socket: ""
+        query: "START SLAVE;"
+
+    - name: Check replica status
+      community.mysql.mysql_query:
+        login_host: 127.0.0.1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3307
+        login_unix_socket: ""
+        query: SHOW SLAVE STATUS
+      register: replication_check
+
+    - name: Show replica status
+      debug:
+        var: replication_check.query_result

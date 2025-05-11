@@ -6,3 +6,10 @@
 
 3. Запустить ansible-playbook командой:
 ansible-playbook -i inventory.ini playbook.yml --ask-pass --ask-become-pass
+
+4. Запустить ansible-playbook для создания реплики командой:
+ansible-playbook -i inventory.ini playbook2.yml --ask-pass --ask-become-pass
+
+5. Проверить можно запустив ansible-playbook'и командами:
+ansible-playbook -i inventory.ini playbook2test.yml --ask-pass --ask-become-pass
+ansible-playbook -i inventory.ini playbook2aftertest.yml --ask-pass --ask-become-pass

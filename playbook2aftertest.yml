@@ -1,0 +1,22 @@
+- name: Cleanup test data on master and check replication
+  hosts: wordpress_server
+  become: true
+
+  vars:
+    db_root_password: root_pass
+
+  tasks:
+    - name: Delete data from master
+      shell: docker exec wordpress_db-master mysql -uroot -p{{ db_root_password }} -e "DELETE FROM testdatab.test_table;"
+
+    - name: Wait for sync with replica
+      pause:
+        seconds: 40
+
+    - name: Replica info after master del
+      shell: docker exec wordpress_db-replica mysql -uroot -p{{ db_root_password }} -e "SELECT * FROM testdatab.test_table;"
+      register: db_replica_after_del_in_master
+
+    - name: Display cleaned replica
+      debug:
+        var: db_replica_after_del_in_master.stdout_lines

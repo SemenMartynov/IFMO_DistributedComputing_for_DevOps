@@ -1,16 +1,16 @@
-- name: Deploy WordPress MySQL in Docker
+- name: Deploy WordPress with MySQL in Docker
   hosts: wordpress_server
   become: true
 
   vars:
     db_name: wordpress
-    db_user: wordpress_user
-    db_password: wordpress_pass
+    db_user: wp_user
+    db_password: wp_pass
     db_root_password: root_pass
     wordpress_port: 8080
 
   tasks:
-    - name: Install Docker
+    - name: Install Docker and Docker Compose
       apt:
         name:
           - docker.io
@@ -18,7 +18,7 @@
         state: present
         update_cache: yes
 
-    - name: Ensure Docker running
+    - name: Ensure Docker is started
       service:
         name: docker
         state: started
@@ -70,12 +70,12 @@
       community.docker.docker_compose:
         project_src: /opt/wordpress
 
-    - name: Wait for WordPress to be active
+    - name: Wait for WordPress to be available
       wait_for:
         port: "{{ wordpress_port }}"
         delay: 10
         timeout: 60
 
-    - name: Final information
+    - name: Show access info
       debug:
-        msg: "Everything is good, wordpress is running at http://{{ ansible_host }}:{{ wordpress_port }}"
+        msg: "WordPress is now available at http://{{ ansible_host }}:{{ wordpress_port }}"
