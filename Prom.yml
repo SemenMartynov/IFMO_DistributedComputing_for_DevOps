@@ -44,7 +44,7 @@
           - "{{ prometheus_volume }}:/prometheus"
           - "{{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
 
-#Для сбора системных метрик
+# Для сбора системных метрик
     - name: Запускаю Node Exporter 
       community.docker.docker_container:
         name: node_exporter
@@ -112,4 +112,4 @@
     - name: Вывожу информацию об адресе grafana
       ansible.builtin.debug:
         msg:
-          - "monitoring_url: {{ monitoring_url }}"  # URL Grafana
+          - "monitoring_url: {{ monitoring_url }}"
