@@ -1,0 +1,23 @@
+global
+  log stdout format raw local0 info
+
+defaults
+  mode tcp
+  timeout client 10s
+  timeout connect 5s
+  timeout server 10s
+  timeout http-request 10s
+  log global
+
+frontend galera
+  bind *:3306
+  default_backend galera_cluster
+
+backend galera_cluster
+  balance roundrobin
+  mode tcp
+  server node1 {{ db1_host }}:3306 check
+  server node2 {{ db2_host }}:3306 check
+  server node3 {{ db3_host }}:3306 check
+  server node4 {{ db4_host }}:3306 check
+  server node5 {{ db5_host }}:3306 check

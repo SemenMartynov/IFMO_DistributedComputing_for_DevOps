@@ -1,0 +1,96 @@
+- name: Display Configuration Variables
+  ansible.builtin.debug:
+    msg:
+      - "wordpress: {{ is_wordpress }}"
+      - "wordpress_port: {{ wordpress_port }}"
+      - "wordpress_db_name: {{ wordpress_db_name }}"
+      - "db_host: {{ db_host }}"
+      - "db_pass: {{ db_pass }}"
+
+- name: Update and upgrade apt packages
+  ansible.builtin.apt:
+    upgrade: yes
+    update_cache: true
+
+- name: Установка нужных пакетов
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+
+- name: Добавление GPG ключа
+  ansible.builtin.apt_key:
+    url: "https://download.docker.com/linux/ubuntu/gpg"
+    state: present
+
+- name: Добавление docker-репозитория
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+    state: present
+
+- name: Обновление кэша пакетов и установка Docker
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+
+- name: Добавление пользователя в группу Docker
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  when: docker_users | length > 0
+
+- name: Автозапуск сервиса
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Создать docker-compose файл из шаблона
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ home_path }}/docker-compose.yml"
+    mode: '0644'
+    force: true
+  notify: Restart Docker containers
+
+- name: Создать .env файл из шаблона
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ home_path }}/.env"
+    mode: '0644'
+    force: true
+
+- name: Создать каталог nginx-conf
+  ansible.builtin.file:
+    path: "{{ home_path }}/nginx-conf"
+    state: directory
+    mode: '0755'
+
+- name: Копировать nginx.conf файл
+  ansible.builtin.copy:
+    src: nginx.conf
+    dest: "{{ home_path }}/nginx-conf/nginx.conf"
+    force: true
+    mode: '0644'
+
+- name: Запустить Docker контейнеры
+  community.docker.docker_compose_v2:
+    project_src: "{{ home_path }}"
+    state: present
+  register: start_containers
+
+- name: Ожидание поднятия контейнера c master
+  community.docker.docker_container_info: # noqa no-handler
+    name: db_master
+  register: container_info
+  until: container_info.container.State.Health.Status == "healthy"
+  retries: 30
+  delay: 10
+  when: start_containers.changed
+  changed_when: false

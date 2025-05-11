@@ -1,0 +1,69 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    restart: unless-stopped
+    user: root
+    volumes:
+      - "{{ home_path }}/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+    depends_on:
+      - mysqld_exporter_master
+      - mysqld_exporter_slave
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER={{ grafana_user }}
+      - GF_SECURITY_ADMIN_PASSWORD={{ grafana_password }}
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+
+  mysqld_exporter_master:
+    container_name: mysqld_exporter_master
+    image: prom/mysqld-exporter
+    restart: unless-stopped
+    ports:
+      - "9104:9104"
+    command:
+     - "--mysqld.username=root:{{ mysql_root_password }}"
+     - "--mysqld.address={{ master_container_name }}:3306"
+    labels:
+      - service=mysqld_exporter
+    networks:
+      - app-network
+
+  mysqld_exporter_slave:
+    container_name: mysqld_exporter_slave
+    image: prom/mysqld-exporter
+    restart: unless-stopped
+    ports:
+      - "9105:9104"
+    command:
+     - "--mysqld.username=root:{{ mysql_root_password }}"
+     - "--mysqld.address={{ slave_container_name }}:3306"
+    labels:
+      - service=mysqld_exporter
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    name: {{ ansible_user }}_app-network
+    driver: bridge
+    external: true
+
+volumes:
+  prometheus:
+    driver: local

@@ -1,1 +1,4 @@
-collections: []
+collections:
+  - name: community.docker
+  - name: community.grafana
+  - name: community.mysql
