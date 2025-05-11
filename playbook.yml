@@ -129,18 +129,16 @@
         mode: "0o600"
 
     - name: Остановить и удалить старые сервисы
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        files:
-          - docker-compose.yml
-        state: absent
+      ansible.builtin.command:
+        cmd: docker compose -f {{ project_dir }}/docker-compose.yml down
+        chdir: "{{ project_dir }}"
+      changed_when: true
 
     - name: Запустить основной стек
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        files:
-          - docker-compose.yml
-        state: present
+      ansible.builtin.command:
+        cmd: docker compose -f {{ project_dir }}/docker-compose.yml up -d
+        chdir: "{{ project_dir }}"
+      changed_when: true
 
     - name: Шаблонизировать docker-compose-monitoring.yml
       ansible.builtin.template:
@@ -155,8 +153,7 @@
         mode: "0o644"
 
     - name: Запустить мониторинг
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        files:
-          - docker-compose-monitoring.yml
-        state: present
+      ansible.builtin.command:
+        cmd: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
+        chdir: "{{ project_dir }}"
+      changed_when: true
