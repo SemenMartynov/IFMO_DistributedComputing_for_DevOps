@@ -6,7 +6,7 @@
     prometheus_network: "monitoring_net"
     prometheus_volume: "prometheus_data"
     prometheus_config_dir: "/opt/prometheus"
-    mysql_exporter_password: "sql_exporter_pass"
+    docker_network: "wp_network"
 
 
   tasks:
@@ -84,73 +84,12 @@
           - "/:/rootfs:ro"
           - "/var/run:/var/run:rw"
           - "/sys:/sys:ro"
-          - "/var/lib/docker/:/var/lib/docker:ro"
-          
-    - name: Ожидание полной инициализации MySQL Master
-      community.mysql.mysql_query:
-        login_host: "localhost"
-        login_port: 3307
-        login_user: "root"
-        login_password: "{{ mysql_root_password }}"
-        query: "SELECT 1"
-      register: master_ready
-      until: master_ready is succeeded
-      retries: 10
-      delay: 10
-      
-    - name: Создать пользователя для мониторинга MySQL
-      community.mysql.mysql_user:
-        login_host: "localhost"
-        login_port: 3307 
-        login_user: "root"
-        login_password: "{{ mysql_root_password }}"
-        name: "exporter"
-        host: "%"  
-        password: "{{ mysql_exporter_password }}"  
-        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
-        state: present
-
-
-    - name: Запускаю mysqld_exporter
-      community.docker.docker_container:
-        name: mysqld_exporter
-        image: prom/mysqld-exporter:latest
-        state: started
-        restart_policy: unless-stopped
-        networks:
-          - name: "{{ prometheus_network }}"
-          - name: "{{ docker_network }}"  # Добавьте сеть WordPress!
-        published_ports:
-          - "9104:9104"
-        env:
-          DATA_SOURCE_NAME: "exporter:{{ mysql_exporter_password }}@tcp(wp_db_master:3306)/"
-        labels:
-          prometheus.io/scrape: "true"
-
-    - name: Проверяю существование пользователя exporter
-      community.mysql.mysql_query:
-        login_host: "wp_db_master"
-        login_user: "root"
-        login_password: "{{ mysql_root_password }}"
-        query: "SELECT user FROM mysql.user WHERE user = 'exporter'"
-      register: mysql_user_check
-
-    - name: Создаю пользователя если не существует
-      community.mysql.mysql_user:
-        login_host: "wp_db_master"
-        login_user: "root"
-        login_password: "{{ mysql_root_password }}"
-        name: "exporter"
-        host: "%"
-        password: "{{ mysql_exporter_password }}"
-        priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
-        state: present
-      when: mysql_user_check.rowcount == 0
+          - "/var/lib/docker/:/var/lib/docker:ro"   
 
     - name: Проверка работы Prometheus
       ansible.builtin.wait_for:
-        host: wp_db_master
-        port: 9104
+        host: localhost
+        port: 9090
         delay: 10
         timeout: 60
         state: started
@@ -167,6 +106,11 @@
           - "3000:3000"
         volumes:
           - "grafana_data:/var/lib/grafana"
-        environment:
-          - GF_SECURITY_ADMIN_USER=admin
-          - GF_SECURITY_ADMIN_PASSWORD=admin
+
+    - name: Проверка работы Grafana
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 3000
+        delay: 10
+        timeout: 60
+        state: started
