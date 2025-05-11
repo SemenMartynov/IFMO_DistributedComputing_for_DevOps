@@ -1,0 +1,11 @@
+scrape_configs:
+  - job_name: 'galera'
+    static_configs:
+      - targets:
+{% for host in galera_nodes %}
+          - {{ host }}:9104
+{% endfor %}
+
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['{{ haproxy_host }}:9101']

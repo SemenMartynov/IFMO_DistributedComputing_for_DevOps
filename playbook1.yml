@@ -74,7 +74,7 @@
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "WordPress запущен по адресу: {{ ansible_host }}:{{ wp_port }}"
+          - "WordPress запущен по адресу: http://{{ ansible_host }}:{{ wp_port }}"
           - "Host DB: {{ db_host }}"
           - "Имя DB: {{ db_name }}"
           - "Имя пользователя DB: {{ db_user }}"

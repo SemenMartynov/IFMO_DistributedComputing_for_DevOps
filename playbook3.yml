@@ -2,6 +2,11 @@
 - name: Развёртывание мониторинга Prometheus и Grafana
   hosts: carrier
   become: true
+  vars:
+    nodes:
+      - "{{ db_host }}"
+      - "{{ db_replica_host }}"
+
   tasks:
     - name: Создать Docker-тома для Prometheus и Grafana
       community.docker.docker_volume:
@@ -10,10 +15,12 @@
         - "{{ prom_host }}_data"
         - "{{ gf_host }}_data"
 
-    - name: Скопировать конфигурацию Prometheus
-      ansible.builtin.copy:
-        src: prometheus.yml
+    - name: Создать конфигурационный файл Prometheus
+      template:
+        src: prometheus.yml.j2
         dest: /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml
+        owner: root
+        group: root
         mode: '0644'
 
     - name: Запустить Prometheus контейнер
@@ -52,44 +59,25 @@
         state: directory
         mode: '0755'
 
-    - name: Получить информацию о DB
-      community.docker.docker_container_info:
-        name: "{{ db_host }}"
-      register: db
-
-    - name: Получить информацию о DB Slave
-      community.docker.docker_container_info:
-        name: "{{ db_replica_host }}"
-      register: db_slave
-
-    - name: Записать IP-адреса DB и DB Slave в переменные
-      ansible.builtin.set_fact:
-        db_ip: "{{ db.container.NetworkSettings.Networks.wp_net.IPAddress }}"
-        db_slave_ip: "{{ db_slave.container.NetworkSettings.Networks.wp_net.IPAddress }}"
-
     - name: Создать конфигурационные файлы для MySQL Exporter
       ansible.builtin.template:
         src: config.my-cnf.j2
-        dest: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item.name }}_config.my-cnf
+        dest: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf
         mode: '0644'
-      loop:
-        - { name: "db_exporter", host: "{{ db_ip }}" }
-        - { name: "db_slave_exporter", host: "{{ db_slave_ip }}" }
+      loop: "{{ nodes }}"
 
     - name: Установить Exporter на DB и DB Slave с конфигурационными файлами
       community.docker.docker_container:
-        name: "{{ item.name }}"
+        name: "{{ item }}_exporter"
         image: "{{ exporter_image }}"
         restart_policy: always
         command: '--config.my-cnf=/cfg/config.my-cnf'
         volumes:
-          - "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item.name }}_config.my-cnf:/cfg/config.my-cnf:ro"
+          - "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf:/cfg/config.my-cnf:ro"
         networks:
           - name: "{{ wp_host }}_net"
         state: started
-      loop:
-        - { name: "db_exporter" }
-        - { name: "db_slave_exporter" }
+      loop: "{{ nodes }}"
 
     - name: Проверить доступность Grafana через HTTP
       ansible.builtin.uri:
@@ -143,5 +131,5 @@
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "Grafana запущена по адресу: {{ ansible_host }}:{{ gf_port }}"
-          - "Prometheus запущен по адресу: {{ ansible_host }}:{{ prom_port }}/targets"
+          - "Grafana запущена по адресу: http://{{ ansible_host }}:{{ gf_port }}"
+          - "Prometheus запущен по адресу: http://{{ ansible_host }}:{{ prom_port }}/targets"
