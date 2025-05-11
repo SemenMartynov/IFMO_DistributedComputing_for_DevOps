@@ -128,15 +128,19 @@
         group: "{{ project_group }}"
         mode: "0o600"
 
-    - name: Остановить и удалить старые сервисы (если нужно)
-      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose.yml down
-      args:
-        chdir: "{{ project_dir }}"
+    - name: Остановить и удалить старые сервисы
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        files:
+          - docker-compose.yml
+        state: absent
 
-    - name: Запустить основной стек (WordPress, БД и т.д.)
-      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose.yml up -d
-      args:
-        chdir: "{{ project_dir }}"
+    - name: Запустить основной стек
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        files:
+          - docker-compose.yml
+        state: present
 
     - name: Шаблонизировать docker-compose-monitoring.yml
       ansible.builtin.template:
@@ -150,7 +154,9 @@
         dest: "{{ project_dir }}/prometheus.yml"
         mode: "0o644"
 
-    - name: Запустить мониторинг через docker compose
-      ansible.builtin.shell: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
-      args:
-        chdir: "{{ project_dir }}"
+    - name: Запустить мониторинг
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        files:
+          - docker-compose-monitoring.yml
+        state: present

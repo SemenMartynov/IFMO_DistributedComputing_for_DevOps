@@ -1,36 +1,20 @@
----
-- name: Manual Monitoring Stack Deploy (Prometheus + Grafana + cadvisor)
-  hosts: app_servers
-  become: true
-  vars_files:
-    - vars/main.yml
+#!/bin/bash
 
-  tasks:
-    - name: Ensure monitoring directory exists
-      ansible.builtin.file:
-        path: "{{ monitoring_dir }}"
-        state: directory
-        mode: "0o755"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
+# Создаем директорию для мониторинга
+mkdir -p "${MONITORING_DIR}"
+chmod 755 "${MONITORING_DIR}"
+chown "${APP_USER}:${APP_USER}" "${MONITORING_DIR}"
 
-    - name: Template monitoring docker-compose file
-      ansible.builtin.template:
-        src: monitoring-docker-compose.yml.j2
-        dest: "{{ monitoring_dir }}/docker-compose.yml"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: "0o644"
+# Копируем и настраиваем файлы
+cp monitoring-docker-compose.yml.j2 "${MONITORING_DIR}/docker-compose.yml"
+cp prometheus-config.yml.j2 "${MONITORING_DIR}/prometheus.yml"
 
-    - name: Template prometheus config
-      ansible.builtin.template:
-        src: prometheus-config.yml.j2
-        dest: "{{ monitoring_dir }}/prometheus.yml"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: "0o644"
+# Устанавливаем права
+chmod 644 "${MONITORING_DIR}/docker-compose.yml"
+chmod 644 "${MONITORING_DIR}/prometheus.yml"
+chown "${APP_USER}:${APP_USER}" "${MONITORING_DIR}/docker-compose.yml"
+chown "${APP_USER}:${APP_USER}" "${MONITORING_DIR}/prometheus.yml"
 
-    - name: Deploy monitoring stack (manual, shell)
-      ansible.builtin.shell: docker compose -f {{ monitoring_dir }}/docker-compose.yml up -d
-      args:
-        chdir: "{{ monitoring_dir }}"
+# Запускаем стек мониторинга
+cd "${MONITORING_DIR}"
+docker compose up -d
