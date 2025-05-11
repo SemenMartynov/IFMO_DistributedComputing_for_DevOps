@@ -45,7 +45,7 @@
           - "{{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
 
 # Для сбора системных метрик
-    - name: Запускаю Node Exporter 
+    - name: Запускаю Node Exporter
       community.docker.docker_container:
         name: node_exporter
         image: prom/node-exporter:latest
