@@ -1,6 +1,6 @@
 [mysqld]
-server_id = 1 
-log_bin = mysql-bin 
+server_id = 1
+log_bin = mysql-bin
 bind-address=0.0.0.0
 gtid-mode=ON
 enforce-gtid-consistency=ON
