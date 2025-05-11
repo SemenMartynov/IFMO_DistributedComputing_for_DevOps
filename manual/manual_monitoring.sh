@@ -33,4 +33,4 @@
     - name: Deploy monitoring stack (manual, shell)
       ansible.builtin.shell: docker compose -f {{ monitoring_dir }}/docker-compose.yml up -d
       args:
-        chdir: "{{ monitoring_dir }}" 
+        chdir: "{{ monitoring_dir }}"
