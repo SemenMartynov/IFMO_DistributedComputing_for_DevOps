@@ -13,8 +13,19 @@
   roles:
     - role: append_pg_hba
       vars:
-        append_pg_hba_allow_network: "{{ append_pg_hba_node1_exporter.allow_network }}"
-        append_pg_hba_entry: "{{ append_pg_hba_node1_exporter.entry }}"
+        append_pg_hba_allow_network: "10.100.0.0/24"
+        append_pg_hba_entry: "host all postgres_exporter 10.100.0.0/24 md5"
+
+- name: Allow access from exporter to node 2
+  hosts: node2-postgresql
+  become: true
+  vars_files:
+    - roles/append_pg_hba/vars/main.yaml
+  roles:
+    - role: append_pg_hba
+      vars:
+        append_pg_hba_allow_network: "10.100.0.0/24"
+        append_pg_hba_entry: "host all postgres_exporter 10.100.0.0/24 md5"
 
 - name: "Create postgres_exporter user"
   hosts: node1-postgresql # Создаем только на primary узле
@@ -50,13 +61,17 @@
   roles:
     - create_postgres_exporter_container
 
-- name: "Create prometheus container for node1-postgresql"
+- name: "Create prometheus container"
   hosts: node3-monitoring
   become: true
+  vars:
+    prometheus_targets:
+      - { ip: "192.168.56.20", port: "9187" }
+      - { ip: "192.168.56.30", port: "9187" }
   roles:
     - setup_prometheus
 
-- name: "Create grafana container for node1-postgresql"
+- name: "Create grafana container"
   hosts: node3-monitoring
   become: true
   roles:

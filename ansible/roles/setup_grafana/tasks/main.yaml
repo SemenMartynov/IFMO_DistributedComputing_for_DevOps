@@ -33,7 +33,7 @@
 # Используем локальный файл вместо скачивания
 - name: Скопировать JSON дашборда PostgreSQL
   ansible.builtin.copy:
-    src: /home/denis/ITMO/DistributedComputing/IFMO_DistributedComputing_for_DevOps/ansible/roles/setup_grafana/files/postgres_dashboard.json  # Путь к вашему локальному файлу
+    src: ../files/postgres_dashboard.json  # noqa
     dest: /opt/grafana/dashboards/postgres_dashboard.json
     mode: "0644"
 
