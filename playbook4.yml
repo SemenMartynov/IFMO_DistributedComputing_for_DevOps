@@ -26,7 +26,7 @@
         name:
           - mariadb-client
         state: present
-  
+
     - name: Получить информацию о DB
       community.docker.docker_container_info:
         name: "{{ db_host }}"
@@ -50,21 +50,21 @@
         name: "{{ item }}"
         state: stopped
       loop: "{{ containers_to_remove }}"
-      ignore_errors: true
+      failed_when: false
 
     - name: Удалить контейнеры
       community.docker.docker_container:
         name: "{{ item }}"
         state: absent
       loop: "{{ containers_to_remove }}"
-      ignore_errors: true
+      failed_when: false
 
     - name: Удалить Docker тома
       community.docker.docker_volume:
         name: "{{ item }}"
         state: absent
       loop: "{{ volumes_to_remove }}"
-      ignore_errors: true
+      failed_when: false
 
     - name: Создать Docker volumes для каждого узла
       community.docker.docker_volume:
@@ -143,6 +143,7 @@
       ansible.builtin.template:
         src: "haproxy.cfg.j2"
         dest: "/home/{{ ansible_user }}/{{ project_name }}/haproxy.cfg"
+        mode: '0644'
 
     - name: Создать пользователя в базе для HAProxy
       community.mysql.mysql_user:
@@ -211,7 +212,7 @@
       loop: "{{ galera_nodes }}"
 
     - name: Установить Exporter на HAProxy
-      docker_container:
+      community.docker.docker_container:
         name: haproxy_exporter
         image: "{{ haproxy_exporter_image }}"
         restart_policy: always
@@ -244,7 +245,7 @@
         overwrite: true
 
     - name: Обновить конфигурационный файл Prometheus
-      template:
+      ansible.builtin.template:
         src: prometheus-galera.yml.j2
         dest: /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml
         owner: root
