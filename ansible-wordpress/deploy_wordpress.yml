@@ -1,0 +1,183 @@
+---
+- name: Deploy WordPress with MySQL
+  hosts: wordpress
+  become: yes
+  vars:
+    db_user: "wordpress"
+    db_password: "wordpress"
+    compose_file_path: "/home/{{ ansible_ssh_user }}/wordpress/docker-compose.yml"
+    wordpress_dir: "/home/{{ ansible_ssh_user }}/wordpress"
+    
+  tasks:
+    - name: Обновить пакеты (Ubuntu)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Обновление кеша раз в час
+
+    - name: Установить необходимые пакеты
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - python3
+        state: present
+       
+
+    - name: Create WordPress directory
+      file:
+        path: "{{ wordpress_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Configure Docker Compose file
+      copy:
+        dest: "{{ compose_file_path }}"
+        content: |
+          version: '3'
+          services:
+            db_master:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: "{{ db_password }}"
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: "{{ db_user }}"
+                MYSQL_PASSWORD: "{{ db_password }}"
+              ports:
+                - "3306:3306"             
+              command: --server-id=1 --log-bin=mysql-bin --binlog-format=row
+              volumes:
+                - db_master:/var/lib/mysql
+            db_slave:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_ROOT_PASSWORD: "{{ db_password }}"
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: "{{ db_user }}"
+                MYSQL_PASSWORD: "{{ db_password }}"
+              ports:
+                - "3307:3306"             
+              command: --server-id=2 --log-bin=mysql-bin --binlog-format=row
+              volumes:
+                - db_slave:/var/lib/mysql
+            wordpress:
+              image: wordpress:latest
+              restart: always
+              ports:
+                - "8080:80"
+              depends_on:
+                - db_master
+                - db_slave
+              environment:
+                WORDPRESS_DB_HOST: db_master
+                WORDPRESS_DB_USER: "{{ db_user }}"
+                WORDPRESS_DB_PASSWORD: "{{ db_password }}"
+              volumes:
+                - wordpress:/var/www/html
+
+          volumes:
+            db_master:
+            wordpress:
+            db_slave:
+
+    - name: Start MySQL services
+      command: docker-compose up -d db_master db_slave
+      args:
+        chdir: "{{ wordpress_dir }}"
+
+      
+    - name: Wait for MySQL master to be ready
+      wait_for:
+        port: 3306
+        delay: 10
+        timeout: 60
+
+    - name: Wait for MySQL slave to be ready
+      wait_for:
+        port: 3307
+        delay: 10
+        timeout: 60
+
+    - name: Create replication user on Master
+      mysql_query:
+        login_port: 3306
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: "CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED WITH mysql_native_password BY 'replication';"
+
+    - name: Grant replication privileges
+      mysql_query:
+        login_port: 3306
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: "GRANT REPLICATION SLAVE ON *.* TO 'replication'@'%';"
+
+    - name: Flush privileges
+      mysql_query:
+        login_port: 3306
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: "FLUSH PRIVILEGES;"
+
+    - name: Show master status
+      mysql_query:
+        login_port: 3306
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: "SHOW MASTER STATUS;"
+      register: master_status
+      
+    - name: Debug master_status
+      debug:
+        var: master_status
+
+    - name: Setup replication on Replica
+      mysql_query:
+        login_port: 3307
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: >-
+          CHANGE MASTER TO
+          MASTER_HOST='db_master',
+          MASTER_USER='replication',
+          MASTER_PASSWORD='replication',
+          MASTER_LOG_FILE='{{ master_status.query_result[0][0].File }}',
+          MASTER_LOG_POS={{ master_status.query_result[0][0].Position }};
+      when: master_status.query_result is defined and master_status.query_result | length > 0
+
+    - name: Ensure MySQL binary logging is enabled
+      lineinfile:
+        path: /etc/mysql/my.cnf
+        regexp: '^(log_bin|binlog_format)'
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "log_bin=mysql-bin"
+        - "binlog_format=row"  
+     
+    - name: Ensure MySQL log directory exists
+      file:
+        path: /var/log/mysql
+        state: directory
+        mode: '0755'
+        owner: mysql
+        group: mysql
+
+    - name: Start Slave on Replica
+      mysql_query:
+        login_port: 3307
+        login_user: "root"
+        login_password: "{{ db_password }}"
+        query: "START SLAVE;"
+
+    - name: Start WordPress 
+      command: docker-compose up -d wordpress
+      args:
+        chdir: "{{ wordpress_dir }}"
+
+    - name: Wait for WordPress to be accessible
+      wait_for:
+        port: 8080
+        delay: 10
+        timeout: 60
