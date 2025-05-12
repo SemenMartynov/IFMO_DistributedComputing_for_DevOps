@@ -1,0 +1,12 @@
+---
+project_dir: /home/{{ ansible_user }}/wordpress-docker
+
+is_wordpress: true
+wp_version: latest
+wp_db_user: wordpress_user
+wp_db_password: change_me_please
+wp_db_name: wordpress
+wp_db_host: mysql
+db_root_password: root_password_change_me
+
+wp_port: 9000

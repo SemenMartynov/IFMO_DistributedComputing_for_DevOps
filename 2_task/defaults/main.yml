@@ -1,0 +1,18 @@
+---
+project_dir: /home/{{ ansible_user }}/wordpress-cluster
+
+is_wordpress: true
+wp_version: latest
+wp_db_user: wordpress_user
+wp_db_password: change_me_please
+wp_db_name: wordpress
+wp_db_host: mysql
+wp_port: 9000
+
+db_master: mysql-master
+db_replica: mysql-replica
+db_pass: root_password_change_me
+mysql_replication_user: replication_user
+mysql_replication_password: repl_password
+mysql_server_id_master: 1
+mysql_server_id_replica: 2

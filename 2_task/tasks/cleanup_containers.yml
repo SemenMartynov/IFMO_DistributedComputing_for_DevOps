@@ -1,0 +1,50 @@
+---
+- name: Проверка и очистка существующих контейнеров
+  block:
+    - name: Остановка существующих контейнеров проекта WordPress Docker
+      community.docker.docker_compose_v2:
+        project_src: "/home/{{ ansible_user }}/wordpress-docker"
+        state: absent
+      failed_when: false
+
+    - name: Остановка существующих контейнеров проекта WordPress Docker
+      community.docker.docker_compose_v2:
+        project_src: "/home/{{ ansible_user }}/wordpress-cluster"
+        state: absent
+      failed_when: false
+
+    - name: Проверка использования порта WordPress
+      ansible.builtin.wait_for:
+        port: "{{ wp_port }}"
+        state: started
+        timeout: 1
+        host: 0.0.0.0
+      register: port_check
+      failed_when: false
+      become: true
+
+    - name: Вывод сообщения о занятом порте
+      ansible.builtin.debug:
+        msg: "Порт {{ wp_port }} уже занят. Попытка освободить порт."
+      when: not port_check.failed
+
+    - name: Получение списка контейнеров, использующих порт
+      community.docker.docker_host_info:
+        containers: true
+      register: docker_info
+      when: not port_check.failed
+
+    - name: Вывод структуры данных контейнеров (для отладки)
+      ansible.builtin.debug:
+        var: docker_info.containers[0] | default({})
+      when: not port_check.failed and (docker_info.containers | default([])) | length > 0
+
+    - name: Остановка контейнеров, использующих порт
+      community.docker.docker_container:
+        name: "{{ item.Names[0] | regex_replace('^/', '') if 'Names' in item and item.Names | length > 0 else item.Id }}"
+        state: stopped
+      loop: "{{ docker_info.containers | default([]) }}"
+      when: >
+        not port_check.failed and
+        item.Ports is defined and
+        (item.Ports | json_query('[?PublicPort==`' + wp_port | string + '`]') | length > 0)

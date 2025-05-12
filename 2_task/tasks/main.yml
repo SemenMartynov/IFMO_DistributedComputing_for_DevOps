@@ -1,0 +1,59 @@
+---
+- name: Создание директории проекта
+  ansible.builtin.file:
+    path: "{{ project_dir }}"
+    mode: '0750'
+    state: directory
+
+- name: Создание директорий для конфигурации MySQL
+  ansible.builtin.file:
+    path: "{{ project_dir }}/mysql_conf/{{ item }}"
+    mode: '0755'
+    state: directory
+  loop:
+    - master
+    - replica
+
+- name: Создание конфигурации для master
+  ansible.builtin.template:
+    src: mysql_master.cnf.j2
+    dest: "{{ project_dir }}/mysql_conf/master/custom.cnf"
+    mode: '0755'
+
+- name: Создание конфигурации для replica
+  ansible.builtin.template:
+    src: mysql_replica.cnf.j2
+    dest: "{{ project_dir }}/mysql_conf/replica/custom.cnf"
+    mode: '0755'
+
+- name: Создание Docker Compose файла
+  ansible.builtin.template:
+    src: docker-compose-cluster.yml.j2
+    dest: "{{ project_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Создание скрипта настройки репликации
+  ansible.builtin.template:
+    src: setup_replication.sh.j2
+    dest: "{{ project_dir }}/setup_replication.sh"
+    mode: '0755'
+
+- name: Остановка существующего контейнера
+  ansible.builtin.import_tasks: cleanup_containers.yml
+
+- name: Запуск контейнеров через Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    state: present
+  register: compose_result
+
+- name: Пауза для инициализации базы данных
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: Настройка репликации MySQL
+  ansible.builtin.command: ./setup_replication.sh
+  args:
+    chdir: "{{ project_dir }}"
+  register: replication_result
+  changed_when: replication_result.rc == 0

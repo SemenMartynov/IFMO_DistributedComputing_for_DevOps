@@ -1,9 +1,9 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 192.168.110.133
+      ansible_user: dimass
+      ansible_password: '1001'
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
+      ansible_become_pass: '1001'
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no'

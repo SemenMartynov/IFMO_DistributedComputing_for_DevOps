@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  {{ db_master }}:
+    image: mysql:8.0
+    container_name: {{ db_master }}
+    volumes:
+      - mysql_master_data:/var/lib/mysql
+      - ./mysql_conf/master:/etc/mysql/conf.d
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ db_pass }}
+      MYSQL_DATABASE: {{ wp_db_name }}
+      MYSQL_USER: {{ wp_db_user }}
+      MYSQL_PASSWORD: {{ wp_db_password }}
+    networks:
+      - wordpress_network
+    command: --server-id={{ mysql_server_id_master }} --log-bin=mysql-bin --binlog-format=ROW
+
+  {{ db_replica }}:
+    image: mysql:8.0
+    container_name: {{ db_replica }}
+    volumes:
+      - mysql_replica_data:/var/lib/mysql
+      - ./mysql_conf/replica:/etc/mysql/conf.d
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ db_pass }}
+      MYSQL_DATABASE: {{ wp_db_name }}
+      MYSQL_USER: {{ wp_db_user }}
+      MYSQL_PASSWORD: {{ wp_db_password }}
+    networks:
+      - wordpress_network
+    command: --server-id={{ mysql_server_id_replica }} --relay-log=mysql-relay-bin --log-bin=mysql-bin --binlog-format=ROW --read-only=1
+    depends_on:
+      - {{ db_master }}
+
+  wordpress:
+    image: wordpress:{{ wp_version }}
+    ports:
+      - "{{ wp_port }}:80"
+    volumes:
+      - wp_data:/var/www/html
+    environment:
+      WORDPRESS_DB_HOST: {{ db_master }}
+      WORDPRESS_DB_USER: {{ wp_db_user }}
+      WORDPRESS_DB_PASSWORD: {{ wp_db_password }}
+      WORDPRESS_DB_NAME: {{ wp_db_name }}
+    depends_on:
+      - {{ db_master }}
+      - {{ db_replica }}
+    networks:
+      - wordpress_network
+
+networks:
+  wordpress_network:
+
+volumes:
+  mysql_master_data:
+  mysql_replica_data:
+  wp_data:
