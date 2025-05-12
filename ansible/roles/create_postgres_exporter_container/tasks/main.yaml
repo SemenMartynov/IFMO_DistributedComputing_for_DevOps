@@ -1,3 +1,29 @@
+# - name: Pull PostgreSQL exporter image
+#   community.docker.docker_image:
+#     name: "prometheuscommunity/postgres-exporter"
+#     source: pull
+
+# - name: Create isolated Docker network
+#   community.docker.docker_network:
+#     name: monitoring_net
+#     driver: bridge
+#     ipam_config:
+#       - subnet: 10.100.0.0/24
+
+# - name: Run postgres_exporter container
+#   community.docker.docker_container:
+#     name: "node1-postgresql-exporter"
+#     image: "prometheuscommunity/postgres-exporter"
+#     networks:
+#       - name: monitoring_net
+#         ipv4_address: 10.100.0.100  # Фиксированный IP
+#     state: started
+#     restart_policy: always
+#     ports:
+#       - "9187:9187"
+#     env:
+#       DATA_SOURCE_NAME: "postgresql://postgres_exporter:postgres_exporter@192.168.56.20:5432/postgres?sslmode=disable"
+
 - name: Pull PostgreSQL exporter image
   community.docker.docker_image:
     name: "prometheuscommunity/postgres-exporter"
@@ -8,7 +34,7 @@
     name: monitoring_net
     driver: bridge
     ipam_config:
-      - subnet: 10.100.0.0/24
+      - subnet: "{{ monitoring_net_subnet }}"
 
 - name: Run postgres_exporter container
   community.docker.docker_container:
@@ -16,10 +42,10 @@
     image: "prometheuscommunity/postgres-exporter"
     networks:
       - name: monitoring_net
-        ipv4_address: 10.100.0.100  # Фиксированный IP
+        ipv4_address: "{{ postgres_exporter_ip }}"
     state: started
     restart_policy: always
     ports:
       - "9187:9187"
     env:
-      DATA_SOURCE_NAME: "postgresql://postgres_exporter:postgres_exporter@192.168.56.20:5432/postgres?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ postgres_host }}:{{ postgres_port }}/{{ postgres_db }}?sslmode=disable"

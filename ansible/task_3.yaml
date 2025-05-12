@@ -25,6 +25,28 @@
 - name: "Create node1 postgres_exporter container"
   hosts: node1-postgresql
   become: true
+  vars:
+    monitoring_net_subnet: "10.100.0.0/24"
+    postgres_exporter_ip: "10.100.0.100"
+    postgres_host: "192.168.56.20"
+    postgres_port: "5432"
+    postgres_db: "postgres"
+    postgres_user: "postgres_exporter"
+    postgres_password: "postgres_exporter"
+  roles:
+    - create_postgres_exporter_container
+
+- name: "Create node2 postgres_exporter container"
+  hosts: node2-postgresql
+  become: true
+  vars:
+    monitoring_net_subnet: "10.100.0.0/24"
+    postgres_exporter_ip: "10.100.0.100"
+    postgres_host: "192.168.56.30"
+    postgres_port: "5432"
+    postgres_db: "postgres"
+    postgres_user: "postgres_exporter"
+    postgres_password: "postgres_exporter"
   roles:
     - create_postgres_exporter_container
 
