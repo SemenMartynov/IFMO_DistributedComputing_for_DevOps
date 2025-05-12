@@ -16,17 +16,33 @@
     group: postgres
     mode: '0700'
 
-- name: Check if datadir exists
+- name: Check if backup directory exists
+  become: true
+  become_user: postgres
   ansible.builtin.stat:
     path: /var/lib/postgresql/17/main
-  register: pg_data_dir
+  register: backup_dir
+
+- name: Check replication slot
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_slot:
+    name: my_slot
+    state: present
+    login_user: postgres
+  register: slot_check
+  when: backup_dir.stat.exists
 
 - name: Start pg_basebackup
   become: true
   become_user: postgres
   ansible.builtin.shell: |
     pg_basebackup -R -h 192.168.56.20 -D /var/lib/postgresql/17/main -U replication --wal-method=stream -C --slot=my_slot
-  changed_when: false
+  args:
+    creates: /var/lib/postgresql/17/main  # Защита от повторного запуска
+  when:
+    - not backup_dir.stat.exists
+    - not (slot_check.slot_exists | default(false) | bool)
 
 - name: Create standby.signal file
   ansible.builtin.file:
