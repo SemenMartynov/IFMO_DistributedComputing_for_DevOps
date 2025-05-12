@@ -9,7 +9,7 @@
     mode: '0755'
 
 - name: Upload docker-compose
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: "{{ role_path }}/files/docker-compose.yml"
     dest: "{{ project_dir }}/docker-compose.yml"
     owner: "{{ ansible_user }}"

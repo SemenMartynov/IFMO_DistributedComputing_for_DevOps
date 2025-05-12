@@ -83,7 +83,7 @@ http://monitoring-host-ip:3000/ (admin:admin)
 
 ## Vault
 
-Пароль **9900**
+Пароль в файле `vault_password.txt`
 
 ## Запуск
 

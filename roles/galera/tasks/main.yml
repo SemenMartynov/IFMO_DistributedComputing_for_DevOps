@@ -38,17 +38,12 @@
   when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
   ignore_errors: yes # Ignore errors if the server is not running
 
-- name: Stop services
+- name: Stop wordpress
   community.docker.docker_compose_v2:
     project_src: "{{ project_dir }}"
     state: stopped
-  register: output
-  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
-
-- name: Show results
-  ansible.builtin.debug:
-    var: output
-  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+    services: wordpress
+  ignore_errors: yes # Ignore errors if the server is not running
 
 - name: Update docker-compose
   ansible.builtin.template:
@@ -78,65 +73,39 @@
   community.docker.docker_compose_v2:
     project_src: "{{ project_dir }}"
     remove_orphans: true
+    wait: true
+    wait_timeout: 600
   register: output
 
 - name: Show compose results
   ansible.builtin.debug:
     var: output
 
-- name: Verify that services are running
-  ansible.builtin.assert:
-    that:
-      - wp_container.State == 'running'
-      - db_container.State == 'running'
-      - db_1_container.State == 'running'
-  vars:
-    wp_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
-    db_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "db") | first }}
-    db_1_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "db-1") | first }}
-    db_2_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "db-2") | first }}
-    db_3_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "db-3") | first }}
-    db_4_container: >-
-      {{ output.containers | selectattr("Service", "equalto", "db-4") | first }}
-
-- name: Wait until cluster is up
-  community.mysql.mysql_query:
+- name: Wait until bootstrap node is ready
+  community.mysql.mysql_info:
+    login_host: "127.0.0.1"
+    login_port: 3308
     login_db: "{{ db_name }}"
     login_user: "root"
     login_password: "{{ db_root_password }}"
-    query: "SELECT 1;"
+    filter: global_status
   register: result
   retries: 5
   delay: 60
   until:   
-    - result.failed == false
+    - result.global_status is defined
+    - (result.global_status.wsrep_cluster_size | default(0)) > 1
+    - (result.global_status.wsrep_ready | default('')) == "ON"
 
 - name: Restore database
   community.mysql.mysql_db:
     state: import
     name: "{{ db_name }}"
     login_host: "127.0.0.1"
+    login_port: 3308
     login_user: "root"
     login_password: "{{ db_root_password }}"
     target: "/tmp/{{ db_name }}_dump.sql"
   when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
   tags: 
     - restore
-
-- name: Check galera cluster status
-  community.mysql.mysql_info:
-    login_host: "127.0.0.1"
-    login_db: "{{ db_name }}"
-    login_user: "root"
-    login_password: "{{ db_root_password }}"
-    filter: global_status
-  register: my_status
-
-- name: Show wsrep status
-  ansible.builtin.debug:
-    var: my_status.global_status.wsrep_cluster_size

@@ -6,7 +6,6 @@ Vagrant.configure("2") do |config|
       vm1.vm.box = "bento/ubuntu-24.04"
       vm1.vm.box_version = "202502.21.0"
       vm1.vm.network "private_network", ip: "192.168.56.10"
-      vm1.vm.disk :disk, size: "30GB", primary: true
       vm1.vm.provider "virtualbox" do |vb|
         vb.name = "ubuntu-vm1"
         vb.memory = 8192
@@ -25,7 +24,6 @@ Vagrant.configure("2") do |config|
     #  vm2.vm.box = "bento/ubuntu-24.04"
     #  vm2.vm.box_version = "202502.21.0"
     #  vm2.vm.network "private_network", ip: "192.168.56.11"
-    #  vm2.vm.disk :disk, size: "10GB", primary: true
     #  vm2.vm.provider "virtualbox" do |vb|
     #    vb.name = "ubuntu-vm2"
     #    vb.memory = 2048

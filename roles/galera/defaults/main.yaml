@@ -1,4 +1,17 @@
 ---
+db_host: db
+db2_host: db-1
+db3_host: db-2
+db4_host: db-3
+db5_host: db-4
+loadbalancer: haproxy
+haproxy_user: admin
+haproxy_password: admin
+wordpress_port: 80
+db_root_password: root
+db_name: wordpress
+db_user: wordpress
+db_password: wordpress
 replication_user: replicator
 replication_password: replicatorpassword
 mariabackup_user: mariabackup

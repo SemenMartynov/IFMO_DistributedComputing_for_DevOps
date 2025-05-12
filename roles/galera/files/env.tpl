@@ -1,3 +1,4 @@
+DB_HOST={{ loadbalancer }}
 MYSQL_ROOT_PASSWORD={{ db_root_password }}
 DB_NAME={{ db_name }}
 DB_USER={{ db_user }}

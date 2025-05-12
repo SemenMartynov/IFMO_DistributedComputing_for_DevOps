@@ -10,12 +10,14 @@
 - name: Set up SSL for prometheus
   #hosts: monitoring
   hosts: blog
+  become: true
   roles:
     - exporter-common
 
 - name: Install prometheus
   #hosts: monitoring
   hosts: blog
+  become: true
   roles:
     - prometheus
   vars:
@@ -68,3 +70,11 @@
   roles:
     - mysql-exporter
     - node-exporter
+
+- name: Home work 3
+  hosts: blog
+  tasks:
+    - name: Display Configuration Variables
+      ansible.builtin.debug:
+        msg:
+          - "monitoring_url: http://{{ hostvars['blog'].ansible_host }}:3000" # monitoring url including port
