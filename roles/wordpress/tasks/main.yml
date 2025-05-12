@@ -1,0 +1,45 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ project_dir }}/mariadb-master"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Upload docker-compose
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Upload environment variables
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+  
+- name: Create and start app
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+  register: output
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output
+
+- name: Verify that services are running
+  ansible.builtin.assert:
+    that:
+      - wp_container.State == 'running'
+      - db_container.State == 'running'
+  vars:
+    wp_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
+    db_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db") | first }}

@@ -1,0 +1,111 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+    state: present
+    pkg: 
+      - python3-pymysql
+      - mysql-client
+
+# Создание и восстановление дампа будет выполнено только в том случае, если кластера еще нет.
+# Это позволит избежать потери данных при повторном запуске плейбука.
+- name: Check if galera cluster is already enabled
+  community.mysql.mysql_info:
+    login_host: "127.0.0.1"
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: global_status
+  register: my_status
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Show wsrep status
+  ansible.builtin.debug:
+    var: my_status.global_status.wsrep_cluster_size
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Dump all databases
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    dump_extra_args: "--column-statistics=0"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Stop wordpress
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    state: stopped
+    services: wordpress
+  ignore_errors: yes # Ignore errors if the server is not running
+
+- name: Update docker-compose
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Upload environment variables
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Upload haproxy config
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/haproxy.cfg"
+    dest: "{{ project_dir }}/haproxy.cfg"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Apply updated compose file
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: 600
+  register: output
+
+- name: Show compose results
+  ansible.builtin.debug:
+    var: output
+
+- name: Wait until bootstrap node is ready
+  community.mysql.mysql_info:
+    login_host: "127.0.0.1"
+    login_port: 3308
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: global_status
+  register: result
+  retries: 5
+  delay: 60
+  until:   
+    - result.global_status is defined
+    - (result.global_status.wsrep_cluster_size | default(0)) > 1
+    - (result.global_status.wsrep_ready | default('')) == "ON"
+
+- name: Restore database
+  community.mysql.mysql_db:
+    state: import
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_port: 3308
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: (my_status.global_status.wsrep_cluster_size | default(0)) < 1
+  tags: 
+    - restore

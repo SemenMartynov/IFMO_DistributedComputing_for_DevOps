@@ -1,0 +1,12 @@
+---
+db_host: db
+db_replica: db-replica
+wordpress_port: 80
+db_root_password: root
+db_name: wordpress
+db_user: wordpress
+db_password: wordpress
+master_server_id: 3000
+replica_server_id: 3001
+replication_user: replicator
+replication_password: replicatorpassword

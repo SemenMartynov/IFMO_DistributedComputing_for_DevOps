@@ -1,0 +1,26 @@
+---
+- name: Install docker
+  hosts: blog
+  become: true
+  roles:
+    - docker
+  vars:
+    docker_users: [ "{{ ansible_user }}" ]
+
+- name: Run wordpress and db containers in docker
+  hosts: blog
+  become: true
+  roles:
+    - wordpress
+
+- name: Home work 1
+  hosts: blog
+  tasks:
+    - name: Display Configuration Variables
+      ansible.builtin.debug:
+        msg:
+          - "wordpress: {{ is_wordpress }}" # True or False
+          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
+          - "wordpress_db_name: {{ db_name }}" # WP database name
+          - "db_host: {{ db_host }}" # container name
+          - "db_pass: {{ db_root_password }}" # root password

@@ -1,0 +1,174 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+    state: present
+    pkg: 
+      - python3-pymysql
+      - mysql-client
+
+# Создание и восстановление дампа будет выполнено только в том случае, если бинарный лог не включен ранее.
+# Это позволит избежать потери данных при повторном запуске плейбука.
+- name: Check if binlog is already enabled
+  community.mysql.mysql_info:
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    filter: master_status
+  register: my_status
+
+- name: Show binlog status
+  ansible.builtin.debug:
+    var: my_status.master_status
+
+- name: Dump database
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    dump_extra_args: "--column-statistics=0"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: my_status.master_status | length == 0
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+  loop:
+    - "{{ project_dir }}/mariadb-master/config"
+    - "{{ project_dir }}/mariadb-replica/config"
+    - "{{ project_dir }}/mariadb-replica/init"
+
+- name: Update docker-compose
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/docker-compose.yml"
+    dest: "{{ project_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Configure MariaDB master
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-master/config/my.cnf"
+      mode: '0644'
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+      content: |
+        [mariadb]
+        log-bin
+        server_id={{ master_server_id}}
+        log-basename=my-mariadb
+        binlog-format=MIXED             
+
+- name: Configure MariaDB replica
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-replica/config/my.cnf"
+      mode: '0644'
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+      content: |
+        [mariadb]
+        server_id={{ replica_server_id }}
+        log-basename=my-mariadb
+        binlog-format=MIXED
+
+- name: Initialize MariaDB replica
+  ansible.builtin.copy:
+      dest: "{{ project_dir }}/mariadb-replica/init/init.sql"
+      mode: '0644'
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+      content: |
+        CHANGE MASTER TO
+          MASTER_HOST='db',
+          MASTER_USER='{{ replication_user }}',
+          MASTER_PASSWORD='{{ replication_password }}',
+          MASTER_PORT=3306,
+          MASTER_CONNECT_RETRY=10;
+
+- name: Upload environment variables
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/env.tpl"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Apply updated compose file
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+  register: output
+
+- name: Show compose results
+  ansible.builtin.debug:
+    var: output
+
+- name: Verify that services are running
+  ansible.builtin.assert:
+    that:
+      - wp_container.State == 'running'
+      - db_container.State == 'running'
+      - db_replica_container.State == 'running'
+  vars:
+    wp_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "wordpress") | first }}
+    db_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db") | first }}
+    db_replica_container: >-
+      {{ output.containers | selectattr("Service", "equalto", "db-replica") | first }}
+
+- name: Wait until master database is up
+  community.mysql.mysql_query:
+    login_db: "{{ db_name }}"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    query: "SELECT 1;"
+  register: result
+  retries: 5
+  delay: 30
+  until:   
+    - result.failed == false
+
+- name: Set up replication user
+  community.mysql.mysql_user:
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    name: "{{ replication_user }}"
+    host: "%"
+    password: "{{ replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    state: present
+
+- name: Restore database
+  community.mysql.mysql_db:
+    state: import
+    name: "{{ db_name }}"
+    login_host: "127.0.0.1"
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+    target: "/tmp/{{ db_name }}_dump.sql"
+  when: my_status.master_status | length == 0    
+
+- name: Wait for replication and check replica status
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_port: 3308
+    login_user: "root"
+    login_password: "{{ db_root_password }}"
+  register: replica_status
+  retries: 5
+  delay: 30
+  until:
+    - replica_status is defined
+    - (replica_status.Slave_IO_Running | default('')) == "Yes"
+    - (replica_status.Slave_SQL_Running | default('')) == "Yes"
+
+- name: Show replica status
+  ansible.builtin.debug:
+    var: replica_status

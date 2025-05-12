@@ -1,0 +1,4 @@
+---
+db_nodes:
+  - db:3306
+  - db-replica:3306

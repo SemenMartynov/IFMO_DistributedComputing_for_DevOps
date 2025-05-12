@@ -1,0 +1,18 @@
+{% raw %}
+global:
+  scrape_interval: 60s
+  evaluation_interval: 60s
+
+rule_files:
+  - rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets:
+        - alertmanager:9093
+
+scrape_config_files:
+  - scrape_configs/*.yml
+
+{% endraw %}

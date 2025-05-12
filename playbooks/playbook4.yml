@@ -1,0 +1,41 @@
+---
+- name: Setup galera cluster
+  hosts: blog
+  become: true
+  roles:
+    - galera
+    - mysql-exporter
+
+- name: Update monitoring config
+  #hosts: monitoring
+  hosts: blog
+  become: true
+  roles:
+    - prometheus
+  vars:
+    bot_token: "{{ lookup('ansible.builtin.env', 'TELEGRAM_BOT_TOKEN') }}"
+    chat_id: "{{ lookup('ansible.builtin.env', 'TELEGRAM_CHAT_ID') }}"
+    db_nodes:
+      - db:3306
+      - db-1:3306
+      - db-2:3306
+      - db-3:3306
+      - db-4:3306
+
+- name: Home work 4
+  hosts: blog
+  tasks:
+    - name: Display Configuration Variables
+      ansible.builtin.debug:
+        msg:
+          - "wordpress: {{ is_wordpress }}" # True or False
+          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
+          - "wordpress_db_name: {{ db_name }}" # WP database name
+          - "db1_host: {{ db_host }}" # container name
+          - "db2_host: {{ db2_host }}" # container name
+          - "db3_host: {{ db3_host }}" # container name
+          - "db4_host: {{ db4_host }}" # container name
+          - "db5_host: {{ db5_host }}" # container name
+          - "db_pass: {{ db_root_password }}" # root password for DBs
+          - "loadbalancer: {{ loadbalancer }}" # container name
+          - "monitoring_url: http://{{ hostvars['blog'].ansible_host }}:3000" # monitoring url including port

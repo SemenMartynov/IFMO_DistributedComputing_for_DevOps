@@ -1,0 +1,43 @@
+---
+- name: Stop node_exporter service if exists
+  ansible.builtin.service:
+    name: node_exporter
+    state: stopped
+  ignore_errors: yes
+
+- name: Download and unarchive node_exporter
+  ansible.builtin.unarchive:
+    src: "https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+
+- name: Copy node_exporter binary
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter-1.9.1.linux-{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    remote_src: yes
+    mode: '0744'
+
+- name: Creating node_exporter service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Node Exporter
+      Wants=network-online.target
+      After=network-online.target
+      [Service]
+      ExecStart=/usr/local/bin/node_exporter --web.config.file="{{ monitoring_dir }}/common/config.yml"
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+      
+- name: Force systemd to reread configs
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Start node_exporter service
+  ansible.builtin.service:
+    name: node_exporter
+    enabled: true
+    state: started

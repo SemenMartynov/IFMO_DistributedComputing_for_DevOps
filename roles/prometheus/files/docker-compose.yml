@@ -1,0 +1,42 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    restart: always
+    ports:
+     - 9090:9090
+    volumes:
+     - ./prometheus:/etc/prometheus
+     - ./common:/webconfig:ro
+     - prometheus-storage:/prometheus
+    command:
+     - "--config.file=/etc/prometheus/prometheus.yml"
+     - "--web.config.file=/webconfig/config.yml"
+     - "--storage.tsdb.retention.time=7d"
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: always
+    volumes:
+    - ./alertmanager/alertmanager.yml:/config/alertmanager.yml
+    command:
+    - '--config.file=/config/alertmanager.yml'
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    restart: always
+    command:
+    - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+    - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    image: grafana/grafana:latest
+    ports:
+      - 3000:3000
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-storage:/var/lib/grafana
+      - ./common:/webconfig:ro
+volumes:
+  prometheus-storage:
+  grafana-storage:

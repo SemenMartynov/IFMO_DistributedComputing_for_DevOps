@@ -1,0 +1,21 @@
+---
+project_dir: /srv/docker/wp
+db_host: db
+db2_host: db-1
+db3_host: db-2
+db4_host: db-3
+db5_host: db-4
+loadbalancer: haproxy
+haproxy_user: admin
+haproxy_password: admin
+db_replica: db-replica
+db_root_password: "{{ vault_db_root_password }}"
+db_name: "{{ vault_db_name }}"
+db_user: "{{ vault_db_user }}"
+db_password: "{{ vault_db_password }}"
+replication_user: "{{ vault_replication_user }}"
+replication_password: "{{ vault_replication_password }}"
+mariabackup_user: "{{ vault_mariabackup_user }}"
+mariabackup_password: "{{ vault_mariabackup_password }}"
+is_wordpress: true
+wordpress_port: 80

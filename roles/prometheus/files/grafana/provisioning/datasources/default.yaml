@@ -1,0 +1,17 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: Prometheus
+    access: proxy
+    url: https://prometheus:9090
+    basicAuth: true
+    basicAuthUser: {{ monitoring_user }}
+    jsonData:
+      tlsSkipVerify: true
+      tlsAuthWithCACert: true
+    secureJsonData:
+      tlsCACert: $__file{/webconfig/exporter.crt}
+      basicAuthPassword: {{ monitoring_password }}
+    isDefault: true
+    editable: true

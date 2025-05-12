@@ -1,0 +1,51 @@
+---
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+  loop:
+    - "{{ monitoring_dir }}/prometheus"
+    - "{{ monitoring_dir }}/prometheus/scrape_configs"
+    - "{{ monitoring_dir }}/alertmanager"
+    - "{{ monitoring_dir }}/blackbox"
+    - "{{ monitoring_dir }}/grafana"
+    - "{{ monitoring_dir }}/grafana/dashboards"
+    - "{{ monitoring_dir }}/grafana/provisioning"
+    - "{{ monitoring_dir }}/grafana/provisioning/dashboards"
+    - "{{ monitoring_dir }}/grafana/provisioning/datasources"
+
+- name: Upload files
+  ansible.builtin.template:
+    src: "{{ role_path }}/files/{{ item }}"
+    dest: "{{ monitoring_dir }}/{{ item }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+  loop:
+    - "docker-compose.yml"
+    - "prometheus/prometheus.yml"
+    - "prometheus/rules.yml"
+    - "alertmanager/alertmanager.yml"
+    - "blackbox/blackbox.yml"
+    - "grafana/provisioning/dashboards/default.yaml"
+    - "grafana/provisioning/datasources/default.yaml"
+    - "grafana/dashboards/blackbox.json"
+    - "grafana/dashboards/mysql-exporter.json"
+    - "grafana/dashboards/node-exporter.json"
+    - "grafana/dashboards/galera.json"
+    - "prometheus/scrape_configs/node-exporter.yml"
+    - "prometheus/scrape_configs/mysql-exporter.yml" 
+    - "prometheus/scrape_configs/blackbox.yml"
+
+- name: Create and start apps
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    recreate: always
+  register: output
+
+- name: Show results
+  ansible.builtin.debug:
+    var: output
