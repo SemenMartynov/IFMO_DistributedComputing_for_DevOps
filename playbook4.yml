@@ -1,18 +1,271 @@
 ---
-- name: Home work 4
+- name: Создание кластера из 5 узлов на базе Galera Cluster
   hosts: carrier
+  become: true
+  vars:
+    galera_nodes:
+      - "{{ db_host }}_1"
+      - "{{ db_host }}_2"
+      - "{{ db_host }}_3"
+      - "{{ db_host }}_4"
+      - "{{ db_host }}_5"
+    containers_to_remove:
+      - "{{ db_host }}"
+      - "{{ db_replica_host }}"
+      - "{{ db_host }}_exporter"
+      - "{{ db_replica_host }}_exporter"
+    volumes_to_remove:
+      - "{{ db_host }}_data"
+      - "{{ db_replica_host }}_data"
+
+    galera_cluster_address: "gcomm://{{ galera_nodes | join(',') }}"
+
   tasks:
+    - name: Установить модули для работы с MariaDB
+      ansible.builtin.apt:
+        name:
+          - mariadb-client
+        state: present
+
+    - name: Получить информацию о DB
+      community.docker.docker_container_info:
+        name: "{{ db_host }}"
+      register: db
+
+    - name: Записать IP-адрес DB в переменную
+      ansible.builtin.set_fact:
+        db_ip: "{{ db.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Сделать дамп базы данных с DB
+      community.mysql.mysql_db:
+        state: dump
+        login_host: "{{ db_ip }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        name: "{{ db_name }}"
+        target: "/home/{{ ansible_user }}/{{ project_name }}/{{ db_name }}.sql"
+
+    - name: Остановить контейнеры
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: stopped
+      loop: "{{ containers_to_remove }}"
+      failed_when: false
+
+    - name: Удалить контейнеры
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ containers_to_remove }}"
+      failed_when: false
+
+    - name: Удалить Docker тома
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ volumes_to_remove }}"
+      failed_when: false
+
+    - name: Создать Docker volumes для каждого узла
+      community.docker.docker_volume:
+        name: "{{ item }}_data"
+        state: present
+      loop: "{{ galera_nodes }}"
+
+    - name: Запустить Bootstrap Node (первую в списке)
+      community.docker.docker_container:
+        name: "{{ galera_nodes[0] }}"
+        image: "{{ galera_image }}"
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_pass }}"
+          MARIADB_DATABASE: "{{ db_name }}"
+          MARIADB_USER: "{{ db_user }}"
+          MARIADB_PASSWORD: "{{ db_pass }}"
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://"
+          MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster_name }}"
+          MARIADB_GALERA_NODE_NAME: "{{ galera_nodes[0] }}"
+          MARIADB_GALERA_NODE_ADDRESS: "{{ galera_nodes[0] }}"
+          MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+          MARIADB_GALERA_MARIABACKUP_USER: "{{ backup_user }}"
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ backup_pass }}"
+        volumes:
+          - "{{ galera_nodes[0] }}_data:/bitnami/mariadb"
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+      register: bootstrap_node
+
+    - name: Записать IP-адрес Bootstrap Node в переменную
+      ansible.builtin.set_fact:
+        bootstrap_ip: "{{ bootstrap_node.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Ждать, пока Bootstrap Node полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ bootstrap_ip }}"
+        port: "{{ db_port }}"
+        timeout: 180
+        state: started
+
+    - name: Импортировать дамп на Bootstrap Node
+      community.mysql.mysql_db:
+        state: import
+        login_host: "{{ bootstrap_ip }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        name: "{{ db_name }}"
+        target: "/home/{{ ansible_user }}/{{ project_name }}/{{ db_name }}.sql"
+
+    - name: Запустить остальные 4 Node (без Bootstrap)
+      community.docker.docker_container:
+        name: "{{ item }}"
+        image: "{{ galera_image }}"
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_pass }}"
+          MARIADB_DATABASE: "{{ db_name }}"
+          MARIADB_USER: "{{ db_user }}"
+          MARIADB_PASSWORD: "{{ db_pass }}"
+          MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster_name }}"
+          MARIADB_GALERA_CLUSTER_ADDRESS: "{{ galera_cluster_address }}"
+          MARIADB_GALERA_NODE_NAME: "{{ item }}"
+          MARIADB_GALERA_NODE_ADDRESS: "{{ item }}"
+          MARIADB_GALERA_MARIABACKUP_USER: "{{ backup_user }}"
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ backup_pass }}"
+        volumes:
+          - "{{ item }}_data:/bitnami/mariadb"
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+      loop: "{{ galera_nodes[1:] }}"
+
+    - name: Создать конфигурацию HAProxy
+      ansible.builtin.template:
+        src: "haproxy.cfg.j2"
+        dest: "/home/{{ ansible_user }}/{{ project_name }}/haproxy.cfg"
+        mode: '0644'
+
+    - name: Создать пользователя в базе для HAProxy
+      community.mysql.mysql_user:
+        name: haproxy_check
+        password: ""
+        host: "%"
+        priv: "mysql.*:USAGE"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        login_host: "{{ bootstrap_ip }}"
+        state: present
+        column_case_sensitive: false
+
+    - name: Запустить контейнер HAProxy
+      community.docker.docker_container:
+        name: "{{ db_host }}" # единая точка входа WP
+        image: "{{ haproxy_image }}"
+        restart_policy: always
+        volumes:
+          - /home/{{ ansible_user }}/{{ project_name }}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+        log_driver: json-file
+        log_opt:
+          max-size: "10m"
+          max-file: "3"
+        networks:
+          - name: "{{ wp_host }}_net"
+        published_ports:
+          - "{{ haproxy_stats_port }}:8404" # встроенный мониторинг
+        expose:
+          - "{{ db_port }}"
+        state: started
+
+    - name: Ждать, пока WordPress полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ wp_port }}"
+        timeout: 180
+        state: started
+
+    - name: Удалить неактуальные конфигурационные файлы для MySQL Exporter
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}
+        state: absent
+      loop:
+        - db_exporter_config.my-cnf
+        - db_slave_exporter_config.my-cnf
+
+    - name: Создать конфигурационные файлы для MySQL Exporter
+      ansible.builtin.template:
+        src: config.my-cnf.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf
+        mode: '0644'
+      loop: "{{ galera_nodes }}"
+
+    - name: Установить Exporter на Galera Cluster с конфигурационными файлами
+      community.docker.docker_container:
+        name: "{{ item }}_exporter"
+        image: "{{ mysqld_exporter_image }}"
+        restart_policy: always
+        command: '--config.my-cnf=/cfg/config.my-cnf'
+        volumes:
+          - "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ item }}_exporter_config.my-cnf:/cfg/config.my-cnf:ro"
+        networks:
+          - name: "{{ wp_host }}_net"
+        state: started
+      loop: "{{ galera_nodes }}"
+
+    - name: Установить Exporter на HAProxy
+      community.docker.docker_container:
+        name: haproxy_exporter
+        image: "{{ haproxy_exporter_image }}"
+        restart_policy: always
+        command: --haproxy.scrape-uri="http://{{ haproxy_user }}:{{ haproxy_password }}@{{ db_host }}:{{ haproxy_stats_port }}/stats;csv"
+        networks:
+          - name: "{{ wp_host }}_net"
+
+    - name: Скачать дашборд HAProxy
+      ansible.builtin.uri:
+        url: "{{ dashboard_haproxy_url }}"
+        dest: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        method: GET
+        headers:
+          Accept: "application/json"
+        return_content: true
+
+    - name: Установить в JSON актуальную переменную DS_PROMETHEUS
+      ansible.builtin.replace:
+        path: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        regexp: '\${DS_PROMETHEUS}'
+        replace: '{{ prom_uid }}'
+
+    - name: Добавить обновленный дашборд в Grafana
+      community.grafana.grafana_dashboard:
+        url: "http://localhost:{{ gf_port }}"
+        grafana_user: "{{ gf_user }}"
+        grafana_password: "{{ gf_password }}"
+        dashboard_url: "/home/{{ ansible_user }}/{{ project_name }}/monitoring/{{ dashboard_haproxy_file }}"
+        state: present
+        overwrite: true
+
+    - name: Обновить конфигурационный файл Prometheus
+      ansible.builtin.template:
+        src: prometheus-galera.yml.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/prometheus.yml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Перезапустить Prometheus с обновленной конфигурацией
+      community.docker.docker_container:
+        name: "{{ prom_host }}"
+        state: started
+        restart: true
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db1_host: {{ db1_host }}" # container name
-          - "db2_host: {{ db2_host }}" # container name
-          - "db3_host: {{ db3_host }}" # container name
-          - "db4_host: {{ db4_host }}" # container name
-          - "db5_host: {{ db5_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for DBs
-          - "loadbalancer: {{ loadbalancer }}" # container name
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "WordPress запущен по адресу: http://{{ ansible_host }}:{{ wp_port }}"
+          - "Имя DB: {{ db_name }}"
+          - "Galera узлы: {{ galera_nodes }}"
+          - "Пароль root пользователя: {{ db_root_pass }}"
+          - "Балансировщик HAProxy: {{ db_host }}"
+          - "Grafana запущена по адресу: http://{{ ansible_host }}:{{ gf_port }}"
+          - "Prometheus запущен по адресу: http://{{ ansible_host }}:{{ prom_port }}/targets"
+          - "Дефолтный мониторинг HAProxy: http://{{ ansible_host }}:{{ haproxy_stats_port }}/stats"

@@ -1,1 +1,8 @@
-collections: []
+---
+collections:
+  - name: community.docker
+    version: "4.5.2"
+  - name: community.grafana
+    version: "2.1.0"
+  - name: community.mysql
+    version: "3.13.0"

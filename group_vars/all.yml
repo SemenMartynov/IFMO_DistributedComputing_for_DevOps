@@ -1,0 +1,52 @@
+# НАЗВАНИЕ ПРОЕКТА
+project_name: WP
+
+# ОБРАЗЫ
+db_image: mysql:8.3
+galera_image: bitnami/mariadb-galera:latest
+wp_image: wordpress:latest
+prom_image: prom/prometheus:latest
+gf_image: grafana/grafana:latest
+mysqld_exporter_image: prom/mysqld-exporter:latest
+haproxy_exporter_image: prom/haproxy-exporter:latest
+haproxy_image: haproxy:latest
+
+# ХОСТЫ
+wp_host: wp
+db_host: db
+db_replica_host: db_slave
+gf_host: gf
+prom_host: prom
+
+# ПОРТЫ
+wp_port: 80
+db_port: 3306
+gf_port: 3000
+prom_port: 9090
+haproxy_stats_port: 8404
+
+# ДАННЫЕ БД
+# - master-slave
+db_name: wordpress
+db_root_user: root
+db_root_pass: rootpass
+db_user: wpuser
+db_pass: wppass
+db_replica_user: replica
+db_replica_pass: replicapass
+# - galera cluster
+loadbalancer: balancer_{{ db_host }}
+backup_user: backup
+backup_pass: backuppass
+galera_cluster_name: galera_cluster
+
+# МОНИТОРИНГ
+haproxy_user: admin
+haproxy_password: adminpass
+gf_user: admin
+gf_password: adminpass
+prom_uid: prometheusdatasource
+dashboard_db_file: mysql_overview_dashboard.json
+dashboard_haproxy_file: haproxy_dashboard.json
+dashboard_db_url: https://grafana.com/api/dashboards/7362/revisions/5/download
+dashboard_haproxy_url: https://grafana.com/api/dashboards/367/revisions/3/download

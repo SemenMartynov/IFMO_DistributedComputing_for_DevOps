@@ -1,9 +1,11 @@
 all:
   hosts:
     carrier:
-      ansible_host: 192.168.XXX.XXX
-      ansible_user: XXXXXXXX
-      ansible_password: XXXXXXXX
+      ansible_host: 51.250.2.146
+      ansible_user: boev
       ansible_become_method: sudo
-      ansible_become_pass: XXXXXXXX
-      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_python_interpreter: /usr/bin/python3
+      ansible_ssh_private_key_file: ~/.ssh/id_rsa
+      # ansible_password: XXXXXXXX
+      # ansible_become_pass: XXXXXXXX
+      # ansible_ssh_common_args: '-o StrictHostKeyChecking=no'

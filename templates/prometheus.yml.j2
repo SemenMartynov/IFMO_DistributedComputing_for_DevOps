@@ -1,0 +1,10 @@
+---
+global:
+  scrape_interval: 2s
+scrape_configs:
+  - job_name: '{{ db_host }}'
+    static_configs:
+      - targets: ['{{ db_host }}_exporter:9104']
+  - job_name: '{{ db_replica_host }}'
+    static_configs:
+      - targets: ['{{ db_replica_host }}_exporter:9104']

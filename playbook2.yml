@@ -1,13 +1,170 @@
 ---
-- name: Home work 2
+- name: Настройка Master-Slave репликации MySQL
   hosts: carrier
+  become: true
   tasks:
+    - name: Установить модули для работы с DB
+      ansible.builtin.apt:
+        name:
+          - python3-pymysql
+          - mysql-client
+        state: present
+
+    - name: Создать директорию проекта
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/{{ project_name }}
+        state: directory
+        mode: '0755'
+
+    - name: Создать конфигурационные файлы для DB
+      ansible.builtin.template:
+        src: mysql-cnf.j2
+        dest: /home/{{ ansible_user }}/{{ project_name }}/{{ item.name }}.cnf
+        mode: '0644'
+      loop:
+        - { name: "master", server_id: 1, log_bin: "mysql-bin" }
+        - { name: "slave", server_id: 2, log_bin: "relay-log" }
+
+    - name: Создать Docker-том для реплики
+      community.docker.docker_volume:
+        name: "{{ db_replica_host }}_data"
+
+    - name: Удалить контейнер DB
+      community.docker.docker_container:
+        name: "{{ db_host }}"
+        state: absent
+
+    - name: Запустить DB с созданным конфигурационным файлом
+      community.docker.docker_container:
+        name: "{{ db_host }}"
+        image: "{{ db_image }}"
+        restart_policy: always
+        volumes:
+          - "{{ db_host }}_data:/var/lib/mysql"
+          - "/home/{{ ansible_user }}/{{ project_name }}/master.cnf:/etc/mysql/conf.d/master.cnf"
+        networks:
+          - name: "{{ wp_host }}_net"
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ db_root_pass }}"
+          MYSQL_USER: "{{ db_user }}"
+          MYSQL_PASSWORD: "{{ db_pass }}"
+          MYSQL_DATABASE: "{{ db_name }}"
+        recreate: false
+        state: started
+      register: db
+
+    - name: Запустить DB Slave с созданным конфигурационным файлом
+      community.docker.docker_container:
+        name: "{{ db_replica_host }}"
+        image: "{{ db_image }}"
+        restart_policy: always
+        volumes:
+          - "{{ db_replica_host }}_data:/var/lib/mysql"
+          - "/home/{{ ansible_user }}/{{ project_name }}/slave.cnf:/etc/mysql/conf.d/slave.cnf"
+        networks:
+          - name: "{{ wp_host }}_net"
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ db_root_pass }}"
+          MYSQL_USER: "{{ db_user }}"
+          MYSQL_PASSWORD: "{{ db_pass }}"
+          MYSQL_DATABASE: "{{ db_name }}"
+        recreate: false
+        state: started
+      register: db_slave
+
+    - name: Записать IP-адреса DB и DB Slave в переменные
+      ansible.builtin.set_fact:
+        db_ip: "{{ db.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+        db_slave_ip: "{{ db_slave.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Ждать, пока DB полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ db_ip }}"
+        port: "{{ db_port }}"
+        timeout: 180
+        state: started
+
+    - name: Создать пользователя репликации
+      community.mysql.mysql_user:
+        name: "{{ db_replica_user }}"
+        host: "%"
+        password: "{{ db_replica_pass }}"
+        priv: "*.*:REPLICATION SLAVE"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        login_host: "{{ db_ip }}"
+        state: present
+        column_case_sensitive: false
+
+    - name: Получить статус DB
+      community.mysql.mysql_replication:
+        mode: getprimary
+        login_host: "{{ db_ip }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+      register: db_status
+
+    - name: Ждать, пока DB Slave полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ db_slave_ip }}"
+        port: "{{ db_port }}"
+        timeout: 180
+        state: started
+
+    - name: Сделать дамп базы данных с DB
+      community.mysql.mysql_db:
+        state: dump
+        login_host: "{{ db_ip }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        name: "{{ db_name }}"
+        target: "/home/{{ ansible_user }}/{{ project_name }}/{{ db_name }}.sql"
+
+    - name: Импортировать дамп на DB Slave
+      community.mysql.mysql_db:
+        state: import
+        login_host: "{{ db_slave_ip }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        name: "{{ db_name }}"
+        target: "/home/{{ ansible_user }}/{{ project_name }}/{{ db_name }}.sql"
+
+    - name: Остановить репликацию на DB Slave
+      community.mysql.mysql_replication:
+        mode: stopreplica
+        login_host: "{{ db_slave_ip }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+
+    - name: Настройка репликации на DB Slave
+      community.mysql.mysql_replication:
+        mode: changereplication
+        login_host: "{{ db_slave_ip }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+        primary_host: "{{ db_ip }}"
+        primary_log_file: "{{ db_status.File }}"
+        primary_log_pos: "{{ db_status.Position }}"
+        primary_user: "{{ db_replica_user }}"
+        primary_password: "{{ db_replica_pass }}"
+
+    - name: Запустить репликацию на DB Slave
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_host: "{{ db_slave_ip }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_pass }}"
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_master: {{ db_master }}" # container name
-          - "db_replica: {{ db_replica }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for master and replica
+          - "WordPress запущен по адресу: http://{{ ansible_host }}:{{ wp_port }}"
+          - "Host DB: {{ db_host }}"
+          - "Host DB Slave: {{ db_replica_host }}"
+          - "Имя DB: {{ db_name }}"
+          - "Имя пользователя DB: {{ db_user }}"
+          - "Пароль пользователя DB: {{ db_pass }}"

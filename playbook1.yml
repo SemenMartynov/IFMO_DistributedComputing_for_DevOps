@@ -1,12 +1,81 @@
 ---
-- name: Home work 1
+- name: Установка WordPress с базой данных MySQL
   hosts: carrier
+  become: true
+  roles:
+    - docker_installation
+
   tasks:
+    - name: Создать сеть Docker
+      community.docker.docker_network:
+        name: "{{ wp_host }}_net"
+
+    - name: Создать Docker-тома
+      community.docker.docker_volume:
+        name: "{{ item }}"
+      loop:
+        - "{{ db_host }}_data"
+        - "{{ wp_host }}_data"
+
+    - name: Запустить DB
+      community.docker.docker_container:
+        name: "{{ db_host }}"
+        image: "{{ db_image }}"
+        restart_policy: always
+        volumes:
+          - "{{ db_host }}_data:/var/lib/mysql"
+        networks:
+          - name: "{{ wp_host }}_net"
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ db_root_pass }}"
+          MYSQL_USER: "{{ db_user }}"
+          MYSQL_PASSWORD: "{{ db_pass }}"
+          MYSQL_DATABASE: "{{ db_name }}"
+        recreate: false
+        state: started
+      register: db
+
+    - name: Записать IP-адрес DB в переменные
+      ansible.builtin.set_fact:
+        db_ip: "{{ db.container.NetworkSettings.Networks.wp_net.IPAddress }}"
+
+    - name: Ждать, пока DB полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ db_ip }}"
+        port: "{{ db_port }}"
+        timeout: 180
+        state: started
+
+    - name: Запустить WordPress контейнер
+      community.docker.docker_container:
+        name: "{{ wp_host }}"
+        image: "{{ wp_image }}"
+        restart_policy: always
+        ports:
+          - "{{ wp_port }}:80"
+        volumes:
+          - "{{ wp_host }}_data:/var/www/html"
+        networks:
+          - name: "{{ wp_host }}_net"
+        env:
+          WORDPRESS_DB_HOST: "{{ db_host }}:{{ db_port }}"
+          WORDPRESS_DB_USER: "{{ db_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_pass }}"
+          WORDPRESS_DB_NAME: "{{ db_name }}"
+        state: started
+
+    - name: Ждать, пока WordPress полностью запустится
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ wp_port }}"
+        timeout: 180
+        state: started
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_host: {{ db_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password
+          - "WordPress запущен по адресу: http://{{ ansible_host }}:{{ wp_port }}"
+          - "Host DB: {{ db_host }}"
+          - "Имя DB: {{ db_name }}"
+          - "Имя пользователя DB: {{ db_user }}"
+          - "Пароль пользователя DB: {{ db_pass }}"
