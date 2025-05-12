@@ -5,6 +5,17 @@
   roles:
     - docker_install
 
+- name: Allow access from exporter to node 1
+  hosts: node1-postgresql
+  become: true
+  vars_files:
+    - roles/append_pg_hba/vars/main.yaml
+  roles:
+    - role: append_pg_hba
+      vars:
+        append_pg_hba_allow_network: "{{ append_pg_hba_node1_exporter.allow_network }}"
+        append_pg_hba_entry: "{{ append_pg_hba_node1_exporter.entry }}"
+
 - name: "Create postgres_exporter user"
   hosts: node1-postgresql # Создаем только на primary узле
   become: true
@@ -12,7 +23,19 @@
     - create_postgres_exporter
 
 - name: "Create node1 postgres_exporter container"
-  hosts: node1-postgresql # Создаем только на primary узле
+  hosts: node1-postgresql
   become: true
   roles:
     - create_postgres_exporter_container
+
+- name: "Create prometheus container for node1-postgresql"
+  hosts: node3-monitoring
+  become: true
+  roles:
+    - setup_prometheus
+
+- name: "Create grafana container for node1-postgresql"
+  hosts: node3-monitoring
+  become: true
+  roles:
+    - setup_grafana

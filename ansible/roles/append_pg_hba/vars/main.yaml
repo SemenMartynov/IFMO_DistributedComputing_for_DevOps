@@ -15,3 +15,9 @@ append_pg_hba_node2_replication:
   db_name: "replication"
   db_user: "all"
   entry: "host replication all 192.168.56.30/32 trust"
+
+append_pg_hba_node1_exporter:
+  allow_network: "10.100.0.0/24"
+  db_name: "postgres"
+  db_user: "postgres_exporter"
+  entry: "host all postgres_exporter 10.100.0.0/24 md5"
