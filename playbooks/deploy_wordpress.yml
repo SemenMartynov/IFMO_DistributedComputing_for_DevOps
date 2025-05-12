@@ -5,6 +5,9 @@
   vars:
     docker_users: [server]
     mysql_root_password: root
+    mysql_database: wordpress
+    master_user: wp_user
+    master_password: wp_password
 
   tasks:
     - name: Установить Docker
@@ -12,17 +15,29 @@
 
     - name: Копировать master.cnf на хост
       copy:
-        src: ../master.cnf
-        dest: /tmp/master.cnf
+        src: ../configs/master.cnf
+        dest: /etc/master.cnf
 
     - name: Копировать slave.cnf на хост
       copy:
-        src: ../slave.cnf
-        dest: /tmp/slave.cnf
+        src: ../configs/slave.cnf
+        dest: /etc/slave.cnf
 
     - name: Создать Docker-сеть
       docker_network:
         name: wordpress_network
+
+    - name: Установить pip3
+      become: yes
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Установить библиотеку PyMySQL
+      become: yes
+      apt:
+        name: python3-pymysql
+        state: present
 
     - name: Запустить контейнер mysql_master
       docker_container:
@@ -31,15 +46,15 @@
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-          MYSQL_DATABASE: wordpress
-          MASTER_USER: wp_user
-          MASTER_PASSWORD: wp_password
+          MYSQL_DATABASE: "{{ mysql_database }}"
+          MASTER_USER: "{{ master_user }}"
+          MASTER_PASSWORD: "{{ master_password }}"
         ports:
           - "3307:3306"
         networks:
           - name: wordpress_network
         volumes:
-          - /tmp/master.cnf:/etc/mysql/conf.d/master.cnf
+          - /etc/master.cnf:/etc/mysql/conf.d/master.cnf
         state: started
         recreate: yes
 
@@ -66,7 +81,7 @@
         networks:
           - name: wordpress_network
         volumes:
-          - /tmp/slave.cnf:/etc/mysql/conf.d/slave.cnf
+          - /etc/slave.cnf:/etc/mysql/conf.d/slave.cnf
         state: started
         recreate: yes
 
@@ -75,10 +90,10 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: 127.0.0.1
-        login_port: 3308          # порт слейва
+        login_port: 3308          
       register: slave_ping
-      retries: 20                 # попытаемся до 20 раз
-      delay: 3                    # с интервалом 3 секунды
+      retries: 20                 
+      delay: 3                    
       until: slave_ping is succeeded
 
     - name: Запустить контейнер с WordPress
