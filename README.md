@@ -89,10 +89,10 @@ http://monitoring-host-ip:3000/ (admin:admin)
 
 Плейбуки запускать последовательно:
 
-`ansible-playbook playbooks/playbook1.yml`
+`ansible-playbook playbook1.yml`
 
-`ansible-playbook playbooks/playbook2.yml`
+`ansible-playbook playbook2.yml`
 
-`ansible-playbook playbooks/playbook3.yml`
+`ansible-playbook playbook3.yml`
 
-`ansible-playbook playbooks/playbook4.yml` 
+`ansible-playbook playbook4.yml` 
