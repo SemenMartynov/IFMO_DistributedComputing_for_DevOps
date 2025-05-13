@@ -1,0 +1,31 @@
+global
+    daemon
+
+defaults
+    mode tcp
+    timeout connect 5s
+    timeout client 50s
+    timeout server 50s
+
+frontend stats
+    mode http
+    bind *:8404
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats show-node
+    stats auth {{ galera_haproxy_user }}:{{ galera_haproxy_password }}
+
+frontend mysql_cluster_frontend
+    bind *:3306
+    mode tcp
+    option tcplog
+    default_backend galera_cluster_backend
+
+backend galera_cluster_backend
+    mode tcp
+    option tcpka
+    balance roundrobin
+{% for i in range(1, 6) %}
+    server db{{ i }}_host db{{ i }}_host:3306 check
+{% endfor %}

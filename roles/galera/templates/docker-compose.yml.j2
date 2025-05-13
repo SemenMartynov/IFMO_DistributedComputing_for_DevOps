@@ -1,0 +1,95 @@
+services:
+  
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_app
+    restart: always
+    depends_on:
+      loadbalancer:
+        condition: service_started
+    ports:
+      - "80:80"
+    env_file: .env
+    volumes:
+      - ./wordpress_data:/var/www/html
+    networks:
+      - wordpress_network
+  
+  loadbalancer:
+    image: haproxy:latest
+    container_name: loadbalancer
+    restart: always
+    depends_on:
+      db1_host:
+        condition: service_healthy
+      db2_host:
+        condition: service_healthy
+      db3_host:
+        condition: service_healthy
+      db4_host:
+        condition: service_healthy
+      db5_host:
+        condition: service_healthy
+    ports:
+      - 3306:3306
+      - 8404:8404
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    networks:
+      - wordpress_network
+
+  db1_host:
+    image: bitnami/mariadb-galera:latest
+    container_name: db1_host
+    restart: always
+    user: root
+    ports:
+      - 3307:3306
+    volumes:
+      - ./db1_host_data:/bitnami/mariadb
+    env_file: .env
+    environment:
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://"
+      MARIADB_GALERA_NODE_NAME: "db1_host"
+      MARIADB_GALERA_NODE_ADDRESS: "db1_host"
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin -uroot -p$$MARIADB_ROOT_PASSWORD ping -h localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - wordpress_network
+
+{% for i in range(2, 6) %}
+  db{{ i }}_host:
+    image: bitnami/mariadb-galera:latest
+    container_name: db{{ i }}_host
+    restart: always
+    user: root
+    env_file: .env
+    environment:
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://db1_host,db2_host,db3_host,db4_host,db5_host"
+      MARIADB_GALERA_NODE_NAME: "db{{ i }}_host"
+      MARIADB_GALERA_NODE_ADDRESS: "db{{ i }}_host"
+    volumes:
+      - ./db{{ i }}_host_data:/bitnami/mariadb
+    networks:
+      - wordpress_network
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin -uroot -p$$MARIADB_ROOT_PASSWORD ping -h localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      db1_host:
+        condition: service_healthy
+{% endfor %}
+
+
+
+networks:
+  wordpress_network:
+    name: wordpress_network
+    driver: bridge

@@ -1,0 +1,75 @@
+---
+# Задачи для настройки Galera
+
+- name: Создание директории для Galera
+  ansible.builtin.file:
+    path: "{{ galera_cluster_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Создание директорий для данных каждой ноды кластера
+  ansible.builtin.file:
+    path: "{{ galera_cluster_dir }}/db{{ item }}_host_data"
+    state: directory
+    mode: '0775'
+    owner: "1001"
+    group: "1001"
+  loop: "{{ range(1, 6) | list }}"
+
+- name: Установка модуля для создания дампа
+  ansible.builtin.apt:
+    name: mariadb-client
+    state: present
+  become: true
+
+- name: Создание дампа БД
+  community.mysql.mysql_db:
+    state: dump
+    login_host: localhost
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ mysql_database }}"
+    target: "{{ galera_cluster_dir }}/{{ mysql_database }}.sql"
+
+- name: Остановка контейнеров реплик
+  docker_compose_v2:
+    project_src: "{{ galera_mysql_cluster_dir }}/"
+    state: absent
+
+- name: Остановка контейнеров wordpress
+  docker_compose_v2:
+    project_src: "{{ galera_wordpress_dir }}/"
+    state: absent
+
+- name: Копирование .env файла для кластера
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ galera_cluster_dir }}/.env"
+    mode: '0644'
+
+- name: Копирование конфигурационного файла HAProxy
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ galera_cluster_dir }}/haproxy.cfg"
+    mode: '0644'
+
+- name: Копирование docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ galera_cluster_dir }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Запуск контейнеров
+  docker_compose_v2:
+    project_src: "{{ galera_cluster_dir }}/"
+    state: present
+
+- name: Импортировать дамп
+  community.mysql.mysql_db:
+    state: import
+    login_host: localhost
+    login_port: 3307
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    name: "{{ mysql_database }}"
+    target: "{{ galera_cluster_dir }}/{{ mysql_database }}.sql"

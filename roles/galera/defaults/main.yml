@@ -1,0 +1,8 @@
+galera_cluster_dir: "/opt/galera-cluster"
+galera_mysql_cluster_dir: "/opt/mysql-cluster"
+galera_wordpress_dir: "/opt/wordpress"
+galera_haproxy_user: admin
+galera_haproxy_password: admin
+galera_backup_user: backup
+galera_backup_pass: backuppass
+galera_cluster_name: galera_cluster
