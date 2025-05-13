@@ -133,3 +133,30 @@ ansible-playbook playbook3.yml
 - Grafana: `http://wordpress_server_ip:9100`
 
 Логин и пароль для Grafana указаны в файле `.env`.
+
+# Galera
+
+## Архитектура системы
+
+- 5 узлов MariaDB Galera Cluster (db1_host - db5_host)
+- HAProxy в качестве балансировщика нагрузки
+- WordPress подключается через HAProxy к кластеру
+
+## Настройка и запуск
+
+Для настройки Galera Cluster запустите playbook:
+
+```bash
+ansible-playbook playbook4.yml
+```
+
+После выполнения, кластер Galera будет доступен:
+- WordPress: http://your_server_ip/
+- Статистика HAProxy: http://your_server_ip:8404/stats (логин/пароль указаны в переменных)
+
+## Конфигурация
+
+Вы можете изменить параметры кластера, отредактировав файлы:
+- `roles/galera/defaults/main.yml` - основные параметры кластера
+- `roles/galera/templates/docker-compose.yml.j2` - настройка контейнеров
+- `roles/galera/templates/haproxy.cfg.j2` - конфигурация балансировщика нагрузки
