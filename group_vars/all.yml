@@ -1,0 +1,31 @@
+db_host: db
+db_port: 3306
+db_user: wordpress
+db_user_pass: 12345
+db_pass: 12345
+
+db_slave_user: slave
+db_slave_pass: 12345
+
+db_master: db
+db_replica: db2
+
+db_dump_path: /tmp/dump.sql
+
+db_mariabackup_pass: 12345
+
+db1_host: galera-node1
+db2_host: galera-node2
+db3_host: galera-node3
+db4_host: galera-node4
+db5_host: galera-node5
+
+grafana_pass: 12345
+grafana_port: 3000
+
+is_wordpress: true
+
+loadbalancer: haproxy
+
+wordpress_db_name: wordpress
+wordpress_port: 8080

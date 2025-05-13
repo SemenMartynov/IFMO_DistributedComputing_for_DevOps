@@ -2,6 +2,141 @@
 - name: Home work 3
   hosts: carrier
   tasks:
+    - name: Create directories
+      ansible.builtin.file:
+        mode: "0755"
+        path: webapp/{{ item }}
+        state: directory
+      loop:
+        - grafana
+        - grafana/dashboards
+        - grafana/datasources
+        - prometheus
+
+    - name: Copy dashboard.json
+      ansible.builtin.copy:
+        dest: webapp/grafana/dashboards/dashboard.json
+        mode: "0644"
+        src: assets/dashboard.json
+
+    - name: Copy dashboard.yml
+      ansible.builtin.copy:
+        dest: webapp/grafana/dashboards/dashboard.yaml
+        mode: "0644"
+        content: |
+          apiVersion: 1
+          providers:
+            - name: 'MySQL'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              editable: true
+              options:
+                path: /etc/grafana/provisioning/dashboards
+
+    - name: Copy datasource.yml
+      ansible.builtin.copy:
+        dest: webapp/grafana/datasources/datasource.yml
+        mode: "0644"
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: prometheus
+              type: prometheus
+              access: proxy
+              url: http://prometheus:9090
+              isDefault: true
+
+    - name: Copy prometheus.yml
+      ansible.builtin.copy:
+        dest: webapp/prometheus/prometheus.yml
+        mode: "0644"
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: cadvisor
+              static_configs:
+                - targets:
+                  - cadvisor:8080
+            - job_name: db
+              static_configs:
+                - targets:
+                  - db-exporter:9104
+            - job_name: db2
+              static_configs:
+                - targets:
+                  - db2-exporter:9104
+
+    - name: Copy monitoring.yml
+      ansible.builtin.copy:
+        dest: webapp/monitoring.yml
+        mode: "0644"
+        content: |
+          services:
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:v0.52.1
+              volumes:
+                - "/:/rootfs:ro"
+                - "/var/run:/var/run:ro"
+                - "/sys:/sys:ro"
+                - "/var/lib/docker:/var/lib/docker:ro"
+              restart: unless-stopped
+
+            db-exporter:
+              command: --mysqld.address={{ db_master }}:{{ db_port }} --mysqld.username=root:{{ db_pass }}
+              image: prom/mysqld-exporter:v0.17.2
+              restart: unless-stopped
+
+            db2-exporter:
+              command: --mysqld.address={{ db_replica }}:{{ db_port }} --mysqld.username=root:{{ db_pass }}
+              image: prom/mysqld-exporter:v0.17.2
+              restart: unless-stopped
+
+            grafana:
+              environment:
+                GF_SECURITY_ADMIN_PASSWORD: {{ grafana_pass }}
+              image: grafana/grafana:11.6.1
+              ports:
+                - {{ grafana_port }}:3000
+              restart: unless-stopped
+              volumes:
+                - ./grafana:/etc/grafana/provisioning
+                - grafana:/var/lib/grafana
+
+            prometheus:
+              image: prom/prometheus:v3.3.0
+              restart: unless-stopped
+              volumes:
+                - ./prometheus:/etc/prometheus
+                - prometheus:/prometheus
+
+          volumes:
+            grafana:
+            prometheus:
+
+    - name: Create and start services
+      community.docker.docker_compose_v2:
+        files:
+          - docker-compose.yml
+          - monitoring.yml
+        project_src: webapp
+        wait: true
+
+    - name: Set monitoring_url
+      ansible.builtin.set_fact:
+        monitoring_url: http://{{ ansible_ssh_host }}:{{ grafana_port }}
+
+    - name: Check monitoring_url
+      ansible.builtin.uri:
+        url: "{{ monitoring_url }}/api/health"
+        status_code: 200
+      delay: 10
+      retries: 15
+      register: grafana_status
+      until: grafana_status.status == 200
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:

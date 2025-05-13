@@ -2,6 +2,235 @@
 - name: Home work 4
   hosts: carrier
   tasks:
+    - name: Install required packages
+      become: true
+      block:
+        - name: Install mariadb-client package
+          ansible.builtin.apt:
+            name:
+              - mariadb-client=1:10.11.11-0ubuntu0.24.04.2
+            state: present
+            update_cache: true
+
+        - name: Reset ssh connection to drop privileges
+          ansible.builtin.meta: reset_connection
+
+    - name: Create and start galera cluster
+      block:
+        - name: Copy webapp/healthcheck.sh
+          ansible.builtin.copy:
+            dest: webapp/healthcheck.sh
+            mode: "0755"
+            content: |
+              #! /bin/sh -
+              test $(echo SHOW STATUS LIKE \"wsrep_local_state\" | mariadb -uroot -p$MARIADB_ROOT_PASSWORD | awk 'NR==2{print $2}') -eq 4
+
+        - name: Copy webapp/galera-cluster.yml
+          ansible.builtin.template:
+            dest: webapp/galera-cluster.yml
+            src: assets/galera-cluster.yml.j2
+            mode: "0644"
+
+        - name: Create and start galera cluster
+          community.docker.docker_compose_v2:
+            files:
+              - docker-compose.yml
+              - galera-cluster.yml
+              - monitoring.yml
+            project_src: webapp
+            wait: true
+
+    - name: Receive info about db2 container
+      community.docker.docker_container_info:
+        name: webapp-db2-1
+      register: dbinfo2
+
+    - name: Move db from master to cluster
+      when: dbinfo2.exists
+      block:
+        - name: Receive info about db container
+          community.docker.docker_container_info:
+            name: webapp-db-1
+          register: dbinfo
+
+        - name: Extract ip address of the db container
+          ansible.builtin.set_fact:
+            db_ip: "{{ dbinfo.container.NetworkSettings.Networks.webapp_default.IPAddress }}"
+          when: dbinfo.exists
+
+        - name: Dump master database
+          community.mysql.mysql_db:
+            login_host: "{{ db_ip }}"
+            login_user: root
+            login_password: "{{ db_pass }}"
+            name: "{{ wordpress_db_name }}"
+            state: dump
+            target: "{{ db_dump_path }}"
+
+        - name: Receive info about galera-node1 container
+          community.docker.docker_container_info:
+            name: galera-node1
+          register: galeranode1info
+
+        - name: Extract ip address of the galera-node1 container
+          ansible.builtin.set_fact:
+            galera_node1_ip: "{{ galeranode1info.container.NetworkSettings.Networks.webapp_default.IPAddress }}"
+          when: galeranode1info.exists
+
+        - name: Restore database on cluster node
+          community.mysql.mysql_db:
+            login_host: "{{ galera_node1_ip }}"
+            login_user: root
+            login_password: "{{ db_pass }}"
+            name: "{{ wordpress_db_name }}"
+            state: import
+            target: "{{ db_dump_path }}"
+
+    - name: Create haproxy directory
+      ansible.builtin.file:
+        mode: "0755"
+        path: "webapp/haproxy"
+        state: directory
+
+    - name: Copy haproxy.cfg
+      ansible.builtin.copy:
+        dest: webapp/haproxy/haproxy.cfg
+        mode: "0644"
+        content: |
+          global
+            log stdout format raw local0 info
+
+          defaults
+            log global
+            mode tcp
+            timeout connect 5s
+            timeout client 10s
+            timeout server 10s
+            timeout http-request 10s
+
+          frontend galera-cluster
+            bind *:3306
+            default_backend galera-cluster
+
+          backend galera-cluster
+            balance roundrobin
+            mode tcp
+            server node1 galera-node1:3306 check
+            server node2 galera-node2:3306 check
+            server node3 galera-node3:3306 check
+            server node4 galera-node4:3306 check
+            server node5 galera-node5:3306 check
+
+    - name: Copy prometheus.yml
+      ansible.builtin.copy:
+        dest: webapp/prometheus/prometheus.yml
+        mode: "0644"
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: cadvisor
+              static_configs:
+                - targets:
+                  - cadvisor:8080
+            - job_name: galera-node1
+              static_configs:
+                - targets:
+                  - galera-node1-exporter:9104
+            - job_name: galera-node2
+              static_configs:
+                - targets:
+                  - galera-node2-exporter:9104
+            - job_name: galera-node3
+              static_configs:
+                - targets:
+                  - galera-node3-exporter:9104
+            - job_name: galera-node4
+              static_configs:
+                - targets:
+                  - galera-node4-exporter:9104
+            - job_name: galera-node5
+              static_configs:
+                - targets:
+                  - galera-node5-exporter:9104
+
+    # FYI: Completely bad idea to mix monitoring and exporters
+    - name: Remove webapp/monitoring.yml
+      ansible.builtin.copy:
+        dest: webapp/monitoring.yml
+        mode: "0644"
+        content: ""
+
+    - name: Copy webapp/docker-compose.yml
+      ansible.builtin.copy:
+        dest: webapp/docker-compose.yml
+        mode: "0644"
+        content: |
+          services:
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:v0.52.1
+              volumes:
+                - "/:/rootfs:ro"
+                - "/var/run:/var/run:ro"
+                - "/sys:/sys:ro"
+                - "/var/lib/docker:/var/lib/docker:ro"
+              restart: unless-stopped
+
+            grafana:
+              environment:
+                GF_SECURITY_ADMIN_PASSWORD: {{ grafana_pass }}
+              image: grafana/grafana:11.6.1
+              ports:
+                - {{ grafana_port }}:3000
+              restart: unless-stopped
+              volumes:
+                - ./grafana:/etc/grafana/provisioning
+                - grafana:/var/lib/grafana
+
+            haproxy:
+              image: haproxy:3.1.7-alpine3.21
+              restart: unless-stopped
+              volumes:
+                - ./haproxy:/usr/local/etc/haproxy:ro
+
+            prometheus:
+              image: prom/prometheus:v3.3.1
+              restart: unless-stopped
+              volumes:
+                - ./prometheus:/etc/prometheus
+                - prometheus:/prometheus
+
+            wordpress:
+              environment:
+                WORDPRESS_DB_HOST: {{ loadbalancer }}
+                WORDPRESS_DB_USER: {{ db_user }}
+                WORDPRESS_DB_PASSWORD: {{ db_user_pass }}
+                WORDPRESS_DB_NAME: {{ wordpress_db_name }}
+              image: wordpress:6.8.0-php8.4-apache
+              ports:
+                - {{ wordpress_port }}:80
+              restart: unless-stopped
+              volumes:
+                - wordpress:/var/www/html
+
+          volumes:
+            grafana:
+            prometheus:
+            wordpress:
+
+    - name: Create/Remove/Update services
+      community.docker.docker_compose_v2:
+        files:
+          - docker-compose.yml
+          - galera-cluster.yml
+        project_src: webapp
+        remove_orphans: true
+        wait: true
+
+    - name: Set monitoring_url
+      ansible.builtin.set_fact:
+        monitoring_url: http://{{ ansible_ssh_host }}:{{ grafana_port }}
+
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
