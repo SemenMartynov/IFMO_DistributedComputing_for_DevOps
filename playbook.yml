@@ -59,9 +59,9 @@
             wordpress_data:
 
     - name: Launch WordPress and MySQL containers
-      command: docker-compose up -d
-      args:
-        chdir: /opt/wordpress
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress/
+        state: present
 
     - name: Wait for WordPress to be active
       wait_for:

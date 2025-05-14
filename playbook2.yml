@@ -9,9 +9,9 @@
 
   tasks:
     - name: Stop all docker containers
-      command: docker-compose down --remove-orphans
-      args:
-        chdir: /opt/wordpress
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress
+        state: absent
 
     - name: Update docker-compose.yml
       copy:
@@ -67,9 +67,9 @@
             db_replica_data:
 
     - name: Start db containers
-      command: docker-compose up -d
-      args:
-        chdir: /opt/wordpress
+      community.docker.docker_compose_v2:
+        project_src: /opt/wordpress
+        state: present
 
     - name: Wait for db-master to answer
       community.docker.docker_container_info:
