@@ -1,0 +1,40 @@
+---
+- name: Create users table
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      psql -U {{ pg_postgres_user }} -d {{ pg_database }} -h localhost -c
+      "CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );"
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+
+- name: Insert sample data
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      psql -U {{ pg_postgres_user }} -d {{ pg_database }} -h localhost -c
+      "INSERT INTO users (username, email) VALUES
+        ('alice', 'alice@example.com'),
+        ('bob', 'bob@example.com'),
+        ('charlie', 'charlie@example.com')
+      ON CONFLICT DO NOTHING;"
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+
+- name: Count inserted rows
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      psql -U {{ pg_postgres_user }} -d {{ pg_database }} -h localhost -t -c "SELECT COUNT(*) FROM users;"
+    env:
+      PGPASSWORD: "{{ pg_postgres_password }}"
+  register: count_result
+
+- name: Show count
+  ansible.builtin.debug:
+    msg: "Inserted rows: {{ count_result.stdout | trim }}"

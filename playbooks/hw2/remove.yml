@@ -1,0 +1,19 @@
+---
+- name: Remove HW2
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove PostgreSQL replica container
+      community.docker.docker_container:
+        name: "{{ pg_replica_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove PostgreSQL replica volume
+      community.docker.docker_volume:
+        name: "{{ pg_replica_volume }}"
+        state: absent
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Cleanup for HW2 completed."

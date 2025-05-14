@@ -1,0 +1,49 @@
+---
+- name: ⚙️ NODE_01 Ensure Patroni config directory exists
+  ansible.builtin.file:
+    path: "{{ patroni_config_path }}"
+    state: "{{ folder_state }}"
+    mode: "{{ folder_mode }}"
+
+- name: ⚙️ NODE_01 Ensure Patroni data directory exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ patroni_node01_config_path }}"
+    state: "{{ folder_state }}"
+    owner: "{{ file_owner_root }}"
+    group: "{{ file_group_root }}"
+    mode: "{{ patroni_folder_mode }}"
+
+- name: ⚙️ NODE_01 Ensure /run/postgresql exists
+  ansible.builtin.file:
+    path: "{{ patroni_postgres_run_path }}"
+    state: "{{ folder_state }}"
+    owner: "{{ file_owner_root }}"
+    group: "{{ file_group_root }}"
+    mode: "{{ folder_mode }}"
+
+- name: ⚙️ NODE_01 Copy Patroni config file
+  ansible.builtin.copy:
+    src: "{{ patroni_node01_config_path_src }}"
+    dest: "{{ patroni_node01_config_path_dest }}"
+    mode: "{{ file_mode }}"
+
+- name: ⚙️ NODE_01 Copy init.sql file
+  ansible.builtin.copy:
+    src: "{{ patroni_sql_path_src }}"
+    dest: "{{ patroni_sql_path_dest }}"
+    mode: "{{ file_mode }}"
+
+- name: ⚙️ NODE_01 Run Patroni container
+  community.docker.docker_container:
+    name: "{{ patroni_node01_container_name }}"
+    image: "{{ patroni_image }}"
+    state: started
+    restart_policy: "{{ default_restart_policy }}"
+    command: ["patroni", "/config/patroni.yml"]
+    volumes:
+      - "{{ patroni_node01_config_path_dest }}:{{ patroni_config_path_inside }}"
+      - "{{ patroni_node01_config_path }}:{{ patroni_postgres_data_path }}"
+      - "{{ patroni_postgres_run_path }}:{{ patroni_postgres_run_path }}"
+      - "{{ patroni_sql_path_dest }}:{{ patroni_sql_path_inside }}"
+    networks:
+      - name: "{{ pg_network }}"

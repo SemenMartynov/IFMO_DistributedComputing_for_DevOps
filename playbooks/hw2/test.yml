@@ -1,0 +1,40 @@
+---
+- name: 🧪 [Master] Create test table and insert test row
+  community.docker.docker_container_exec:
+    container: "{{ pg_master_container_name }}"
+    command: >
+      psql -U {{ pg_username }} -d {{ pg_database }} -c "
+      CREATE TABLE IF NOT EXISTS check_replication (id serial, message text);
+      INSERT INTO check_replication (message) VALUES ('Replication works!');"
+    env:
+      PGPASSWORD: "{{ pg_password }}"
+
+- name: 🔎 [Replica] Select from replicated table
+  community.docker.docker_container_exec:
+    container: "{{ pg_replica_container_name }}"
+    command: >
+      psql -U {{ pg_username }} -d {{ pg_database }} -h localhost -t -c "SELECT * FROM check_replication;"
+    env:
+      PGPASSWORD: "{{ pg_password }}"
+  register: replica_read_check
+
+- name: 🧾 Output data seen on replica
+  ansible.builtin.debug:
+    msg: |
+      Data from replica:
+      {{ replica_read_check.stdout_lines | join("\n") }}
+
+- name: 🔒 [Replica] Try insert (should fail)
+  community.docker.docker_container_exec:
+    container: postgres_replica
+    command: >
+      psql -U {{ pg_username }} -d {{ pg_database }} -c "INSERT INTO check_replication (message) VALUES ('This should fail');"
+    env:
+      PGPASSWORD: "{{ pg_password }}"
+  register: replica_insert_check
+  failed_when: false
+
+- name: 🧠 Evaluate replica write protection
+  ansible.builtin.debug:
+    msg: >
+      {{ 'Replica is read-only (write attempt failed).' if 'cannot execute INSERT' in replica_insert_check.stderr else 'Replica allowed INSERT — something is wrong!' }}

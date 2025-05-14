@@ -1,0 +1,10 @@
+---
+- name: Create Docker volume for PostgreSQL master
+  community.docker.docker_volume:
+    name: "{{ pg_master_volume }}"
+
+- name: Run PostgreSQL master container
+  ansible.builtin.include_tasks: run_pg_master.yml
+
+- name: Populate pg_master with test data
+  ansible.builtin.include_tasks: populate_pg_master.yml

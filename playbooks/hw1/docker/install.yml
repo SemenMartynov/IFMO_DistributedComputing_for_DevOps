@@ -1,0 +1,7 @@
+---
+- name: Install Docker
+  hosts: carrier
+  become: true
+
+  roles:
+    - docker
