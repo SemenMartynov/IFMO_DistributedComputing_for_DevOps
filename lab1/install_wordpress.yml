@@ -1,0 +1,52 @@
+---
+- name: Развертывание WordPress в Docker-контейнерах на Ubuntu
+  hosts: all
+  become: yes  # Выполнять задачи от имени root (sudo)
+  vars:
+    wp_install_dir: "/opt/wordpress"
+
+  tasks:
+    # Обновление системы и установка базовых зависимостей
+    - name: Обновление кэша APT и установка необходимых пакетов
+      apt:
+        update_cache: yes
+        name:
+          - apt-transport-https
+          - software-properties-common
+        state: present
+
+    # Создание директории для WordPress
+    - name: Создание директории для WordPress
+      file:
+        path: "{{ wp_install_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Копирование nginx.conf
+      template:
+        src: "templates/nginx.conf"
+        dest: "{{ wp_install_dir }}/nginx.conf"
+        mode: "0744"
+
+    # Копирование docker-compose.yml
+    - name: Копирование docker-compose.yml
+      template:
+        src: "templates/docker-compose.yml"
+        dest: "{{ wp_install_dir }}/docker-compose.yml"
+        mode: "0744"
+
+    # Запуск контейнеров через Docker Compose
+    - name: Запуск Docker Compose
+      shell: "sudo docker compose -f {{ wp_install_dir }}/docker-compose.yml up -d"
+      args:
+        chdir: "{{ wp_install_dir }}"
+
+    # Проверка статуса контейнеров
+    - name: Проверка запущенных контейнеров
+      command: "docker ps"
+      register: docker_ps
+      changed_when: false
+
+    - name: Вывод статуса контейнеров
+      debug:
+        msg: "{{ docker_ps.stdout_lines }}"
