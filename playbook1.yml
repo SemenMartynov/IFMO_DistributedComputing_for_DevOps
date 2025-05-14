@@ -1,6 +1,6 @@
 ---
 - name: Home work 1
-  hosts: wordpress_server
+  hosts: carrier
   become: true
   become_method: ansible.builtin.sudo
   become_user: root
