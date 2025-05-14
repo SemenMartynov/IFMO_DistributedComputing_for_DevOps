@@ -37,7 +37,8 @@
       become: yes
       apt:
         name: python3-pymysql
-        state: present
+        state: present    
+   
 
     - name: Запустить контейнер mysql_master
       docker_container:
@@ -46,9 +47,9 @@
         restart_policy: always
         env:
           MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-          MYSQL_DATABASE: "{{ mysql_database }}"
-          MASTER_USER: "{{ master_user }}"
-          MASTER_PASSWORD: "{{ master_password }}"
+          MYSQL_DATABASE:      "{{ mysql_database }}" 
+          MYSQL_USER: "{{ master_user }}"
+          MYSQL_PASSWORD: "{{ master_password }}"
         ports:
           - "3307:3306"
         networks:
@@ -96,24 +97,6 @@
       delay: 3                    
       until: slave_ping is succeeded
 
-    - name: Запустить контейнер с WordPress
-      docker_container:
-        name: wordpress
-        image: wordpress:latest
-        restart_policy: always
-        env:
-          WORDPRESS_DB_HOST: mysql_master:3306
-          WORDPRESS_DB_NAME: wordpress
-          WORDPRESS_DB_USER: wp_user
-          WORDPRESS_DB_PASSWORD: wp_password
-        ports:
-          - "8080:80"
-        networks:
-          - name: wordpress_network
-        volumes:
-          - wordpress_data:/var/www/html
-        state: started
-        recreate: yes
 
     - name: Создать пользователя для репликации на мастере
       community.mysql.mysql_user:
@@ -125,6 +108,19 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
         login_host: 127.0.0.1   
+        login_port: 3307
+
+      
+    - name: Дать wp_user привилегии на создание любых БД и таблиц
+      community.mysql.mysql_user:
+        name: "{{ master_user }}"          
+        host: '%'                          
+        password: "{{ master_password }}"
+        priv: "*.*:ALL PRIVILEGES"         
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
         login_port: 3307
           
 
@@ -179,5 +175,35 @@
     - name: Вывести статус репликации
       debug:
         var: replication_status
+
+    - name: CREATE DATABASE IF NOT EXISTS wordpress 
+      community.mysql.mysql_query:
+        login_user: "{{ master_user }}"
+        login_password: "{{ master_password }}"
+        login_host: 127.0.0.1
+        login_port: 3307
+        query: >
+          CREATE DATABASE IF NOT EXISTS {{ mysql_database }}
+          CHARACTER SET utf8mb4
+          COLLATE utf8mb4_unicode_ci;
+
+    - name: Запустить контейнер с WordPress
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: mysql_master:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wp_user
+          WORDPRESS_DB_PASSWORD: wp_password
+        ports:
+          - "8080:80"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - wordpress_data:/var/www/html
+        state: started
+        recreate: yes
 
       
