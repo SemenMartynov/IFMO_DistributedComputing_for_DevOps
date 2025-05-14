@@ -1,13 +1,11 @@
 ---
 - name: Ensure haproxy config directory exists
-  become: true
   ansible.builtin.file:
     path: "{{ haproxy_config_path }}"
     state: "{{ folder_state }}"
     mode: "{{ folder_mode }}"
 
 - name: Copy haproxy.cfg
-  become: true
   ansible.builtin.copy:
     src: "{{ haproxy_copy_config_src }}"
     dest: "{{ haproxy_copy_config_dest }}"

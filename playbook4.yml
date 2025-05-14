@@ -1,13 +1,14 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
 
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
           - "wordpress: {{ is_wordpress }}"
-          - "strapi_port: {{ strapi_outside_port }}"
+          - "strapi_port: {{ strapi_port_outside }}"
           - "strapi_db_name: {{ pg_database }}"
           - "db1_host: {{ patroni_node01_container_name }}"
           - "db2_host: {{ patroni_node02_container_name }}"

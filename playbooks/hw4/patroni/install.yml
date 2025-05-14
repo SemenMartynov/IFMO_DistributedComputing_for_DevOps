@@ -1,6 +1,7 @@
 ---
 - name: Install Patroni
   hosts: carrier
+  become: true
 
   roles:
     - patroni

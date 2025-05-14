@@ -1,6 +1,7 @@
 ---
 - name: Install HW4
   hosts: carrier
+  become: true
 
   roles:
     - etcd

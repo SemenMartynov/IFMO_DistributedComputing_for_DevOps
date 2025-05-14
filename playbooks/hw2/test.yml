@@ -13,7 +13,7 @@
   community.docker.docker_container_exec:
     container: "{{ pg_replica_container_name }}"
     command: >
-      psql -U {{ pg_username }} -d {{ pg_database }} -t -c "SELECT * FROM check_replication;"
+      psql -U {{ pg_username }} -d {{ pg_database }} -h localhost -t -c "SELECT * FROM check_replication;"
     env:
       PGPASSWORD: "{{ pg_password }}"
   register: replica_read_check

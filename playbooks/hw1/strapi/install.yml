@@ -1,6 +1,7 @@
 ---
 - name: Install Strapi
   hosts: carrier
+  become: true
 
   roles:
     - strapi

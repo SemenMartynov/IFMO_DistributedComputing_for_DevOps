@@ -1,6 +1,7 @@
 ---
 - name: Install cAdvisor
   hosts: carrier
+  become: true
 
   roles:
     - cadvisor

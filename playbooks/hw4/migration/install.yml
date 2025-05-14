@@ -1,6 +1,7 @@
 ---
 - name: Install migration
   hosts: carrier
+  become: true
 
   roles:
     - migration

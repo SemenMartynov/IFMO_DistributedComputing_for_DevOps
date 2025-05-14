@@ -1,13 +1,11 @@
 ---
 - name: ⚙️ NODE_01 Ensure Patroni config directory exists
-  become: true
   ansible.builtin.file:
     path: "{{ patroni_config_path }}"
     state: "{{ folder_state }}"
     mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_01 Ensure Patroni data directory exists with correct permissions
-  become: true
   ansible.builtin.file:
     path: "{{ patroni_node01_config_path }}"
     state: "{{ folder_state }}"
@@ -24,14 +22,12 @@
     mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_01 Copy Patroni config file
-  become: true
   ansible.builtin.copy:
     src: "{{ patroni_node01_config_path_src }}"
     dest: "{{ patroni_node01_config_path_dest }}"
     mode: "{{ file_mode }}"
 
 - name: ⚙️ NODE_01 Copy init.sql file
-  become: true
   ansible.builtin.copy:
     src: "{{ patroni_sql_path_src }}"
     dest: "{{ patroni_sql_path_dest }}"

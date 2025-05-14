@@ -1,19 +1,16 @@
 ---
 - name: Create folder
-  become: true
   ansible.builtin.file:
     path: "{{ grafana_data_path }}"
     state: "{{ folder_state }}"
     mode: "{{ folder_mode }}"
 
 - name: Copy Grafana config
-  become: true
   ansible.builtin.copy:
     src: "{{ grafana_copy_config_src }}"
     dest: "{{ grafana_copy_config_dest }}"
 
 - name: Copy Grafana dashboard
-  become: true
   ansible.builtin.copy:
     src: "{{ grafana_copy_dashboard_src }}"
     dest: "{{ grafana_copy_dashboard_dest }}"

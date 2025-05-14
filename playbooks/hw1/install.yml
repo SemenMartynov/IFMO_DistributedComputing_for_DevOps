@@ -1,6 +1,7 @@
 ---
 - name: Install HW1
   hosts: carrier
+  become: true
 
   roles:
     - docker

@@ -1,6 +1,7 @@
 ---
 - name: Connect to Patroni
   hosts: carrier
+  become: true
 
   tasks:
     - name: Run Strapi CMS

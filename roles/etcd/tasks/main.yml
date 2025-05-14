@@ -1,6 +1,5 @@
 ---
 - name: Ensure etcd data directory exists with correct permissions
-  become: true
   ansible.builtin.file:
     path: "{{ etcd_data_path }}"
     state: "{{ folder_state }}"

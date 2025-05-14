@@ -6,7 +6,6 @@
     mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_03 Ensure Patroni data directory exists with correct permissions
-  become: true
   ansible.builtin.file:
     path: "{{ patroni_node03_config_path }}"
     state: "{{ folder_state }}"
@@ -23,7 +22,6 @@
     mode: "{{ folder_mode }}"
 
 - name: ⚙️ NODE_03 Copy Patroni config file
-  become: true
   ansible.builtin.copy:
     src: "{{ patroni_node03_config_path_src }}"
     dest: "{{ patroni_node03_config_path_dest }}"

@@ -1,6 +1,7 @@
 ---
 - name: Home work 3
   hosts: carrier
+  become: true
 
   tasks:
     - name: Display Configuration Variables

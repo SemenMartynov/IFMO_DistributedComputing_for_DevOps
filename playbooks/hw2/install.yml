@@ -1,6 +1,7 @@
 ---
 - name: Install HW2
   hosts: carrier
+  become: true
 
   roles:
     - pg_replica

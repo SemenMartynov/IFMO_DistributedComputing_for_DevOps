@@ -1,13 +1,11 @@
 ---
 - name: Create folder
-  become: true
   ansible.builtin.file:
     path: "{{ prometheus_data_path }}"
     state: "{{ folder_state }}"
     mode: "{{ folder_mode }}"
 
 - name: Copy Prometheus config
-  become: true
   ansible.builtin.copy:
     src: "{{ prometheus_copy_src }}"
     dest: "{{ prometheus_copy_dest }}"
