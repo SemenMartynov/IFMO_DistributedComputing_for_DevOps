@@ -1,2 +1,0 @@
-# Docker sockets
-docker_setup_docker_socket: "-H=tcp://127.0.0.1:9696"

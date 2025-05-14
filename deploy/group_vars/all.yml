@@ -1,5 +1,3 @@
 ansible_python_interpreter: '/usr/bin/python3'
 
-docker_socket: "-H=tcp://127.0.0.1:9696"
-docker_setup_docker_socket: "{{ docker_socket }}"
-wordpress_setup_docker_socket: "{{ docker_socket }}"
+wordpress_setup_remote_host: '127.0.0.1'

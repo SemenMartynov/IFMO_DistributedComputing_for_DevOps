@@ -1,0 +1,3 @@
+FROM mysql:5.7.19
+
+COPY ./mysqld_slave.cnf /etc/mysql/mysql.conf.d/mysqld.cnf
