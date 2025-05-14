@@ -1,0 +1,209 @@
+---
+- name: Установка Docker и запуск WordPress с реплицируемой БД
+  hosts: all
+  become: yes
+  vars:
+    docker_users: [server]
+    mysql_root_password: root
+    mysql_database: wordpress
+    master_user: wp_user
+    master_password: wp_password
+
+  tasks:
+    - name: Установить Docker
+      import_tasks: ./install_docker.yml
+
+    - name: Копировать master.cnf на хост
+      copy:
+        src: ../configs/master.cnf
+        dest: /etc/master.cnf
+
+    - name: Копировать slave.cnf на хост
+      copy:
+        src: ../configs/slave.cnf
+        dest: /etc/slave.cnf
+
+    - name: Создать Docker-сеть
+      docker_network:
+        name: wordpress_network
+
+    - name: Установить pip3
+      become: yes
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Установить библиотеку PyMySQL
+      become: yes
+      apt:
+        name: python3-pymysql
+        state: present    
+   
+
+    - name: Запустить контейнер mysql_master
+      docker_container:
+        name: mysql_master
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+          MYSQL_DATABASE:      "{{ mysql_database }}" 
+          MYSQL_USER: "{{ master_user }}"
+          MYSQL_PASSWORD: "{{ master_password }}"
+        ports:
+          - "3307:3306"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - /etc/master.cnf:/etc/mysql/conf.d/master.cnf
+        state: started
+        recreate: yes
+
+    - name: Ожидать MySQL внутри контейнера
+      community.mysql.mysql_info:
+          login_user: root
+          login_password: "{{ mysql_root_password }}"
+          login_host: 127.0.0.1
+          login_port: 3307
+      register: ping_result
+      retries: 20
+      delay: 3
+      until: ping_result is succeeded
+
+    - name: Запустить контейнер mysql_slave
+      docker_container:
+        name: mysql_slave
+        image: mysql:8.0
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+        ports:
+          - "3308:3306"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - /etc/slave.cnf:/etc/mysql/conf.d/slave.cnf
+        state: started
+        recreate: yes
+
+    - name: Ожидать MySQL внутри контейнера mysql_slave
+      community.mysql.mysql_info:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3308          
+      register: slave_ping
+      retries: 20                 
+      delay: 3                    
+      until: slave_ping is succeeded
+
+
+    - name: Создать пользователя для репликации на мастере
+      community.mysql.mysql_user:
+        name: repl_user
+        host: '%'
+        password: repl_pass
+        priv: "*.*:REPLICATION SLAVE"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3307
+
+      
+    - name: Дать wp_user привилегии на создание любых БД и таблиц
+      community.mysql.mysql_user:
+        name: "{{ master_user }}"          
+        host: '%'                          
+        password: "{{ master_password }}"
+        priv: "*.*:ALL PRIVILEGES"         
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1
+        login_port: 3307
+          
+
+    - name: Получить binlog и позицию
+      community.mysql.mysql_replication:
+        mode: getprimary
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3307
+      register: master_status
+
+    - name: Остановить репликацию на слейве
+      community.mysql.mysql_replication:
+        mode: stopreplica
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3308
+
+    - name: Настроить мастер на слейве
+      community.mysql.mysql_replication:
+        mode: changeprimary
+        master_host: mysql_master
+        master_port: 3306
+        master_user: repl_user
+        master_password: repl_pass
+        master_log_file: "{{ master_status.File }}"
+        master_log_pos: "{{ master_status.Position }}"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3308
+
+    - name: Запустить репликацию на слейве
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3308
+
+    - name: Проверить статус репликации на слейве
+      community.mysql.mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_host: 127.0.0.1   
+        login_port: 3308
+      register: replication_status
+
+    - name: Вывести статус репликации
+      debug:
+        var: replication_status
+
+    - name: CREATE DATABASE IF NOT EXISTS wordpress 
+      community.mysql.mysql_query:
+        login_user: "{{ master_user }}"
+        login_password: "{{ master_password }}"
+        login_host: 127.0.0.1
+        login_port: 3307
+        query: >
+          CREATE DATABASE IF NOT EXISTS {{ mysql_database }}
+          CHARACTER SET utf8mb4
+          COLLATE utf8mb4_unicode_ci;
+
+    - name: Запустить контейнер с WordPress
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        restart_policy: always
+        env:
+          WORDPRESS_DB_HOST: mysql_master:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wp_user
+          WORDPRESS_DB_PASSWORD: wp_password
+        ports:
+          - "8080:80"
+        networks:
+          - name: wordpress_network
+        volumes:
+          - wordpress_data:/var/www/html
+        state: started
+        recreate: yes
+
+      
