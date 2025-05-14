@@ -6,7 +6,10 @@
     state: present
     pkg: 
       - python3-pymysql
-      - mysql-client
+      - mariadb-client
+
+- name: Reconnect after install mariadb-client
+  ansible.builtin.meta: reset_connection
 
 # Создание и восстановление дампа будет выполнено только в том случае, если бинарный лог не включен ранее.
 # Это позволит избежать потери данных при повторном запуске плейбука.
@@ -29,7 +32,6 @@
     login_host: "127.0.0.1"
     login_user: "root"
     login_password: "{{ db_root_password }}"
-    dump_extra_args: "--column-statistics=0"
     target: "/tmp/{{ db_name }}_dump.sql"
   when: my_status.master_status | length == 0
 
