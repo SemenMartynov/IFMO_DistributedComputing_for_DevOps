@@ -6,6 +6,8 @@ db_password: "pass"
 db_replication_user: "replicator"
 db_replication_password: "rep_pass"
 
+db_metrics_exporter_password: "metr"
+
 db_wordpress_dir: "/opt/wordpress"
 db_docker_user: "ivan"
 

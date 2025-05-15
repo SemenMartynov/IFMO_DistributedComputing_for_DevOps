@@ -241,3 +241,75 @@
       retries: 15
       delay: 5
  
+    - name: Install Node Exporter
+      ansible.builtin.apt:
+        name: prometheus-node-exporter
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+
+    - name: Ensure Node Exporter is running
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        state: started
+        enabled: yes
+
+    - name: Create volume for Prometheus data
+      docker_volume:
+        name: prometheus_data
+    
+    - name: Ensure Prometheus config directory exists
+      file:
+        path: /etc/prometheus
+        state: directory
+        mode: 0755
+
+    - name: Deploy Prometheus config
+      copy:
+        src: prometheus.yml 
+        dest: /etc/prometheus/prometheus.yml
+        mode: 0644
+  
+
+    - name: Start Prometheus container
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        networks:
+          - name: wp_network
+        ports:
+          - "9090:9090"
+        volumes:
+          - prometheus_data:/prometheus
+          - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        restart_policy: always
+
+    - name: Create MySQL exporter user
+      mysql_user:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3306
+        name: "exporter"
+        password: "{{ db_metrics_exporter_password }}"
+        priv: "*.*:SELECT,PROCESS,REPLICATION CLIENT"
+        state: present
+
+    - name: Start MySQL Exporter container
+      docker_container:
+        name: mysql_exporter
+        image: prom/mysqld-exporter:v0.15.1
+        networks:
+          - name: wp_network
+        env:
+          DATA_SOURCE_NAME: "exporter:{{ db_metrics_exporter_password }}@(db_master:3306)/"
+        ports:
+          - "9104:9104"
+        restart_policy: always 
+  
+  handlers:
+    - name: restart prometheus
+      docker_container:
+        name: prometheus
+        state: restarted
+        
