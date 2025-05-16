@@ -42,3 +42,6 @@
   ansible.builtin.user:
     name: "docker"
     group: "docker"
+
+- name: Flush handlers so that the web server is restarted immediately
+  ansible.builtin.meta: flush_handlers
