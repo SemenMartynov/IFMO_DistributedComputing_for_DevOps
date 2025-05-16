@@ -1,0 +1,9 @@
+---
+- name: "Deploy docker and start containers"
+  hosts: all
+  become: true
+  roles:
+    - role: docker_setup
+      tags: ['docker']
+    - role: wordpress_setup
+      tags: ['wp']
