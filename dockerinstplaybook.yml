@@ -1,4 +1,4 @@
-- name: Download Docker
+- name: Install Docker and packages
   hosts: all
   become: true
 
