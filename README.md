@@ -1,6 +1,6 @@
 # Sukhikh Matvei
 
-1. На сервере должен быть установлен ansible, sshpass, docker и docker-compose
+1. На сервере должен быть установлен ansible, sshpass
 
 2. Склонировать репозиторий к себе на ПК
 
