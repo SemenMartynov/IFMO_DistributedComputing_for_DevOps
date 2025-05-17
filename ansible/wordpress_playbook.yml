@@ -15,7 +15,7 @@
         name:
           - docker.io
           - python3-pip
-          - docker-compose
+          - docker-compose-plugin
         state: present
         update_cache: true
 
@@ -54,7 +54,7 @@
         dest: "{{ docker_compose_path }}/replica.conf"
 
     - name: Bring up containers
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: "{{ docker_compose_path }}"
         state: present
 
