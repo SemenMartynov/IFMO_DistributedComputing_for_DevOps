@@ -15,6 +15,7 @@
         name:
           - docker.io
           - python3-pip
+          - docker-compose-plugin
         state: present
         update_cache: true
 
