@@ -1,0 +1,62 @@
+---
+- name: Configure replica
+  hosts: slave
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Copy docker-compose
+      copy:
+        src: ./files/docker-compose.production.yml
+        dest: "{{ application_path }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Copy env
+      copy:
+        src: ./files/.env
+        dest: "{{ application_path }}/.env"
+        mode: "0644"
+
+    - name: Up containers
+      community.docker.docker_compose:
+        project_src: {{ application_path }}
+        project_files: docker-compose.production.yml
+        build: no
+        detached: yes
+      shell: "docker compose up -d"
+
+    - name: Make backup
+      community.docker.docker_container_exec:
+        container: slave
+        command: "pg_basebackup -h postgres-master -U repl_user -D /var/lib/postgresql/data -P -R -X stream -C -S pg_replica_slot"
+        detach: false
+      register: exec_output
+    
+    - name: Create standby.signal
+      community.docker.docker_container_exec:
+        container: slave
+        command: "touch /var/lib/postgresql/data/standby.signal"
+        detach: false
+      register: exec_output
+
+    - name: Configure postgresql.auto.conf
+      community.docker.docker_container_exec:
+        container: backend
+        command: "echo -e \"primary_conninfo = 'host=postgres-master port=5432 user=repl_user password=secret'\"\n\"primary_slot_name = 'pg_replica_slot'\" >> /var/lib/postgresql/data/postgresql.auto.conf"
+        detach: false
+      register: exec_output
+    
+    - name: Chown postgresql/data
+      community.docker.docker_container_exec:
+        container: backend
+        command: "chown postgres:postgres -R /var/lib/postgresql/data/"
+        detach: false
+      register: exec_output
+    
+    - name: Start pg
+      community.docker.docker_container_exec:
+        container: backend
+        command: "pg_ctl start -D /var/lib/postgresql/data"
+        user: "postgres"
+        detach: false
+      register: exec_output

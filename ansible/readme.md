@@ -31,8 +31,3 @@ echo "primary_slot_name = 'pg_replica_slot'" >> /var/lib/postgresql/data/postgre
 chown postgres:postgres -R /var/lib/postgresql/data/
 
 pg_ctl start -D /var/lib/postgresql/data
-
-1. Разобраться как запускать плейбуки для разных хостов
-2. развернуть приложение + бд (создать пользователя + указать конфиги) на 1ом хосте 
-3. развернуть слейв бд на втором хосте
-4. настроить репликацию на втором хосте

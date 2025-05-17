@@ -1,6 +1,6 @@
 ---
 - name: Run application
-  hosts: all
+  hosts: app
   become: yes
   gather_facts: yes
   vars:
@@ -32,10 +32,32 @@
         build: no
         detached: yes
       shell: "docker compose up -d"
+    
+    - name: Configure pg_hba.conf
+      community.docker.docker_container_exec:
+        container: backend
+        command: "echo \"host replication repl_user 0.0.0.0/0 md5\" >> /var/lib/postgresql/data/pg_hba.conf"
+        detach: false
+      register: exec_output
+
+    - name: Configure postgresql.conf
+      community.docker.docker_container_exec:
+        container: backend
+        command: "echo -e \"wal_level = replica\"\n\"max_wal_senders = 10\"\n\"wal_keep_size = 1GB\" >> /var/lib/postgresql/data/postgresql.conf"
+        detach: false
+      register: exec_output
+
+    - name: Create role for replication
+      community.postgresql.postgresql_query:
+        db: "kittygram"
+        login_host: "localhost"
+        login_user: "postgres"
+        login_password: "secret"
+        query: "CREATE ROLE repl_user WITH REPLICATION LOGIN PASSWORD 'secret';"
 
     - name: Make migration
       community.docker.docker_container_exec:
-        container: www-backend-1
+        container: backend
         command: "python3 manage.py migrate"
         detach: false
       register: exec_output
