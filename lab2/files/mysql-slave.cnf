@@ -1,0 +1,8 @@
+[mysqld]
+server-id = 2
+log_bin = mysql-bin
+binlog_format = ROW
+relay-log = mysql-relay-bin
+log-slave-updates = 1
+read-only = 1
+replicate_do_db = wordpress
