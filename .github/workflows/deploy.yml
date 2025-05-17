@@ -3,7 +3,7 @@ name: Deploy WordPress
 on:
   push:
     branches:
-      - test
+      - aleksandr-smirnov-hw-2
 
 jobs:
   deploy:
