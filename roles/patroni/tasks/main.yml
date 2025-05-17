@@ -1,0 +1,20 @@
+---
+- name: Pull Patroni image
+  community.docker.docker_image:
+    name: "{{ patroni_image }}"
+    source: pull
+
+- name: Add node01
+  ansible.builtin.include_tasks: add_node01.yml
+
+- name: Add node02
+  ansible.builtin.include_tasks: add_node02.yml
+
+- name: Add node03
+  ansible.builtin.include_tasks: add_node03.yml
+
+- name: Add node04
+  ansible.builtin.include_tasks: add_node04.yml
+
+- name: Add node05
+  ansible.builtin.include_tasks: add_node05.yml

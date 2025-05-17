@@ -1,0 +1,80 @@
+---
+- name: Remove HW1
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove Strapi container
+      community.docker.docker_container:
+        name: "{{ strapi_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove PostgreSQL master container
+      community.docker.docker_container:
+        name: "{{ pg_master_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove PostgreSQL master volume
+      community.docker.docker_volume:
+        name: "{{ pg_master_volume }}"
+        state: absent
+
+    - name: Remove Docker CE packages
+      become: true
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: absent
+        purge: true
+        autoremove: true
+
+    - name: Remove Docker apt repository
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+        state: absent
+      failed_when: false
+
+    - name: Remove Docker GPG apt Key
+      become: true
+      ansible.builtin.apt_key:
+        id: 0EBFCD88
+        state: absent
+      failed_when: false
+
+    - name: Remove docker group
+      become: true
+      ansible.builtin.group:
+        name: docker
+        state: absent
+      failed_when: false
+
+    - name: Remove /var/lib/docker directory if exists
+      become: true
+      ansible.builtin.file:
+        path: /var/lib/docker
+        state: absent
+      failed_when: false
+
+    - name: Remove /etc/docker directory if exists
+      ansible.builtin.file:
+        path: /etc/docker
+        state: absent
+      failed_when: false
+
+    - name: Verify Docker binary is removed
+      ansible.builtin.command: which docker
+      register: docker_bin_check
+      failed_when: false
+      changed_when: false
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Docker and all related resources successfully removed."
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Cleanup for HW1 completed."

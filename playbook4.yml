@@ -1,18 +1,41 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
+
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
         msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db1_host: {{ db1_host }}" # container name
-          - "db2_host: {{ db2_host }}" # container name
-          - "db3_host: {{ db3_host }}" # container name
-          - "db4_host: {{ db4_host }}" # container name
-          - "db5_host: {{ db5_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for DBs
-          - "loadbalancer: {{ loadbalancer }}" # container name
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+          - "wordpress: {{ is_wordpress }}"
+          - "strapi_port: {{ strapi_port_outside }}"
+          - "strapi_db_name: {{ pg_database }}"
+          - "db1_host: {{ patroni_node01_container_name }}"
+          - "db2_host: {{ patroni_node02_container_name }}"
+          - "db3_host: {{ patroni_node03_container_name }}"
+          - "db4_host: {{ patroni_node04_container_name }}"
+          - "db5_host: {{ patroni_node05_container_name }}"
+          - "db_pass: {{ pg_postgres_password }}"
+          - "loadbalancer: {{ haproxy_container_name }}"
+          - "monitoring_url: http://{{ hostvars[inventory_hostname].ansible_host }}:{{ grafana_port_outside }}"
+
+  roles:
+    - etcd
+    - patroni
+    - haproxy
+    - migration
+
+- name: Reconnect strapi to patroni
+  ansible.builtin.import_playbook: ./playbooks/hw4/reconnect_to_patroni.yml
+
+- name: Remove pg_master
+  ansible.builtin.import_playbook: ./playbooks/hw1/pg_master/remove.yml
+
+- name: Remove pg_replica
+  ansible.builtin.import_playbook: ./playbooks/hw2/pg_replica/remove.yml
+
+- name: Remove monitoring
+  ansible.builtin.import_playbook: ./playbooks/hw3/remove.yml
+
+- name: Launch monitoring
+  ansible.builtin.import_playbook: ./playbook3.yml

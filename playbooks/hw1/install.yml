@@ -1,17 +1,7 @@
 ---
-- name: Home work 1
+- name: Install HW1
   hosts: carrier
   become: true
-
-  tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}"
-          - "strapi_port: {{ strapi_port_outside }}"
-          - "strapi_db_name: {{ pg_database }}"
-          - "db_host: {{ strapi_database_host }}"
-          - "db_pass: {{ pg_postgres_password }}"
 
   roles:
     - docker

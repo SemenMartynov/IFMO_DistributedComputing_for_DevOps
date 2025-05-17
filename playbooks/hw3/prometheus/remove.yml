@@ -1,0 +1,26 @@
+---
+- name: Remove Prometheus
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove Prometheus container
+      community.docker.docker_container:
+        name: "{{ prometheus_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove Prometheus config folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ prometheus_config_path }}"
+        state: absent
+
+    - name: Remove Prometheus data folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ prometheus_data_path }}"
+        state: absent
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Prometheus and all related resources successfully removed."

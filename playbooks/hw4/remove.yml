@@ -1,0 +1,128 @@
+---
+- name: Remove HW4
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove HAProxy container
+      community.docker.docker_container:
+        name: "{{ haproxy_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove HAProxy config file
+      become: true
+      ansible.builtin.file:
+        path: "{{ haproxy_config_file_path_outside }}"
+        state: absent
+
+    - name: Remove HAProxy config directory if empty
+      become: true
+      ansible.builtin.file:
+        path: "{{ haproxy_config_path }}"
+        state: absent
+
+    - name: Stop and remove Patroni container for node01
+      community.docker.docker_container:
+        name: "{{ patroni_node01_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node02
+      community.docker.docker_container:
+        name: "{{ patroni_node02_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node03
+      community.docker.docker_container:
+        name: "{{ patroni_node03_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node04
+      community.docker.docker_container:
+        name: "{{ patroni_node04_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node05
+      community.docker.docker_container:
+        name: "{{ patroni_node05_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove Patroni configuration directory
+      ansible.builtin.file:
+        path: "{{ patroni_config_path }}"
+        state: directory
+        recurse: true
+        force: true
+
+    - name: Remove Postgres data node01
+      become: true
+      ansible.builtin.file:
+        path: "{{ patroni_node01_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node02
+      become: true
+      ansible.builtin.file:
+        path: "{{ patroni_node02_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node03
+      become: true
+      ansible.builtin.file:
+        path: "{{ patroni_node03_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node04
+      become: true
+      ansible.builtin.file:
+        path: "{{ patroni_node04_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node05
+      become: true
+      ansible.builtin.file:
+        path: "{{ patroni_node05_config_path }}"
+        state: absent
+
+    - name: Clear ETCD keys
+      community.docker.docker_container_exec:
+        container: "{{ etcd_container_name }}"
+        command: etcdctl --endpoints=http://localhost:2379 del / --prefix
+      register: etcd_delete_output
+      failed_when: false
+
+    - name: Show result of deleted ETCD keys
+      ansible.builtin.debug:
+        var: etcd_delete_output.stdout_lines
+
+    - name: Remove etcd container
+      community.docker.docker_container:
+        name: "{{ etcd_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove etcd binary directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ etcd_binary_path }}"
+        state: absent
+
+    - name: Remove etcd data directory
+      become: true
+      ansible.builtin.file:
+        path: /var/lib/etcd/{{ inventory_hostname }}.etcd
+        state: absent
+
+    - name: Remove etcd config directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ etcd_config_path }}"
+        state: absent
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Cleanup for HW4 completed."

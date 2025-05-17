@@ -1,0 +1,49 @@
+---
+- name: Create folder
+  ansible.builtin.file:
+    path: "{{ grafana_data_path }}"
+    state: "{{ folder_state }}"
+    mode: "{{ folder_mode }}"
+
+- name: Copy Grafana config
+  ansible.builtin.copy:
+    src: "{{ grafana_copy_config_src }}"
+    dest: "{{ grafana_copy_config_dest }}"
+
+- name: Copy Grafana dashboard
+  ansible.builtin.copy:
+    src: "{{ grafana_copy_dashboard_src }}"
+    dest: "{{ grafana_copy_dashboard_dest }}"
+
+- name: Run Grafana container
+  community.docker.docker_container:
+    name: "{{ grafana_container_name }}"
+    image: "{{ grafana_image }}"
+    restart_policy: "{{ default_restart_policy }}"
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+      GF_USERS_ALLOW_SIGN_UP: "{{ grafana_users_allow_sign_up }}"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "{{ grafana_dashboards_default_home_dashboard_path }}"
+    ports:
+      - "{{ grafana_port_outside }}:3000"
+    volumes:
+      - "{{ grafana_volume_path_data_outside }}:{{ grafana_volume_path_data_inside }}"
+      - "{{ grafana_volume_path_datasource_outside }}:{{ grafana_volume_path_datasource_inside }}"
+      - "{{ grafana_volume_path_dashboard_outside }}:{{ grafana_volume_path_dashboard_inside }}"
+    networks:
+      - name: "{{ pg_network }}"
+
+- name: Waiting for Grafana to become available
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[inventory_hostname].ansible_host }}:{{ grafana_port_outside }}"
+    method: GET
+    status_code: 200
+  register: grafana_check
+  retries: "{{ grafana_check_retries }}"
+  delay: "{{ grafana_check_delay }}"
+  until: grafana_check.status == 200
+
+- name: Confirm Grafana is live
+  ansible.builtin.debug:
+    msg: "Grafana is live at http://{{ hostvars[inventory_hostname].ansible_host }}:{{ grafana_port_outside }}"

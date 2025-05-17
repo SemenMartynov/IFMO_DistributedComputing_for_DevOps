@@ -1,0 +1,31 @@
+---
+- name: Run PostgreSQL master container
+  community.docker.docker_container:
+    name: "{{ pg_master_container_name }}"
+    image: "{{ pg_master_image }}"
+    restart_policy: "{{ default_restart_policy }}"
+    env:
+      POSTGRESQL_REPLICATION_MODE: "{{ pg_replication_mode_master }}"
+      POSTGRESQL_REPLICATION_USER: "{{ pg_replication_user }}"
+      POSTGRESQL_REPLICATION_PASSWORD: "{{ pg_replication_password }}"
+      POSTGRESQL_USERNAME: "{{ pg_username }}"
+      POSTGRESQL_PASSWORD: "{{ pg_password }}"
+      POSTGRESQL_DATABASE: "{{ pg_database }}"
+      POSTGRESQL_POSTGRES_PASSWORD: "{{ pg_postgres_password }}"
+    volumes:
+      - "{{ pg_master_volume }}:{{ pg_master_volume_path_inside }}"
+    networks:
+      - name: "{{ pg_network }}"
+
+- name: Wait for PostgreSQL to be available in container
+  community.docker.docker_container_info:
+    name: "{{ pg_master_container_name }}"
+  register: pg_container_info
+
+- name: Wait for PostgreSQL port to be open
+  wait_for:
+    host: "{{ pg_container_info.container.NetworkSettings.Networks[pg_network].IPAddress }}"
+    port: 5432
+    delay: 2
+    timeout: 60
+    state: started

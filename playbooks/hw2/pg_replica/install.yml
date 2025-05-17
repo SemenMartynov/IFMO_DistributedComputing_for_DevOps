@@ -1,0 +1,7 @@
+---
+- name: Install pg_replica
+  hosts: carrier
+  become: true
+
+  roles:
+    - pg_replica

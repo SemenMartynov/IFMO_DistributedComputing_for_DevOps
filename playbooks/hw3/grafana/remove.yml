@@ -1,0 +1,26 @@
+---
+- name: Remove Grafana
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove Grafana container
+      community.docker.docker_container:
+        name: "{{ grafana_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove Grafana config folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ grafana_config_path }}"
+        state: absent
+
+    - name: Remove Grafana data folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ grafana_data_path }}"
+        state: absent
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Grafana and all related resources successfully removed."

@@ -1,0 +1,78 @@
+---
+- name: Remove Patroni
+  hosts: carrier
+
+  tasks:
+    - name: Stop and remove Patroni container for node01
+      community.docker.docker_container:
+        name: "{{ patroni_node01_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node02
+      community.docker.docker_container:
+        name: "{{ patroni_node02_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node03
+      community.docker.docker_container:
+        name: "{{ patroni_node03_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node04
+      community.docker.docker_container:
+        name: "{{ patroni_node04_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Stop and remove Patroni container for node05
+      community.docker.docker_container:
+        name: "{{ patroni_node05_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Remove Patroni configuration directory
+      ansible.builtin.file:
+        path: "{{ patroni_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node01
+      ansible.builtin.file:
+        path: "{{ patroni_node01_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node02
+      ansible.builtin.file:
+        path: "{{ patroni_node02_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node03
+      ansible.builtin.file:
+        path: "{{ patroni_node03_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node04
+      ansible.builtin.file:
+        path: "{{ patroni_node04_config_path }}"
+        state: absent
+
+    - name: Remove Postgres data node05
+      ansible.builtin.file:
+        path: "{{ patroni_node05_config_path }}"
+        state: absent
+
+    - name: Clear ETCD keys
+      community.docker.docker_container_exec:
+        container: "{{ etcd_container_name }}"
+        command: etcdctl --endpoints=http://localhost:2379 del / --prefix
+      register: etcd_delete_output
+
+    - name: Show result of deleted ETCD keys
+      ansible.builtin.debug:
+        var: etcd_delete_output.stdout_lines
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "Patroni and all related resources successfully removed."

@@ -1,0 +1,31 @@
+scope: patroni_cluster
+name: patroni_node05
+namespace: /patroni
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: patroni_node05:8008
+
+etcd3:
+  host: etcd:2379
+  protocol: http
+
+watchdog:
+  mode: 'off'
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: patroni_node05:5432
+  data_dir: /var/lib/postgresql/data
+  bin_dir: /usr/lib/postgresql/17.2/bin
+  remove_data_directory_on_diverged_timelines: true
+  authentication:
+    superuser:
+      username: postgres
+      password: postgres
+    replication:
+      username: replicator
+      password: rep-pass
+    rewind:
+      username: postgres
+      password: postgres
