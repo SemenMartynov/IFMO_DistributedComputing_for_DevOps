@@ -100,7 +100,7 @@
         networks:
           - name: galera_network
         healthcheck:
-          test: [ 'CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh' ]
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
           start_period: 60s
           interval: 60s
           timeout: 5s
@@ -137,7 +137,7 @@
         networks:
           - name: galera_network
         healthcheck:
-          test: [ 'CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh' ]
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
           start_period: 60s
           interval: 60s
           timeout: 5s
@@ -190,7 +190,7 @@
         networks:
           - name: galera_network
         healthcheck:
-          test: [ 'CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh' ]
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
           start_period: 60s
           interval: 60s
           timeout: 5s
@@ -238,10 +238,6 @@
       register: db_container_info
       failed_when: false
       changed_when: false
-
-    - name: debug
-      debug:
-        var: db_container_info
 
     - name: Lock master for consistent backup
       community.mysql.mysql_query:
@@ -301,7 +297,6 @@
       loop:
         - "DB_DATA"
         - "DB_CONF"
-      ignore_errors: true
 
     - name: Remove directory db
       ansible.builtin.file:
@@ -310,7 +305,6 @@
       loop:
         - "{{ vol_db_data }}"
         - "{{ vol_db_conf }}"
-      ignore_errors: true
 
     - name: Remove container db_replica
       community.docker.docker_container:
@@ -325,7 +319,6 @@
       loop:
         - "DB_DATA_REPLICA"
         - "DB_CONF_REPLICA"
-      ignore_errors: true
 
     - name: Remove directory db_replica
       ansible.builtin.file:
@@ -334,6 +327,3 @@
       loop:
         - "{{ vol_db_data_replica }}"
         - "{{ vol_db_conf_replica }}"
-      ignore_errors: true
-
-

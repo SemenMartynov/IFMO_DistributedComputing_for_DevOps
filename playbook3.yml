@@ -19,7 +19,7 @@
       ansible.posix.synchronize:
         src: files/monitoring/
         dest: "{{ monitoring_conf_path }}"
-        recursive: yes
+        recursive: true
 
     - name: Create Docker network monitoring_network
       community.docker.docker_network:

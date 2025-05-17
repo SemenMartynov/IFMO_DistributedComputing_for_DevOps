@@ -139,7 +139,7 @@
           - "3306:3306"
         command: "--default-authentication-plugin=mysql_native_password"
         healthcheck:
-          test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+          test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
           start_period: 60s
           interval: 60s
           timeout: 5s
