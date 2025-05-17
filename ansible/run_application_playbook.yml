@@ -15,20 +15,27 @@
 
     - name: Copy docker-compose
       copy:
-        src: ../docker/docker-compose.production.yml
+        src: ./files/docker-compose.production.yml
         dest: "{{ application_path }}/docker-compose.yml"
         mode: "0644"
 
     - name: Copy env
       copy:
-        src: ../docker/.env
+        src: ./files/.env
         dest: "{{ application_path }}/.env"
         mode: "0644"
 
     - name: Up containers
-      shell: "sudo docker compose up -d"
-      args:
-        chdir: "{{ application_path }}"
+      community.docker.docker_compose:
+        project_src: {{ application_path }}
+        project_files: docker-compose.production.yml
+        build: no
+        detached: yes
+      shell: "docker compose up -d"
 
     - name: Make migration
-      shell: "sudo docker exec -it www-backend-1 python3 manage.py migrate"
+      community.docker.docker_container_exec:
+        container: www-backend-1
+        command: "python3 manage.py migrate"
+        detach: false
+      register: exec_output

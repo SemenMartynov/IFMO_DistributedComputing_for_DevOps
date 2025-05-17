@@ -1,0 +1,44 @@
+version: '3'
+
+networks:
+  replica:
+
+volumes:
+  pg-slave-data:
+    driver: local
+  pg-master-data:
+    driver: local
+
+services:
+  postgres-master:
+    container_name: master
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: application
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pg-master-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - replica
+
+  postgres-slave:
+    container_name: slave
+    image: postgres:latest
+    user: postgres
+    environment:
+      POSTGRES_DB: application
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pg-slave-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - replica
+    depends_on:
+      - postgres-master
+    command: >
+      bash -c "while true; do sleep 1; done"
