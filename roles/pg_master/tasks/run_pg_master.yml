@@ -17,15 +17,15 @@
     networks:
       - name: "{{ pg_network }}"
 
-- name: Wait for PostgreSQL master to become ready
-  community.docker.docker_container_exec:
-    container: "{{ pg_master_container_name }}"
-    command: >
-      bash -c "until pg_isready -U {{ pg_postgres_user }} -h localhost; do sleep 1; done"
-  register: pg_ready_check
-  changed_when: false
+- name: Wait for PostgreSQL to be available in container
+  community.docker.docker_container_info:
+    name: "{{ pg_master_container_name }}"
+  register: pg_container_info
 
-- name: PostgreSQL is ready
-  ansible.builtin.debug:
-    msg: "PostgreSQL master container is ready and accepting connections."
-  when: pg_ready_check.rc == 0
+- name: Wait for PostgreSQL port to be open
+  wait_for:
+    host: "{{ pg_container_info.container.NetworkSettings.Networks[pg_network].IPAddress }}"
+    port: 5432
+    delay: 2
+    timeout: 60
+    state: started

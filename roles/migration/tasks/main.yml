@@ -21,6 +21,19 @@
   ansible.builtin.command: >
     docker cp {{ ansible_env.HOME }}/backup/pg_backup.dump {{ patroni_node01_container_name }}:/tmp/pg_backup.dump
 
+- name: Get container info
+  community.docker.docker_container_info:
+    name: "{{ patroni_node01_container_name }}"
+  register: pg_container_info
+
+- name: Wait for Patroni to listen on 5432
+  wait_for:
+    host: "{{ pg_container_info.container.NetworkSettings.Networks.pg_cluster_net.IPAddress }}"
+    port: 5432
+    delay: 2
+    timeout: 60
+    state: started
+
 - name: Restore data in Patroni node
   community.docker.docker_container_exec:
     container: "{{ patroni_node01_container_name }}"
