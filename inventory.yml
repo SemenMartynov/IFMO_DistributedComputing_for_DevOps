@@ -1,7 +1,7 @@
 all:
   hosts:
     carrier:
-      ansible_host: 158.160.97.167
+      ansible_host: 192.168.56.16
       ansible_port: 22
       ansible_user: user
       ansible_become_method: sudo
@@ -40,12 +40,31 @@ all:
         6466616335313765310a653636646463613533316537356538613462616163346432613663366261
         6662
 
+      galera_backup_user: backup
+      galera_backup_password: backup_pass
+
       vol_nginx_www: /data/nginx/www
       vol_nginx_conf: /data/nginx/conf
       vol_db_data: /data/db/data
       vol_db_conf: /data/db/conf
-      vol_db_data_slave: /data/db_slave/data
-      vol_db_conf_slave: /data/db_slave/conf
+      vol_db_data_replica: /data/db_replica/data
+      vol_db_conf_replica: /data/db_replica/conf
       vol_prometheus: /data/prometheus/data
 
       venv_path: /opt/ansible_venv
+      monitoring_conf_path: /data/monitoring
+
+      db1_host: db1_host
+      db2_host: db2_host
+      db3_host: db3_host
+      db4_host: db4_host
+      db5_host: db5_host
+
+      vol_db1_host: /data/galera-cluster/db1_host
+      vol_db2_host: /data/galera-cluster/db2_host
+      vol_db3_host: /data/galera-cluster/db3_host
+      vol_db4_host: /data/galera-cluster/db4_host
+      vol_db5_host: /data/galera-cluster/db5_host
+      vol_haproxy_conf: /data/haproxy/conf
+
+      loadbalancer: ha_proxy

@@ -30,18 +30,44 @@
         state: directory
         mode: '0755'
       loop:
-        - { path: "{{ vol_db_data_slave }}" }
-        - { path: "{{ vol_db_conf_slave }}" }
+        - { path: "{{ vol_db_data_replica }}" }
+        - { path: "{{ vol_db_conf_replica }}" }
 
-    - name: Copy Docker Compose slave sql files
-      ansible.builtin.copy:
-        src: files/docker-compose-slave-sql.yml
-        dest: /data/docker-compose-slave-sql.yml
-        mode: '0644'
-      notify: restart docker-compose-slave-sql
+    - name: Create DB_DATA_REPLICA volume
+      community.docker.docker_volume:
+        name: DB_DATA_REPLICA
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_db_data_replica }}"
+          o: bind
 
-    - name: Flush handlers after copying docker-compose
-      ansible.builtin.meta: flush_handlers
+
+
+    - name: Start MariaDB replica container
+      community.docker.docker_container:
+        name: db_replica
+        image: mariadb:11.7.2-noble
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+        volumes:
+          - DB_DATA_REPLICA:/var/lib/mysql:Z
+          - DB_CONF_REPLICA:/etc/mysql
+        networks:
+          - name: app_network
+        published_ports:
+          - "3307:3306"
+        command: "--default-authentication-plugin=mysql_native_password"
+        healthcheck:
+          test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
 
     - name: Ensure backup directories exist
       ansible.builtin.file:
@@ -50,7 +76,7 @@
         mode: '0755'
       loop:
         - { path: "{{ vol_db_data }}" }
-        - { path: "{{ vol_db_data_slave }}" }
+        - { path: "{{ vol_db_data_replica }}" }
 
     - name: Primary status
       community.mysql.mysql_replication:
@@ -92,30 +118,19 @@
             priv: "*.*:REPLICATION SLAVE"
             state: present
 
-        - name: Ensure [mysqld] section is present for master
-          ansible.builtin.lineinfile:
-            path: "{{ vol_db_conf }}/mariadb.cnf"
-            regexp: "^\\[mysqld\\]"
-            line: "[mysqld]"
-            insertbefore: "^# Import all .cnf files from configuration directory"
-
-        - name: Add replication parameters for master
-          ansible.builtin.lineinfile:
-            path: "{{ vol_db_conf }}/mariadb.cnf"
-            regexp: "{{ item.regexp }}"
-            line: "{{ item.line }}"
-            insertafter: "[mysqld]"
-          loop:
-            - { regexp: '^server-id=', line: 'server-id=1' }
-            - { regexp: '^log-bin=', line: 'log-bin=/var/lib/mysql/mysql-bin.log' }
-            - { regexp: '^binlog-ignore-db=', line: 'binlog-ignore-db=information_schema' }
-            - { regexp: '^binlog-format=', line: 'binlog-format=ROW' }
-            - { regexp: '^bind-address=', line: 'bind-address=0.0.0.0' }
-          notify: restart docker-compose
+        - name: Copy master_mariadb.cnf
+          ansible.builtin.copy:
+            src: ./files/mariadb/master_mariadb.cnf
+            dest: "{{ vol_db_conf }}/mariadb.cnf"
+            owner: root
+            group: root
+            mode: '0644'
 
         - name: Restart MariaDB Master container
-          ansible.builtin.meta: flush_handlers
-          notify: restart docker-compose
+          community.docker.docker_container:
+            name: db
+            state: started
+            restart: true
 
       rescue:
         - name: Log error during MariaDB master configuration
@@ -128,15 +143,24 @@
             src: "{{ vol_db_conf }}/mariadb.cnf.backup"
             dest: "{{ vol_db_conf }}/mariadb.cnf"
             mode: '0644'
-          notify: restart docker-compose
 
-        - name: Restart MariaDB with original configuration
-          ansible.builtin.meta: flush_handlers
-          notify: restart docker-compose
+        - name: Restart MariaDB Master container
+          community.docker.docker_container:
+            name: db
+            state: started
+            restart: true
 
         - name: Log successful restoration
           ansible.builtin.debug:
             msg: "MariaDB configuration inside the Docker container was restored from backup."
+
+    - name: Wait until db_replica container is healthy
+      community.docker.docker_container_info:
+        name: db_replica
+      register: replica_info
+      retries: 10
+      delay: 5
+      until: replica_info.container.State.Health.Status == 'healthy'
 
     - name: Replica status
       community.mysql.mysql_replication:
@@ -154,50 +178,42 @@
       block:
         - name: Ensure mariadb.cnf exists for replica
           ansible.builtin.stat:
-            path: "{{ vol_db_conf_slave }}/mariadb.cnf"
+            path: "{{ vol_db_conf_replica }}/mariadb.cnf"
           register: mycnf_slave_status
 
         - name: Fail if mariadb.cnf does not exist for replica
           ansible.builtin.fail:
-            msg: "{{ vol_db_conf_slave }}/mariadb.cnf does not exist"
+            msg: "{{ vol_db_conf_replica }}/mariadb.cnf does not exist"
           when: not mycnf_slave_status.stat.exists
 
-        - name: Backup slave configuration file
+        - name: Backup replica configuration file
           ansible.builtin.copy:
             remote_src: true
-            src: "{{ vol_db_conf_slave }}/mariadb.cnf"
-            dest: "{{ vol_db_conf_slave }}/mariadb.cnf.backup"
+            src: "{{ vol_db_conf_replica }}/mariadb.cnf"
+            dest: "{{ vol_db_conf_replica }}/mariadb.cnf.backup"
             mode: '0644'
 
-        - name: Ensure [mysqld] section is present for replica
-          ansible.builtin.lineinfile:
-            path: "{{ vol_db_conf_slave }}/mariadb.cnf"
-            regexp: "^\\[mysqld\\]"
-            line: "[mysqld]"
-            insertbefore: "^# Import all .cnf files from configuration directory"
+        - name: Copy replica_mariadb.cnf
+          ansible.builtin.copy:
+            src: ./files/mariadb/replica_mariadb.cnf
+            dest: "{{ vol_db_conf_replica }}/mariadb.cnf"
+            owner: root
+            group: root
+            mode: '0644'
 
-        - name: Add replication parameters for replica
-          ansible.builtin.lineinfile:
-            path: "{{ vol_db_conf_slave }}/mariadb.cnf"
-            regexp: "{{ item.regexp }}"
-            line: "{{ item.line }}"
-            insertafter: "[mysqld]"
-          loop:
-            - { regexp: '^server-id=', line: 'server-id=2' }
-          notify: restart docker-compose-slave-sql
+        - name: Restart MariaDB Replica container
+          community.docker.docker_container:
+            name: db_replica
+            state: started
+            restart: true
 
-        - name: Restart MariaDB Replica container only if configuration changed
-          ansible.builtin.meta: flush_handlers
-          notify: restart docker-compose-slave-sql
-
-        - name: Wait for slave_db to be ready
-          community.docker.docker_container_exec:
-            container: db_slave
-            command: healthcheck.sh --connect --innodb_initialized
-          register: mysql_ready
+        - name: Wait until db_replica container is healthy
+          community.docker.docker_container_info:
+            name: db_replica
+          register: replica_info
           retries: 10
           delay: 5
-          until: mysql_ready.rc == 0
+          until: replica_info.container.State.Health.Status == 'healthy'
 
         - name: Get master status
           community.mysql.mysql_replication:
@@ -259,14 +275,13 @@
             login_port: 3307
             mode: startreplica
 
-        - name: Wait for slave_db to be ready
-          community.docker.docker_container_exec:
-            container: db_slave
-            command: healthcheck.sh --connect --innodb_initialized
-          register: mysql_ready
+        - name: Wait until db_replica container is healthy
+          community.docker.docker_container_info:
+            name: db_replica
+          register: replica_info
           retries: 10
           delay: 5
-          until: mysql_ready.rc == 0
+          until: replica_info.container.State.Health.Status == 'healthy'
 
         - name: Get replica status
           community.mysql.mysql_replication:
@@ -319,15 +334,15 @@
         - name: Restore original MariaDB my.cnf from backup
           ansible.builtin.copy:
             remote_src: true
-            src: "{{ vol_db_conf_slave }}/mariadb.cnf.backup"
-            dest: "{{ vol_db_conf_slave }}/mariadb.cnf"
+            src: "{{ vol_db_conf_replica }}/mariadb.cnf.backup"
+            dest: "{{ vol_db_conf_replica }}/mariadb.cnf"
             mode: '0644'
-          notify: restart docker-compose-slave-sql
-          failed_when: false
 
-        - name: Restart MariaDB with original configuration
-          ansible.builtin.meta: flush_handlers
-          notify: restart docker-compose-slave-sql
+        - name: Restart MariaDB Replica container
+          community.docker.docker_container:
+            name: db_replica
+            state: started
+            restart: true
 
       always:
         - name: Remove dump file
@@ -335,7 +350,3 @@
             path: /data/wordpress_dump.sql
             state: absent
           failed_when: false
-
-  handlers:
-    - name: Include shared handlers
-      ansible.builtin.import_tasks: handlers/common.yml

@@ -84,13 +84,91 @@
         driver: bridge
         state: present
 
-    - name: Copy Docker Compose files
-      ansible.builtin.copy:
-        src: files/docker-compose.yml
-        dest: /data/docker-compose.yml
-        mode: '0644'
-      notify: restart docker-compose
+    - name: Create NGINX_WWW volume
+      community.docker.docker_volume:
+        name: NGINX_WWW
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_nginx_www }}"
+          o: bind
 
-  handlers:
-    - name: Include shared handlers
-      ansible.builtin.import_tasks: handlers/common.yml
+    - name: Create NGINX_CONF volume
+      community.docker.docker_volume:
+        name: NGINX_CONF
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_nginx_conf }}"
+          o: bind
+
+    - name: Create DB_DATA volume
+      community.docker.docker_volume:
+        name: DB_DATA
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_db_data }}"
+          o: bind
+
+    - name: Create DB_CONF volume
+      community.docker.docker_volume:
+        name: DB_CONF
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_db_conf }}"
+          o: bind
+
+    - name: Start MariaDB container
+      community.docker.docker_container:
+        name: db
+        image: mariadb:11.7.2-noble
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+        volumes:
+          - DB_DATA:/var/lib/mysql:Z
+          - DB_CONF:/etc/mysql
+        networks:
+          - name: app_network
+        published_ports:
+          - "3306:3306"
+        command: "--default-authentication-plugin=mysql_native_password"
+        healthcheck:
+          test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+
+    - name: Start WordPress container
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:php8.1-fpm
+        restart_policy: unless-stopped
+        env:
+          WORDPRESS_DB_HOST: db:3306
+          WORDPRESS_DB_USER: "{{ db_wordpress_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_wordpress_password }}"
+          WORDPRESS_DB_NAME: "{{ wordpress_database }}"
+        volumes:
+          - NGINX_WWW:/var/www/html
+        networks:
+          - name: app_network
+
+    - name: Start Nginx container
+      community.docker.docker_container:
+        name: nginx
+        image: nginx:1.27-perl
+        restart_policy: unless-stopped
+        ports:
+          - "80:80"
+        volumes:
+          - NGINX_WWW:/var/www/html
+          - NGINX_CONF:/etc/nginx/conf.d
+        networks:
+          - name: app_network
