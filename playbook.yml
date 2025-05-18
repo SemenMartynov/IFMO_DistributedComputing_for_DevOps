@@ -111,7 +111,7 @@
       ansible.builtin.wait_for:
         host: "{{ ansible_host }}"
         port: 3306
-        timeout: 30
+        timeout: 120
         delay: 10
 
     - name: Start MySQL Slave
@@ -176,15 +176,12 @@
         login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
-      register: replication_setup
-      until: replication_setup is succeeded
-      retries: 10
-      delay: 5
       when: >
         repl_check is failed or
-        repl_check.Source_Host != 'db_master' or
-        repl_check.Replica_IO_Running != 'Yes' or
-        repl_check.Replica_SQL_Running != 'Yes'
+        not repl_check.get('Source_Host') or
+        repl_check.get('Source_Host') != 'db_master' or
+        repl_check.get('Replica_IO_Running') != 'Yes' or
+        repl_check.get('Replica_SQL_Running') != 'Yes'
 
     - name: Start replication (only if needed)
       mysql_replication:
@@ -193,10 +190,7 @@
         login_password: "{{ db_root_password }}"
         login_host: "localhost"
         login_port: 3307
-      when: >
-        repl_check is failed or
-        repl_check.Replica_IO_Running != 'Yes' or
-        repl_check.Replica_SQL_Running != 'Yes'
+
 
     - name: Verify replication status
       mysql_replication:
@@ -241,18 +235,15 @@
       retries: 15
       delay: 5
  
-    - name: Install Node Exporter
-      ansible.builtin.apt:
-        name: prometheus-node-exporter
-        state: present
-        update_cache: yes
-      when: ansible_os_family == 'Debian'
-
-    - name: Ensure Node Exporter is running
-      ansible.builtin.systemd:
-        name: prometheus-node-exporter
-        state: started
-        enabled: yes
+    - name: Start Node Exporter container
+      docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        networks:
+          - name: wp_network
+        ports:
+          - "9100:9100"
+        restart_policy: always
 
     - name: Create volume for Prometheus data
       docker_volume:
@@ -294,6 +285,20 @@
         password: "{{ db_metrics_exporter_password }}"
         priv: "*.*:SELECT,PROCESS,REPLICATION CLIENT"
         state: present
+        
+    - name: Verify exporter user privileges
+      mysql_query:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "db_master"
+        query: "SHOW GRANTS FOR 'exporter'@'%'"
+      register: exporter_grants
+      failed_when: false
+
+    - name: Debug exporter grants
+      debug:
+        var: exporter_grants    
+
 
     - name: Start MySQL Exporter container
       docker_container:
@@ -303,9 +308,18 @@
           - name: wp_network
         env:
           DATA_SOURCE_NAME: "exporter:{{ db_metrics_exporter_password }}@(db_master:3306)/"
+
+          DATA_SOURCE_USER: "exporter"
+          DATA_SOURCE_PASS: "{{ db_metrics_exporter_password }}"
         ports:
           - "9104:9104"
-        restart_policy: always 
+        restart_policy: always
+     
+        healthcheck:
+          test: ["CMD-SHELL", "wget -qO- http://localhost:9104/metrics | grep -q mysql_up"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
   
   handlers:
     - name: restart prometheus
