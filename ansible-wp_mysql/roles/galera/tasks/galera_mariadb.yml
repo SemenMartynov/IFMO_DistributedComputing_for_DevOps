@@ -25,6 +25,7 @@
     volumes:
       - "mariadb_1_data:/bitnami/mariadb"
     state: started
+  register: mariadb_bootstrap
 
 - name: Wait for Bootstrap Node answer
   ansible.builtin.wait_for:

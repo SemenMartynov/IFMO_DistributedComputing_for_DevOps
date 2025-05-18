@@ -2,7 +2,7 @@ network: wp-network
 
 db_image: bitnami/mariadb-galera:latest
 db_host: 127.0.0.1
-db_master_port: 3306
+db_port: 3306
 db_name: mysql_db
 db_user: root
 db_password: mysql_root_password

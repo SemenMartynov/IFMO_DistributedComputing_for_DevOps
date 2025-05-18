@@ -1,0 +1,28 @@
+- name: Create haproxy_check user
+  community.mysql.mysql_user:
+    name: haproxy_check
+    password: ""
+    host: "%"
+    priv: "mysql.*:USAGE"
+    login_user: "{{ db_user }}"
+    login_password: "{{ mysql_root_password }}"
+    login_host: "{{ mariadb_bootstrap.container.NetworkSettings.Networks.wp-network.IPAddress }}"
+    state: present
+
+- name: Copy HAProxy configuration
+  ansible.builtin.template:
+    src: "haproxy.cfg.j2"
+    dest: "/home/haproxy/haproxy.cfg"
+    mode: '0644'
+
+- name: Start HAProxy container
+  community.docker.docker_container:
+    name: haproxy
+    image: haproxy:latest
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    expose:
+      - "{{ db_port }}"
+    volumes:
+      - "/home/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
