@@ -1,0 +1,156 @@
+- name: Create 1-st db volume
+  docker_volume:
+    name: mariadb_1_data
+
+- name: Start Bootstrap Node container
+  community.docker.docker_container:
+    name: mariadb_1
+    image: "{{ db_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    env:
+      MARIADB_USER: "{{ db_user }}"
+      MARIADB_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_DATABASE: "{{ db_name }}"
+      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLASTER_ADDRESS: "gcomm://"
+      MARIADB_GALERA_NODE_NAME: mariadb_1
+      MARIADB_GALERA_NODE_ADDRESS: mariadb_1
+      MARIADB_GALERA_CLASTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
+    volumes:
+      - "mariadb_1_data:/bitnami/mariadb"
+    state: started
+
+- name: Wait for Bootstrap Node answer
+  ansible.builtin.wait_for:
+    host: "{{ db_host }}"
+    port: 3306
+    state: started
+
+- name: Import dump WordPress DB
+  community.mysql.mysql_db:
+    login_host: "{{ db_host }}"
+    login_port: 3306
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    name: "{{ db_name }}"
+    state: import
+    target: "{{ db_dump_path }}"
+
+- name: Delete dump file
+  ansible.builtin.file:
+    path: "{{ db_dump_path }}"
+    state: absent
+
+- name: Create 2-nd db volume
+  docker_volume:
+    name: mariadb_2_data
+
+- name: Start 2-nd MariaDB container
+  community.docker.docker_container:
+    name: mariadb_2
+    image: "{{ db_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    env:
+      MARIADB_USER: "{{ db_user }}"
+      MARIADB_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_DATABASE: "{{ db_name }}"
+      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_NODE_NAME: mariadb_2
+      MARIADB_GALERA_NODE_ADDRESS: mariadb_2
+      MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
+    volumes:
+      - "mariadb_2_data:/bitnami/mariadb"
+    state: started
+
+- name: Create 3-rd db volume
+  docker_volume:
+    name: mariadb_3_data
+
+- name: Start 3-rd MariaDB container
+  community.docker.docker_container:
+    name: mariadb_3
+    image: "{{ db_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    env:
+      MARIADB_USER: "{{ db_user }}"
+      MARIADB_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_DATABASE: "{{ db_name }}"
+      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_NODE_NAME: mariadb_3
+      MARIADB_GALERA_NODE_ADDRESS: mariadb_3
+      MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
+    volumes:
+      - "mariadb_3_data:/bitnami/mariadb"
+    state: started
+
+- name: Create 4-th db volume
+  docker_volume:
+    name: mariadb_4_data
+
+- name: Start 4-th MariaDB container
+  community.docker.docker_container:
+    name: mariadb_4
+    image: "{{ db_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    env:
+      MARIADB_USER: "{{ db_user }}"
+      MARIADB_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_DATABASE: "{{ db_name }}"
+      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_NODE_NAME: mariadb_4
+      MARIADB_GALERA_NODE_ADDRESS: mariadb_4
+      MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
+    volumes:
+      - "mariadb_4_data:/bitnami/mariadb"
+    state: started
+
+- name: Create 5-th db volume
+  docker_volume:
+    name: mariadb_5_data
+
+- name: Start 5-th MariaDB container
+  community.docker.docker_container:
+    name: mariadb_5
+    image: "{{ db_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ network }}"
+    env:
+      MARIADB_USER: "{{ db_user }}"
+      MARIADB_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_DATABASE: "{{ db_name }}"
+      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_NODE_NAME: mariadb_5
+      MARIADB_GALERA_NODE_ADDRESS: mariadb_5
+      MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
+    volumes:
+      - "mariadb_5_data:/bitnami/mariadb"
+    state: started

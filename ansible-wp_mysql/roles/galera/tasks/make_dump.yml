@@ -1,0 +1,15 @@
+- name: WordPress container stop
+  docker_container:
+    name: wordpress
+    state: stopped
+
+- name: Dump WordPress DB
+  community.mysql.mysql_db:
+    login_host: "{{ db_host }}"
+    login_port: "{{ db_master_port }}"
+    login_user: "{{ db_user }}"
+    login_password: "{{ db_password }}"
+    name: "{{ db_name }}"
+    state: dump
+    target: "{{ db_dump_path }}"
+    dump_extra_args: --set-gtid-purged=OFF

@@ -8,6 +8,11 @@
     state: import
     target: "{{ db_dump_path }}"
 
+- name: Delete dump file
+  ansible.builtin.file:
+    path: "{{ db_dump_path }}"
+    state: absent
+
 - name: WordPress container start
   docker_container:
     name: wordpress

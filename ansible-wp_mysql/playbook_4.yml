@@ -1,0 +1,5 @@
+- name: Deploy Monitoring
+  hosts: wp_servers
+  become: yes
+  roles:
+    - galera
