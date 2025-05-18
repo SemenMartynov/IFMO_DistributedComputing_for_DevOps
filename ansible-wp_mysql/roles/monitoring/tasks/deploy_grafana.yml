@@ -14,6 +14,12 @@
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_password }}"
     state: started
 
+- name: Wait for Grafana's answer
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3000
+    state: started
+
 - name: Create Prometheus datasource for Grafana
   community.grafana.grafana_datasource:
     name: Prometheus
