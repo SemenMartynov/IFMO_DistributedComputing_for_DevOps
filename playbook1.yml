@@ -1,6 +1,9 @@
 ---
 - name: Home work 1
   hosts: carrier
+  become: true
+  vars_files:
+    - defaults/main.yml
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -10,3 +13,116 @@
           - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
           - "db_host: {{ db_host }}" # container name
           - "db_pass: {{ db_pass }}" # root password
+
+    - name: Install aptitude
+      ansible.builtin.apt:
+        name: aptitude
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Install required system packages
+      ansible.builtin.apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      ansible.builtin.apt_key:
+        url: 'https://download.docker.com/linux/ubuntu/gpg'
+        state: present
+
+    - name: Add Docker Repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename
+          }} stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Автозапуск сервиса docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Check if Wordpress container already exists
+      community.docker.docker_container_info:
+        name: '{{ wp_container_name }}'
+      register: is_wordpress
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_wordpress.exists
+
+    - name: Create int docker network
+      community.docker.docker_network:
+        name: '{{ wp_int_network }}'
+        internal: true
+        ipam_config:
+          - subnet: 10.16.1.0/27
+            gateway: 10.16.1.1
+            iprange: 10.16.1.16/28
+
+    - name: Create WP docker network
+      community.docker.docker_network:
+        name: '{{ wp_ext_network }}'
+
+    - name: Create MySQL container
+      community.docker.docker_container:
+        name: '{{ db_container_name }}'
+        image: '{{ db_container_image }}'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            aliases: '{{ db_container_name }}'
+            ipv4_address: 10.16.1.3
+        volumes:
+          - 'db:/var/lib/mysql'
+        env:
+          MYSQL_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: '{{ wp_dbname }}'
+          MYSQL_USER: '{{ wp_dbuser }}'
+          MYSQL_PASSWORD: '{{ mysql_passwd }}'
+
+    - name: Create WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        image: '{{ wp_container_image }}'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            aliases: '{{ wp_container_name }}int'
+            ipv4_address: 10.16.1.2
+          - name: '{{ wp_ext_network }}'
+        ports:
+          - '{{ wordpress_port }}:{{ wordpress_port }}'
+        volumes:
+          - 'wordpress:/var/www/html'
+        env:
+          WORDPRESS_DB_HOST: '{{ db_container_name }}'
+          WORDPRESS_DB_USER: '{{ wp_dbuser }}'
+          WORDPRESS_DB_PASSWORD: '{{ mysql_passwd }}'
+          WORDPRESS_DB_NAME: '{{ wp_dbname }}'
