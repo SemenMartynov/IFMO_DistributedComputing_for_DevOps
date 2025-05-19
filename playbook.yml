@@ -1,0 +1,283 @@
+---
+- name: Deploy WordPress with Docker and MySQL Replication
+  hosts: wordpress
+  become: yes
+  collections:
+    - community.docker
+    - community.mysql
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+
+    - name: Install required system packages for Docker
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - gnupg-agent
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        update_cache: yes
+
+    - name: Install Docker and related packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - python3-docker
+          - python3-pymysql
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create MySQL config directory
+      ansible.builtin.file:
+        path: "{{ db_config_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy MySQL master configuration
+      ansible.builtin.copy:
+        src: files/master.cnf
+        dest: "{{ db_config_dir }}/master.cnf"
+        mode: '0644'
+
+    - name: Deploy MySQL replica configuration
+      ansible.builtin.copy:
+        src: files/replica.cnf
+        dest: "{{ db_config_dir }}/replica.cnf"
+        mode: '0644'
+
+# Решил использовать нативные задачи Ansible для Docker контейнеров, думаю так должно выглядеть красивее.
+
+    - name: Create network for containers
+      docker_network:
+        name: wp_network
+        driver: bridge
+
+    - name: Start Master
+      docker_container:
+        name: db_master
+        image: mysql:8.0.33
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
+          MYSQL_DATABASE: "{{ db_name }}"
+          MYSQL_USER: "{{ db_user }}"
+          MYSQL_PASSWORD: "{{ db_password }}"
+          MYSQL_REPLICATION_USER: "{{ db_replication_user }}"
+          MYSQL_REPLICATION_PASSWORD: "{{ db_replication_password }}"
+        volumes:
+          - db_master_data:/var/lib/mysql
+          - "{{ db_config_dir }}/master.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3306:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
+
+    - name: Wait for Master to be ready
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 3306
+        timeout: 120
+        delay: 10
+
+    - name: Start MySQL Slave
+      docker_container:
+        name: db_slave
+        image: mysql:8.0.33
+        networks:
+          - name: wp_network
+        restart_policy: always
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ db_root_password }}"
+        volumes:
+          - db_slave_data:/var/lib/mysql
+          - "{{ db_config_dir }}/replica.cnf:/etc/mysql/conf.d/replication.cnf"
+        ports:
+          - "3307:3306"
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
+
+    - name: Wait for Slave to be ready
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 3307
+        timeout: 120
+        delay: 10
+
+    - name: Create replication user on Master
+      mysql_user:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3306
+        name: "{{ db_replication_user }}"
+        password: "{{ db_replication_password }}"
+        host: "%"
+        priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+        state: present
+
+    - name: Check if replication needs to be configured
+      mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3307
+      register: repl_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Configure replica (only if not already configured)
+      mysql_replication:
+        mode: changereplication
+        primary_host: "db_master"
+        primary_port: 3306
+        primary_user: "{{ db_replication_user }}"
+        primary_password: "{{ db_replication_password }}"
+        primary_auto_position: 1
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3307
+      when: >
+        repl_check is failed or
+        not repl_check.get('Source_Host') or
+        repl_check.get('Source_Host') != 'db_master' or
+        repl_check.get('Replica_IO_Running') != 'Yes' or
+        repl_check.get('Replica_SQL_Running') != 'Yes'
+
+    - name: Start replication (only if needed)
+      mysql_replication:
+        mode: startreplica
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3307
+
+
+    - name: Verify replication status
+      mysql_replication:
+        mode: getreplica
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_host: "localhost"
+        login_port: 3307
+      register: replication_status
+      until:
+        - replication_status.Replica_IO_Running == "Yes"
+        - replication_status.Replica_SQL_Running == "Yes"
+      retries: 5
+      delay: 5
+
+    - name: Show replication status
+      ansible.builtin.debug:
+        var: replication_status
+  
+    - name: Start WordPress
+      docker_container:
+        name: wordpress
+        image: wordpress:latest
+        networks:
+          - name: wp_network
+        restart_policy: always
+        published_ports:
+          - "80:80"
+        env:
+          WORDPRESS_DB_HOST: "db_master:3306"
+          WORDPRESS_DB_NAME: "{{ db_name }}"
+          WORDPRESS_DB_USER: "{{ db_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_password }}"
+
+    - name: Verify WordPress is working
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:80"
+        status_code: 200
+        timeout: 10
+      register: wordpress_status
+      until: wordpress_status.status == 200
+      retries: 15
+      delay: 5
+ 
+    - name: Start Node Exporter container
+      docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        networks:
+          - name: wp_network
+        ports:
+          - "9100:9100"
+        restart_policy: always
+
+    - name: Create volume for Prometheus data
+      docker_volume:
+        name: prometheus_data
+    
+    - name: Ensure Prometheus config directory exists
+      file:
+        path: /etc/prometheus
+        state: directory
+        mode: 0755
+
+    - name: Deploy Prometheus config
+      copy:
+        src: prometheus.yml 
+        dest: /etc/prometheus/prometheus.yml
+        mode: 0644
+  
+
+    - name: Start Prometheus container
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        networks:
+          - name: wp_network
+        ports:
+          - "9090:9090"
+        volumes:
+          - prometheus_data:/prometheus
+          - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        restart_policy: always
+  
+  handlers:
+    - name: restart prometheus
+      docker_container:
+        name: prometheus
+        state: restarted
+        
