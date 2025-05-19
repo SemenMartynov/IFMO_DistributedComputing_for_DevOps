@@ -1,3 +1,8 @@
+# - name: Create network
+#   docker_network:
+#     name: "{{ network }}"
+#     state: present
+
 - name: Create 1-st db volume
   docker_volume:
     name: mariadb_1_data
@@ -27,15 +32,19 @@
     state: started
   register: mariadb_bootstrap
 
+- name: Get bootstrap IP
+  ansible.builtin.set_fact:
+    mariadb_bootstrap_ip: "{{ mariadb_bootstrap.container.NetworkSettings.Networks[network].IPAddress }}"
+
 - name: Wait for Bootstrap Node answer
   ansible.builtin.wait_for:
-    host: "{{ db_host }}"
+    host: "{{ mariadb_bootstrap_ip }}"
     port: 3306
     state: started
 
 - name: Import dump WordPress DB
   community.mysql.mysql_db:
-    login_host: "{{ db_host }}"
+    login_host: "{{ mariadb_bootstrap_ip }}"
     login_port: 3306
     login_user: "{{ db_user }}"
     login_password: "{{ db_password }}"
@@ -43,10 +52,10 @@
     state: import
     target: "{{ db_dump_path }}"
 
-- name: Delete dump file
-  ansible.builtin.file:
-    path: "{{ db_dump_path }}"
-    state: absent
+# - name: Delete dump file
+#   ansible.builtin.file:
+#     path: "{{ db_dump_path }}"
+#     state: absent
 
 - name: Create 2-nd db volume
   docker_volume:

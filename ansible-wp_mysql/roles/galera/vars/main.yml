@@ -5,9 +5,11 @@ db_host: 127.0.0.1
 db_port: 3306
 db_name: mysql_db
 db_user: root
-db_password: mysql_root_password
+db_password: rootpass
 db_dump_path: "/tmp/dump.sql"
 galera_cluster: galera_cluster
 galera_cluster_address: gcomm://mariadb_1,mariadb_2,mariadb_3,mariadb_4,mariadb_5
 mariabackup_user: mariabackup
 mariabackup_password: backup_password
+
+haproxy_config_path: "/home/haproxy"

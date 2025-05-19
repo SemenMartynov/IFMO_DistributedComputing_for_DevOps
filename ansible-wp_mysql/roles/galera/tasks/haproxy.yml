@@ -5,14 +5,21 @@
     host: "%"
     priv: "mysql.*:USAGE"
     login_user: "{{ db_user }}"
-    login_password: "{{ mysql_root_password }}"
-    login_host: "{{ mariadb_bootstrap.container.NetworkSettings.Networks.wp-network.IPAddress }}"
+    login_password: "{{ db_password }}"
+    login_host: "{{ mariadb_bootstrap_ip }}"
+    # login_host: "{{ mariadb_bootstrap.container.NetworkSettings.Networks.wp-network.IPAddress }}"
     state: present
+
+- name: Create HAProxy config directory
+  ansible.builtin.file:
+    path: "{{ haproxy_config_path }}"
+    state: directory
+    mode: '0644'
 
 - name: Copy HAProxy configuration
   ansible.builtin.template:
     src: "haproxy.cfg.j2"
-    dest: "/home/haproxy/haproxy.cfg"
+    dest: "{{ haproxy_config_path }}/haproxy.cfg"
     mode: '0644'
 
 - name: Start HAProxy container
@@ -26,3 +33,19 @@
       - "{{ db_port }}"
     volumes:
       - "/home/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+
+- name: WordPress container start
+  community.docker.docker_container:
+    name: wordpress
+    state: started
+    networks:
+      - name: "{{ network }}"
+    env:
+      WORDPRESS_DB_HOST: haproxy:"{{ db_port }}"
+      WORDPRESS_DB_NAME: "{{ db_name }}"
+      WORDPRESS_DB_USER: "{{ db_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ db_password }}"
+    ports:
+      - "80:80"
+    links:
+      - haproxy
