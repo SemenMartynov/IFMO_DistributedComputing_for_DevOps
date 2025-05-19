@@ -17,7 +17,7 @@
 
     - name: Sync monitoring config files
       ansible.posix.synchronize:
-        src: files/monitoring/
+        src: files/monitoring/monitoring-lab3/
         dest: "{{ monitoring_conf_path }}"
         recursive: true
 

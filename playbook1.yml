@@ -63,14 +63,13 @@
     # install wordpress
     - name: Create necessary directories
       ansible.builtin.file:
-        path: "{{ item.path }}"
+        path: "{{ item }}"
         state: directory
         mode: '0755'
       loop:
-        - { path: "{{ vol_nginx_www }}" }
-        - { path: "{{ vol_nginx_conf }}" }
-        - { path: "{{ vol_db_data }}" }
-        - { path: "{{ vol_db_conf }}" }
+        - "{{ vol_nginx_www }}"
+        - "{{ vol_nginx_conf }}"
+        - "{{ vol_db_data }}"
 
     - name: Copy Nginx conf files
       ansible.builtin.copy:
@@ -111,15 +110,6 @@
           device: "{{ vol_db_data }}"
           o: bind
 
-    - name: Create DB_CONF volume
-      community.docker.docker_volume:
-        name: DB_CONF
-        driver: local
-        driver_options:
-          type: none
-          device: "{{ vol_db_conf }}"
-          o: bind
-
     - name: Start MariaDB container
       community.docker.docker_container:
         name: db
@@ -132,7 +122,6 @@
           MARIADB_PASSWORD: "{{ db_wordpress_password }}"
         volumes:
           - DB_DATA:/var/lib/mysql:Z
-          - DB_CONF:/etc/mysql
         networks:
           - name: app_network
         published_ports:

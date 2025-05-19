@@ -1,0 +1,25 @@
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: 'Docker'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+
+  - name: 'mariadb'
+    folder: 'MariaDB'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/mariadb
+    editable: true
+
+  - name: 'haproxy'
+    folder: 'HAProxy'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/haproxy
+    editable: true

@@ -1,5 +1,7 @@
 -- mysql-check user haproxy_check
 CREATE USER IF NOT EXISTS 'haproxy_check'@'%' IDENTIFIED BY '';
+
 -- mysql-exporter user metrics
-CREATE USER 'exporter'@'%' IDENTIFIED BY 'exporter_password';
-GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'%';
+CREATE USER IF NOT EXISTS 'exporter'@'%' IDENTIFIED BY 'biengePh4e';
+GRANT PROCESS, REPLICATION CLIENT, SELECT, SLAVE MONITOR ON *.* TO 'exporter'@'%';
+FLUSH PRIVILEGES;

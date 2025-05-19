@@ -2,23 +2,6 @@
 - name: Home work 4
   hosts: carrier
   tasks:
-    - name: Create Python virtual environment folder
-      ansible.builtin.file:
-        path: /opt/ansible_venv
-        mode: '0755'
-        state: directory
-
-    - name: Install Python modules in virtual environment
-      ansible.builtin.pip:
-        name:
-          - PyMySQL
-          - mysql-connector-python
-          - cryptography
-          - requests
-        virtualenv: "{{ venv_path }}"
-        virtualenv_command: python3 -m venv
-        state: present
-
     - name: Set Ansible Python interpreter to virtualenv
       ansible.builtin.set_fact:
         ansible_python_interpreter: "{{ venv_path }}/bin/python"
@@ -204,6 +187,32 @@
       retries: 20
       delay: 10
 
+    - name: Run mysql exporter of metrics
+      community.docker.docker_container:
+        name: "exporter-{{ item }}"
+        image: prom/mysqld-exporter:v0.17.2
+        restart_policy: always
+        command:
+          - "--mysqld.username={{ exporter_user }}:{{ exporter_password }}"
+          - "--mysqld.address={{ item }}:3306"
+        networks:
+          - name: galera_network
+          - name: monitoring_network
+      loop:
+        - "{{ db1_host }}"
+        - "{{ db2_host }}"
+        - "{{ db3_host }}"
+        - "{{ db4_host }}"
+        - "{{ db5_host }}"
+
+    - name: Sync monitoring config files
+      ansible.posix.synchronize:
+        src: files/monitoring/monitoring-lab4/
+        dest: "{{ monitoring_conf_path }}"
+        recursive: true
+      register: monitoring_config
+      notify: Restart monitoring containers
+
     - name: Create HAPROXY_CONF volume
       community.docker.docker_volume:
         name: HAPROXY_CONF
@@ -227,10 +236,11 @@
         volumes:
           - HAPROXY_CONF:/usr/local/etc/haproxy/
         ports:
-          - "3307:3307"
+          - "3308:3308"
         networks:
           - name: galera_network
           - name: app_network
+          - name: monitoring_network
 
     - name: Check if 'db' container exists
       community.docker.docker_container_info:
@@ -260,7 +270,7 @@
 
     - name: Import wordpress database to cluster
       community.mysql.mysql_db:
-        login_port: 3307
+        login_port: 3308
         login_user: root
         login_password: "{{ db_root_password }}"
         name: wordpress
@@ -274,7 +284,7 @@
         image: wordpress:php8.1-fpm
         restart_policy: unless-stopped
         env:
-          WORDPRESS_DB_HOST: haproxy:3307
+          WORDPRESS_DB_HOST: haproxy:3308
           WORDPRESS_DB_USER: "{{ db_wordpress_user }}"
           WORDPRESS_DB_PASSWORD: "{{ db_wordpress_password }}"
           WORDPRESS_DB_NAME: "{{ wordpress_database }}"
@@ -283,47 +293,37 @@
         networks:
           - name: app_network
 
-    - name: Remove container db
+    - name: Remove containers replica
       community.docker.docker_container:
-        name: db
+        name: "{{ item }}"
         state: absent
         force_kill: true
-      when: db_container_info.exists
+      loop:
+        - "db"
+        - "db_replica"
 
-    - name: Remove Docker volume container db
+    - name: Remove Docker volume containers replica
       community.docker.docker_volume:
         name: "{{ item }}"
         state: absent
       loop:
         - "DB_DATA"
-        - "DB_CONF"
+        - "DB_DATA_REPLICA"
 
-    - name: Remove directory db
+    - name: Remove directory replicas
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
         - "{{ vol_db_data }}"
-        - "{{ vol_db_conf }}"
-
-    - name: Remove container db_replica
-      community.docker.docker_container:
-        name: db_replica
-        state: absent
-        force_kill: true
-
-    - name: Remove Docker volume container db_replica
-      community.docker.docker_volume:
-        name: "{{ item }}"
-        state: absent
-      loop:
-        - "DB_DATA_REPLICA"
-        - "DB_CONF_REPLICA"
-
-    - name: Remove directory db_replica
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
         - "{{ vol_db_data_replica }}"
-        - "{{ vol_db_conf_replica }}"
+
+  handlers:
+    - name: Restart monitoring containers
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: started
+        restart: true
+      loop:
+        - prometheus
+        - grafana

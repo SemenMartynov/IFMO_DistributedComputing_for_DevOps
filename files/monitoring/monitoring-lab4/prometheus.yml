@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'cadvisor'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'mysqld_exporter'
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - 'exporter-db1_host:9104'
+          - 'exporter-db2_host:9104'
+          - 'exporter-db3_host:9104'
+          - 'exporter-db4_host:9104'
+          - 'exporter-db5_host:9104'
+
+  - job_name: 'haproxy'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['haproxy:8404']
