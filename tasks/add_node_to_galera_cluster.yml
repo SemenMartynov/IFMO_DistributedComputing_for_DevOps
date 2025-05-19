@@ -1,0 +1,45 @@
+---
+- name: Galera cluster - creating node {{ node_name + ':' + node_ip + ':' + bootstrap | string }}
+  vars:
+    galera_cluster_bootstrap: "{% if bootstrap == true %}yes{% else %}no{% endif %}"
+    galera_cluster_address: "{% if bootstrap == true %}gcomm://{% else %}gcomm://{{ mysql_hosts | join(',') }}{% endif %}"
+  community.docker.docker_container:
+    name: '{{ node_name }}'
+    image: '{{ galera_container_image }}'
+    state: started
+    restart: true
+    healthcheck:
+      test:
+        - CMD
+        - /opt/bitnami/scripts/mariadb-galera/healthcheck.sh
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    restart_policy: on-failure
+    networks:
+      - name: '{{ wp_int_network }}'
+        ipv4_address: '{{ node_ip }}'
+    volumes:
+      - 'gl_{{ galera_cluster_name }}_{{ node_name }}:/bitnami/mariadb'
+    capabilities:
+      - SYS_NICE
+    env:
+      MARIADB_GALERA_CLUSTER_NAME: '{{ galera_cluster_name }}'
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: '{{ galera_cluster_bootstrap }}'
+      MARIADB_GALERA_CLUSTER_ADDRESS: '{{ galera_cluster_address }}'
+      MARIADB_GALERA_NODE_ADDRESS: '{{ node_ip }}'
+      MARIADB_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: '{{ mysql_root_pw }}'
+      MARIADB_REPLICATION_USER: 'replicant'
+      MARIADB_REPLICATION_PASSWORD: '{{ mysql_root_pw }}'
+      MARIADB_DATABASE: '{{ wp_dbname }}'
+      MARIADB_USER: '{{ wp_dbuser }}'
+      MARIADB_PASSWORD: '{{ mysql_passwd }}'
+      MARIADB_SKIP_TEST_DB: 'yes'
+      MARIADB_INIT_SLEEP_TIME: '5'
+
+- name: Wait to restart the node '{{ node_name }}'
+  ansible.builtin.wait_for:
+    host: '{{ node_ip }}'
+    port: 3306
+    delay: 15

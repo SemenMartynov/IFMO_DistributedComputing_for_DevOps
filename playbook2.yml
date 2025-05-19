@@ -1,6 +1,9 @@
 ---
 - name: Home work 2
   hosts: carrier
+  become: true
+  vars_files:
+    - defaults/main.yml
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -11,3 +14,151 @@
           - "db_master: {{ db_master }}" # container name
           - "db_replica: {{ db_replica }}" # container name
           - "db_pass: {{ db_pass }}" # root password for master and replica
+
+    - name: Check if MySQL SLAVE container already exists
+      community.docker.docker_container_info:
+        name: '{{ db_replica }}'
+      register: is_mysql_slave
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_mysql_slave.exists
+
+    - name: Install aptitude
+      ansible.builtin.apt:
+        name: aptitude
+        state: latest # noqa package-latest
+        update_cache: true
+    - name: Install packages required by Ansible modules
+      ansible.builtin.apt:
+        pkg:
+          - python3-pymysql
+          - mysql-client
+        state: latest # noqa package-latest
+        update_cache: true
+
+    - name: Stop WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        state: stopped
+
+    - name: Recreate MySQL container for MASTER
+      community.docker.docker_container:
+        name: '{{ db_container_name }}'
+        image: '{{ db_container_image }}'
+        command: >-
+          --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=ON
+          --plugin-load-add='clone=mysql_clone.so'
+        state: started
+        restart: true
+        recreate: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            aliases: '{{ db_container_name }}'
+            ipv4_address: 10.16.1.3
+        volumes:
+          - 'db:/var/lib/mysql'
+        env:
+          MYSQL_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: '{{ wp_dbname }}'
+          MYSQL_USER: '{{ wp_dbuser }}'
+          MYSQL_PASSWORD: '{{ mysql_passwd }}'
+
+    - name: Wait for MySQL MASTER instance to start
+      ansible.builtin.wait_for:
+        host: '10.16.1.3'
+        port: 3306
+        delay: 10
+
+    - name: Create MySQL container for SLAVE
+      community.docker.docker_container:
+        name: '{{ db_replica }}'
+        image: '{{ db_container_image }}'
+        command: >-
+          --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=ON
+          --plugin-load-add='clone=mysql_clone.so'
+        state: started
+        restart: true
+        restart_policy: on-failure
+        networks:
+          - name: '{{ wp_int_network }}'
+            ipv4_address: 10.16.1.4
+            aliases: '{{ db_replica }}'
+        volumes:
+          - 'db2:/var/lib/mysql'
+        env:
+          MYSQL_ROOT_PASSWORD: '{{ mysql_root_pw }}'
+          MYSQL_ROOT_HOST: '%'
+
+    - name: Wait for MySQL SLAVE instance to start
+      ansible.builtin.wait_for:
+        host: '10.16.1.4'
+        port: 3306
+        delay: 10
+
+    - name: Create replication user on MASTER and SLAVE
+      community.mysql.mysql_user:
+        login_host: '{{ item }}'
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        name: replica_user
+        host: '10.16.1.%'
+        plugin_auth_string: '{{ mysql_root_pw }}'
+        plugin: caching_sha2_password
+        priv: '*.*:BACKUP_ADMIN, CLONE_ADMIN, REPLICATION SLAVE'
+        state: present
+      loop:
+        - 10.16.1.3
+        - 10.16.1.4
+
+    - name: Cloning DB from MASTER to SLAVE
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: 10.16.1.4
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        query:
+          - SET GLOBAL clone_valid_donor_list = '{{ db_container_name }}:3306'
+          - >-
+            CLONE INSTANCE FROM 'replica_user'@'{{ db_container_name }}':3306
+            IDENTIFIED BY '{{ mysql_root_pw }}'
+
+    - name: Wait SLAVE restarting after CLONE
+      ansible.builtin.wait_for:
+        host: '10.16.1.4'
+        port: 3306
+        delay: 10
+
+    - name: Set replication GET_SOURCE_PUBLIC_KEY=1 on SLAVE
+      community.mysql.mysql_query:
+        login_db: mysql
+        login_host: 10.16.1.4
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        query:
+          - CHANGE REPLICATION SOURCE TO GET_SOURCE_PUBLIC_KEY=1 FOR CHANNEL 'db1s'
+        # ansible do not support GET_SOURCE_PUBLIC_KEY
+
+    - name: Set and Start replication on SLAVE
+      community.mysql.mysql_replication:
+        login_host: 10.16.1.4
+        login_port: 3306
+        login_password: '{{ mysql_root_pw }}'
+        mode: '{{ item }}'
+        channel: db1s
+        primary_auto_position: true
+        primary_host: '{{ db_container_name }}'
+        primary_port: 3306
+        primary_user: replica_user
+        primary_password: '{{ mysql_root_pw }}'
+      loop:
+        - changereplication
+        - startreplica
+
+    - name: Start WP container
+      community.docker.docker_container:
+        name: '{{ wp_container_name }}'
+        state: started
