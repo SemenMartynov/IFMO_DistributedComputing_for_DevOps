@@ -1,4 +1,4 @@
 collections:
   - name: community.docker
   - name: community.mysql
-  - name: ansible.posix.synchronize
+  - name: ansible.posix
