@@ -6,14 +6,22 @@ Distributed Computing course for DevOps 2025
 
 Требования:
 -----------
-* На управлямом сервере установлена актуальная (поддерживаемая) Ubuntu,
-* на сервере заведён пользователь ip (Igor Popov): ```useradd ip```, он добавлен в группу sudo: ```usermod -aG sudo ip```,
-* сервер внесён в inventory: **ans-inv-hosts**,
+* На управлямом сервере установлена Ubuntu версии 22.04,
+* сервер **carrier** внесён в inventory: **inventory.yml** со всеми полями:
+  * ansible_host: 192.168.XXX.XXX
+  * ansible_user: XXXXXXXX
+  * ansible_password: XXXXXXXX
+  * ansible_become_method: sudo
+  * ansible_become_pass: XXXXXXXX
+* на сервере **carrier** заведён пользователь из **inventory.yml**:
+  * ```useradd someuser```
+* и он добавлен в группу sudo:
+  * ```usermod -aG sudo someuser```,
 * с сервера есть доступ в Интернет.
 
 Как запустить:
 --------------
-```ansible-playbook -K -i ans-inv-hosts wp-mysql-playbook.yml```
+```ansible-playbook --inventory carrier, playbook1.yml```
 
 Что выполняет:
 --------------

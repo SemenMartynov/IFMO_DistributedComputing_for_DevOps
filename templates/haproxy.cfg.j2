@@ -17,8 +17,8 @@ listen galera_cluster
     stick on src # Привязка по IP клиента
     option mysql-check user haproxy
 
-{% for index in range(1, 6) %}
-    server galera{{ index }} db{{ index }}:3306 check weight 1
+{% for mysql_host in mysql_hosts %}
+    server galera-{{ mysql_host }} {{ mysql_host }}:3306 check weight 1
 {% endfor %}
 
 listen stats

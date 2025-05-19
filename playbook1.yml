@@ -14,16 +14,6 @@
           - "db_host: {{ db_host }}" # container name
           - "db_pass: {{ db_pass }}" # root password
 
-    - name: Check if Wordpress container already exists
-      community.docker.docker_container_info:
-        name: '{{ wp_container_name }}'
-      register: is_wordpress
-
-    - name: Nothing to do
-      ansible.builtin.meta: end_host
-      when:
-        - is_wordpress.exists
-
     - name: Install aptitude
       ansible.builtin.apt:
         name: aptitude
@@ -71,6 +61,16 @@
         name: docker
         state: started
         enabled: true
+
+    - name: Check if Wordpress container already exists
+      community.docker.docker_container_info:
+        name: '{{ wp_container_name }}'
+      register: is_wordpress
+
+    - name: Nothing to do
+      ansible.builtin.meta: end_host
+      when:
+        - is_wordpress.exists
 
     - name: Create int docker network
       community.docker.docker_network:
