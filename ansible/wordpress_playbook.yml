@@ -96,6 +96,7 @@
         container: mysql_master
         argv:
           - mysql
+          - -h127.0.0.1
           - -uroot
           - -p{{ wordpress_db_root_password }}
           - -e
