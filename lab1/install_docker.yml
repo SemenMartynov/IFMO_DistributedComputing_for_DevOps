@@ -1,0 +1,63 @@
+---
+- name: Установка Docker
+  hosts: all
+  become: yes
+  # https://docs.docker.com/engine/install/ubuntu/
+  vars:
+    docker_users: [ ubuntu,user,ilen ]
+
+  tasks:
+    - name: Установка нужных пакетов
+      apt:
+        update_cache: yes
+        name:
+          - ca-certificates
+          - curl
+        state: present
+
+    - name: Добавление GPG ключа
+      apt_key:
+        url: "https://download.docker.com/linux/ubuntu/gpg"
+        state: present
+
+
+    - name: Добавление docker-репозитория
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+        state: present
+
+    - name: Обновление кэша пакетов и установка Docker
+      apt:
+        update_cache: yes
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Update all packages to their latest version
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
+
+    - name: Добавление пользователя в группу Docker
+      user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop: "{{ docker_users }}"
+      when: docker_users | length > 0
+
+    - name: Автозапуск сервиса
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Сохранение версии docker compose
+      shell: docker compose version
+      register: vers
+
+    - name: Показ версии docker compose
+      debug: var=vers.stdout

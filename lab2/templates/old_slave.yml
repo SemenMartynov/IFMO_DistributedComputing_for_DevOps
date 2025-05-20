@@ -1,0 +1,127 @@
+---
+# Ansible playbook для установки только Mysql read реплики на slave-узле с Docker Compose
+# Использовать данный плейбук для установки Slave mysql реплики 
+- name: Deploy MySQL Slave
+  hosts: mysql_slave
+  become: true
+  vars:
+    mysql_root_password: rootpassword
+    mysql_user: wp_user
+    mysql_password: wp_password
+    mysql_database: wordpress
+    docker_compose_dir: /opt/mysql-slave
+    master_host: "{{ hostvars[groups['mysql_master'][0]]['groups']['mysql_master'][0] }}"  # IP-адрес хоста мастера
+    replication_user: replication # Имя пользователя для репликации
+    replication_password: replication_password # Пароль пользователя для репликации
+    master_log_file: mysql-bin.000003 # Имя файла бинарного лога мастера, полученное из SHOW MASTER STATUS
+    master_log_pos: 761 # Позиция в бинарном логе мастера, полученная из SHOW MASTER STATUS
+
+  tasks:
+
+    - name: Вывод IP-адреса мастера
+      debug:
+        msg: "{{ master_host }}"
+
+    # Обновление системы и установка базовых зависимостей
+    - name: Обновление кэша APT и установка необходимых пакетов
+      apt:
+        update_cache: yes
+        name:
+          - apt-transport-https
+          - software-properties-common
+        state: present
+    
+    - name: Установка Python модуля для Docker
+      pip:
+        name: docker
+        state: present
+
+    # Создание директории для WordPress
+    - name: Создание директории для WordPress (docker compose)
+      file:
+        path: "{{ docker_compose_dir }}"
+        state: directory
+        mode: "0755"
+    
+    - name: Копирование mysql-slave.cnf
+      template:
+        src: "files/mysql-slave.cnf"
+        dest: "{{ docker_compose_dir }}/mysql-slave.cnf"
+        mode: '0744'
+
+    - name: Копирование nginx.conf
+      template:
+        src: "templates/nginx.conf"
+        dest: "{{ docker_compose_dir }}/nginx.conf"
+        mode: "0744"
+
+    # Копирование docker-compose.yml
+    - name: Копирование docker-compose.yml
+      template:
+        src: "templates/docker-compose-slave.yml"
+        dest: "{{ docker_compose_dir }}/docker-compose-slave.yml"
+        mode: "0744"
+
+    # Запуск контейнеров через Docker Compose
+    - name: Запуск Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_compose_dir }}"
+        files:
+          - docker-compose-slave.yml
+        state: present  
+    
+    # Ожидание доступности MySQL
+    - name: Проверка доступности MySQL
+      wait_for:
+        port: "{{ mysql_port }}"
+        delay: 10
+        timeout: 300
+
+    # Проверка статуса контейнеров
+    - name: Вывод статуса контейнеров
+      debug:
+        msg:  
+          - "Контейнер: {{ item.Names[0][1:] }}"
+          - "Образ: {{ item.Image}}"
+          - "Статус: {{ item.Status }}"
+      loop: "{{ all_containers.containers }}"
+      loop_control:
+        label: "{{ item.Names[0] }}" # Сделал чтобы сократить вывод
+        
+# Настройка slave-a 
+
+    - name: Get master status directly from master
+      delegate_to: "{{ master_host }}"
+      shell: docker exec mysql_master mysql -u root -p{{ mysql_root_password }} -e "SHOW MASTER STATUS\G"
+      register: master_status
+      changed_when: false
+
+    - name: Вывод статуса контейнеров
+      debug:
+        msg: "{{ master_status.stdout_lines }}"
+
+    - name: Configure slave replication
+      shell: >
+        docker exec mysql_slave mysql -u root -p{{ mysql_root_password }} -e 
+        "CHANGE MASTER TO 
+        MASTER_HOST='{{ master_host }}', 
+        MASTER_USER='{{ replication_user }}', 
+        MASTER_PASSWORD='{{ replication_password }}', 
+        MASTER_LOG_FILE='{{ master_log_file }}', 
+        MASTER_LOG_POS={{ master_log_pos }};"
+      args:
+        executable: /bin/bash
+
+    - name: Start slave
+      shell: docker exec mysql_slave mysql -u root -p{{ mysql_root_password }} -e "START SLAVE;"
+      args:
+        executable: /bin/bash
+
+    - name: Check slave status
+      shell: docker exec mysql_slave mysql -u root -p{{ mysql_root_password }} -e "SHOW SLAVE STATUS\G"
+      register: slave_status
+      changed_when: false
+
+    - name: Display slave status
+      debug:
+        var: slave_status.stdout_lines
