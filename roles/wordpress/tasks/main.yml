@@ -11,7 +11,7 @@
     restart_policy: always
     env:
       WORDPRESS_DB_HOST: mysql_db:3306
-      WORDPRESS_DB_NAME: "{{ mysql_database }}"
+      WORDPRESS_DB_NAME: "{{ wordpress_db_name }}"
       WORDPRESS_DB_USER: "{{ mysql_user }}"
       WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
     volumes:
@@ -19,4 +19,4 @@
     networks:
       - name: "{{ wp_network }}"
     published_ports:
-      - "80:80"
+      - "{{ wordpress_port }}:80"

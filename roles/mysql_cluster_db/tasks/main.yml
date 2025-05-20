@@ -17,15 +17,15 @@
     group: root
     mode: '0644'
 
-- name: Restart mysql_db container as mysql_db_master
+- name: Restart mysql_db container as master
   community.docker.docker_container:
-    name: mysql_db_master
+    name: "{{ db_master }}"
     image: mysql:latest
     state: started
     restart_policy: always
     env:
-      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+      MYSQL_DATABASE: "{{ wordpress_db_name }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports:
@@ -41,7 +41,7 @@
     login_host: localhost
     login_port: 3306
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query: "SELECT 1"
   register: mysql_ping
   until: mysql_ping.failed == false
@@ -59,7 +59,7 @@
     login_host: localhost
     login_port: 3306
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query:
       - "CREATE USER IF NOT EXISTS '{{ mysql_replica_user }}'@'%' IDENTIFIED BY '{{ mysql_replica_password }}';"
       - "GRANT REPLICATION SLAVE ON *.* TO '{{ mysql_replica_user }}'@'%';"
@@ -79,13 +79,13 @@
 
 - name: Create & start mysql replica container
   community.docker.docker_container:
-    name: mysql_db_replica
+    name: "{{ db_replica }}"
     image: mysql:latest
     state: started
     restart_policy: always
     env:
-      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+      MYSQL_DATABASE: "{{ wordpress_db_name }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports:
@@ -101,7 +101,7 @@
     login_host: localhost
     login_port: 3306
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query: "SHOW BINARY LOG STATUS"
   register: master_status
 
@@ -115,7 +115,7 @@
     login_host: localhost
     login_port: 3307
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query: "SELECT 1"
   register: mysql_ping
   until: mysql_ping.failed == false
@@ -133,13 +133,13 @@
     login_host: localhost
     login_port: 3307
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query:
       - "STOP REPLICA;"
       - "RESET REPLICA ALL;"
       - >-
         CHANGE REPLICATION SOURCE TO
-          SOURCE_HOST='mysql_db_master',
+          SOURCE_HOST='{{ db_master }}',
           SOURCE_USER='{{ mysql_replica_user }}',
           SOURCE_PASSWORD='{{ mysql_replica_password }}',
           SOURCE_LOG_FILE='{{ master_log_file }}',
@@ -152,7 +152,7 @@
     login_host: localhost
     login_port: 3307
     login_user: root
-    login_password: "{{ mysql_root_password }}"
+    login_password: "{{ db_pass }}"
     query: "SHOW REPLICA STATUS"
   register: replica_status
 
@@ -168,13 +168,14 @@
 
 - name: Restart master with closed ports
   community.docker.docker_container:
-    name: mysql_db_master
+    name: "{{ db_master }}"
     image: mysql:latest
     state: started
     restart_policy: always
+    recreate: true
     env:
-      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+      MYSQL_DATABASE: "{{ wordpress_db_name }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports: []
@@ -186,13 +187,14 @@
 
 - name: Restart replica container with closed ports
   community.docker.docker_container:
-    name: mysql_db_replica
+    name: "{{ db_replica }}"
     image: mysql:latest
     state: started
     restart_policy: always
+    recreate: true
     env:
-      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
-      MYSQL_DATABASE: "{{ mysql_database }}"
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+      MYSQL_DATABASE: "{{ wordpress_db_name }}"
       MYSQL_USER: "{{ mysql_user }}"
       MYSQL_PASSWORD: "{{ mysql_password }}"
     published_ports: []
