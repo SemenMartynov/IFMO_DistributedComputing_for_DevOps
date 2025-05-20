@@ -1,6 +1,10 @@
 ---
-- name: Home work 2
+- name: Home work 2 - Set up MySQL cluster
   hosts: carrier
+  become: true
+  roles:
+    - mysql_cluster_db
+    - wp_use_cluster
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:

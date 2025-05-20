@@ -1,6 +1,12 @@
 ---
-- name: Home work 1
+- name: Home work 1 - Install Docker, Create MySQL, Wordpress containers and run them
   hosts: carrier
+  become: true
+  roles:
+    - docker
+    - network
+    - mysql_db
+    - wordpress
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:
@@ -10,3 +16,5 @@
           - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
           - "db_host: {{ db_host }}" # container name
           - "db_pass: {{ db_pass }}" # root password
+
+#            todo check db_host
