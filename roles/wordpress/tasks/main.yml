@@ -1,0 +1,22 @@
+---
+- name: Create WordPress docker volume
+  community.docker.docker_volume:
+    name: wp_data
+
+- name: Create WordPress container
+  community.docker.docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    restart_policy: always
+    env:
+      WORDPRESS_DB_HOST: mysql_db:3306
+      WORDPRESS_DB_NAME: "{{ wordpress_db_name }}"
+      WORDPRESS_DB_USER: "{{ mysql_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - name: "{{ wp_network }}"
+    published_ports:
+      - "{{ wordpress_port }}:80"

@@ -1,0 +1,327 @@
+---
+- name: Remove galera containers in case exists
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+    force_kill: true
+    keep_volumes: false
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Remove galera volumes in case exists
+  community.docker.docker_volume:
+    name: "galera_data_{{ item }}"
+    state: absent
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Restart master with opened ports
+  community.docker.docker_container:
+    name: "{{ db_master }}"
+    image: mysql:latest
+    state: started
+    recreate: true
+    restart_policy: always
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+      MYSQL_DATABASE: "{{ wordpress_db_name }}"
+      MYSQL_USER: "{{ mysql_user }}"
+      MYSQL_PASSWORD: "{{ mysql_password }}"
+    published_ports:
+      - "3306:3306"
+    volumes:
+      - /opt/mysql.cnf.master:/etc/mysql/conf.d/master.cnf
+      - mysql_data:/var/lib/mysql
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Stop wordpress
+  community.docker.docker_container:
+    name: wordpress
+    state: stopped
+
+- name: Add mariadb client
+  ansible.builtin.apt:
+    name:
+      - mariadb-client
+    state: present
+
+- name: Backup database
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ wordpress_db_name }}"
+    target: "/tmp/wp_dump.sql"
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: "{{ db_pass }}"
+
+- name: Stop old master container
+  community.docker.docker_container:
+    name: "{{ db_master }}"
+    state: stopped
+
+- name: Create galera configs
+  ansible.builtin.copy:
+    dest: "/opt/galera-{{ item }}.cnf"
+    content: |
+      [mysqld]
+      binlog_format=ROW
+      default_storage_engine=InnoDB
+      innodb_autoinc_lock_mode=2
+      bind-address=0.0.0.0
+      wsrep_on=ON
+      wsrep_provider=/usr/lib/galera/libgalera_smm.so
+      wsrep_cluster_address="gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}"
+      wsrep_cluster_name="galera_cluster"
+      wsrep_node_address="{{ item }}"
+      wsrep_node_name="{{ item }}"
+      wsrep_sst_method=rsync
+    mode: '0644'
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Create db volumes
+  community.docker.docker_volume:
+    name: "galera_data_{{ item }}"
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Run db containers
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: "mariadb:latest"
+    state: started
+    restart_policy: always
+    recreate: true
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ db_pass }}"
+    published_ports: "{{ ['3306:3306'] if item.first else omit }}"
+    volumes:
+      - "/opt/galera-{{ item.name }}.cnf:/etc/mysql/conf.d/galera.cnf"
+      - "galera_data_{{ item.name }}:/var/lib/mysql"
+    networks:
+      - name: "{{ wp_network }}"
+    command: "{{ '--wsrep-new-cluster' if item.first else '' }}"
+  loop:
+    - { name: "{{ db1_host }}", first: true }
+    - { name: "{{ db2_host }}", first: false }
+    - { name: "{{ db3_host }}", first: false }
+    - { name: "{{ db4_host }}", first: false }
+    - { name: "{{ db5_host }}", first: false }
+
+- name: Wait for host 1 to be ready
+  community.mysql.mysql_query:
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: "{{ db_pass }}"
+    query: "SELECT 1"
+  register: mysql_ping
+  until: mysql_ping.failed == false
+  retries: 20
+  delay: 3
+  ignore_errors: true
+
+- name: Create wp db user
+  community.mysql.mysql_user:
+    name: "{{ mysql_user }}"
+    host: "%"
+    password: "{{ mysql_password }}"
+    priv: "{{ wordpress_db_name }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ db_pass }}"
+    login_host: 127.0.0.1
+    login_port: 3306
+
+- name: Import db to the new cluster
+  community.mysql.mysql_db:
+    state: import
+    name: '{{ wordpress_db_name }}'
+    target: '/tmp/wp_dump.sql'
+    login_host: 127.0.0.1
+    login_port: 3306
+    login_user: root
+    login_password: '{{ db_pass }}'
+    force: true
+
+- name: Copy haproxy config
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /opt/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Run haproxy container
+  community.docker.docker_container:
+    name: "{{ loadbalancer }}"
+    image: haproxy:latest
+    state: started
+    restart_policy: always
+    recreate: true
+    volumes:
+      - "/opt/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+    published_ports:
+      - "8080:8080"
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Recreate wp container to use the new cluster
+  community.docker.docker_container:
+    name: wordpress
+    image: wordpress:latest
+    state: started
+    recreate: true
+    restart_policy: always
+    env:
+      WORDPRESS_DB_HOST: "{{ loadbalancer }}:3306"
+      WORDPRESS_DB_NAME: "{{ wordpress_db_name }}"
+      WORDPRESS_DB_USER: "{{ mysql_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ mysql_password }}"
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - name: "{{ wp_network }}"
+    published_ports:
+      - "{{ wordpress_port }}:80"
+
+- name: Add exporter for haproxy
+  community.docker.docker_container:
+    name: haproxy_exporter
+    image: prom/haproxy-exporter:latest
+    state: started
+    restart_policy: always
+    recreate: true
+    env:
+      HAPROXY_EXPORTER_USERNAME: "{{ haproxy_user }}"
+      HAPROXY_EXPORTER_PASSWORD: "{{ haproxy_password }}"
+    command: "--haproxy.scrape-uri=http://{{ haproxy_user }}:{{ haproxy_password }}@{{ loadbalancer }}:8080/stats;csv"
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Download dashboard for haproxy
+  ansible.builtin.get_url:
+    url: "https://grafana.com/api/dashboards/367/revisions/3/download"
+    dest: "{{ monitoring_path }}/hp-dashboard.json"
+    mode: "0644"
+
+- name: Set up prometheus id in dashboard
+  ansible.builtin.replace:
+    path: "{{ monitoring_path }}/hp-dashboard.json"
+    regexp: '\${DS_PROMETHEUS}'
+    replace: 'prometheus_id'
+
+- name: Add haproxy dashboard to grafana
+  community.grafana.grafana_dashboard:
+    url: "{{ monitoring_url }}"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    dashboard_url: "{{ monitoring_path }}/hp-dashboard.json"
+    state: present
+    overwrite: true
+
+- name: Create galera exporters confs
+  ansible.builtin.template:
+    src: my-cnf.j2
+    dest: "{{ monitoring_path }}/mysql_exporter_{{ item }}_my-cnf"
+    mode: "0644"
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Run exporters
+  community.docker.docker_container:
+    name: "mysql_exporter_{{ item }}"
+    image: prom/mysqld-exporter:latest
+    state: started
+    restart_policy: always
+    recreate: true
+    command: "--config.my-cnf=/opt/config.my-cnf"
+    volumes:
+      - "{{ monitoring_path }}/mysql_exporter_{{ item }}_my-cnf:/opt/config.my-cnf:ro"
+    networks:
+      - name: "{{ wp_network }}"
+  loop:
+    - "{{ db1_host }}"
+    - "{{ db2_host }}"
+    - "{{ db3_host }}"
+    - "{{ db4_host }}"
+    - "{{ db5_host }}"
+
+- name: Copy prometheus config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_path }}/prometheus.yml"
+    mode: "0644"
+
+- name: Run prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    image: prom/prometheus:latest
+    state: started
+    restart_policy: always
+    recreate: true
+    volumes:
+      - "{{ monitoring_path }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - prometheus_vol:/prometheus
+    published_ports:
+      - "9090:9090"
+    networks:
+      - name: "{{ wp_network }}"
+
+- name: Run grafana container
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana:latest
+    state: started
+    restart_policy: always
+    recreate: true
+    volumes:
+      - grafana_vol:/var/lib/grafana
+    published_ports:
+      - "3000:3000"
+    networks:
+      - name: "{{ wp_network }}"
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_password }}"
+
+- name: Remove old mysql servers
+  community.docker.docker_container:
+    name: '{{ item }}'
+    state: absent
+    keep_volumes: false
+  loop:
+    - '{{ db_master }}'
+    - '{{ db_replica }}'
+
+- name: Wait for grafana to be ready
+  ansible.builtin.uri:
+    url: "{{ monitoring_url }}"
+    method: GET
+    status_code: 200
+  register: grafana_check
+  until: grafana_check.status == 200
+  retries: 20
+  delay: 3

@@ -1,6 +1,9 @@
 ---
-- name: Home work 3
+- name: Home work 3 - Set up monitoring
   hosts: carrier
+  become: true
+  roles:
+    - monitoring
   tasks:
     - name: Display Configuration Variables
       ansible.builtin.debug:

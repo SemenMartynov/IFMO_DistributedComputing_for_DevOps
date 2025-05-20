@@ -1,0 +1,19 @@
+---
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: "galera_hosts"
+    static_configs:
+      - targets:
+          - "mysql_exporter_{{ db1_host }}:9104"
+          - "mysql_exporter_{{ db2_host }}:9104"
+          - "mysql_exporter_{{ db3_host }}:9104"
+          - "mysql_exporter_{{ db4_host }}:9104"
+          - "mysql_exporter_{{ db5_host }}:9104"
+
+  - job_name: "{{ loadbalancer }}"
+    static_configs:
+      - targets: ["haproxy_exporter:9101"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: alias

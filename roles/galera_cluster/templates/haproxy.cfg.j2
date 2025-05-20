@@ -1,0 +1,31 @@
+global
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
+    option tcplog
+    timeout connect 5s
+    timeout client 60s
+    timeout server 60s
+
+frontend mysql_front
+    bind *:3306
+    default_backend galera_cluster
+
+backend galera_cluster
+    balance roundrobin
+    option tcp-check
+{% for db_host in [db1_host, db2_host, db3_host, db4_host, db5_host] %}
+    server {{ db_host }} {{ db_host }}:3306 check
+{% endfor %}
+
+listen stats
+    bind *:8080
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 5s
+    stats show-node
+    stats auth {{ haproxy_user }}:{{ haproxy_password }}
