@@ -1,0 +1,25 @@
+services:
+  db_slave:
+    image: mysql:5.7
+    container_name: mysql_slave
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_password
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - db_slave_data:/var/lib/mysql
+      - ./mysql-slave.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+    networks:
+      - wordpress_network
+    command: --server-id=2 --log-bin=mysql-bin --binlog-format=ROW --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
+
+networks:
+      wordpress_network:
+        driver: bridge
+
+volumes:
+  db_slave_data:

@@ -1,0 +1,153 @@
+---
+# Использовать данный плейбук для установки slave mysql реплики 
+# УБРАЛ SHELL и COMMAND, так как использую только модули
+- name: Deploy MySQL Slave with Replication using Modules
+  hosts: mysql_slave
+  become: true
+  vars:
+    mysql_root_password: rootpassword
+    mysql_user: wp_user
+    mysql_password: wp_password
+    mysql_database: wordpress
+    docker_compose_dir: /opt/mysql-slave
+    mysql_port: 3306
+
+    replication_user: replication
+    replication_password: replication_password
+
+    root_user_name: root
+    root_user_pass: rootpassword
+
+    local_login_host: 127.0.0.1
+
+  tasks:
+
+    - name: Получить IP-адрес мастера
+      set_fact:
+        master_host: "{{ hostvars[groups['mysql_master'][0]]['groups']['mysql_master'][0] }}"
+
+    - name: Установить зависимости
+      apt:
+        update_cache: yes
+        name:
+          - python3-pip
+          - python3-mysqldb
+          - python3-docker
+          - python3-pymysql
+        state: present
+
+#    - name: Установить Docker SDK для Python
+#      pip:
+#        name:
+#          - docker
+#          - docker-compose
+#          - PyMySQL
+#        state: present
+
+    - name: Создание директории для Docker Compose
+      file:
+        path: "{{ docker_compose_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Копирование конфигурации MySQL
+      template:
+        src: "files/mysql-slave.cnf"
+        dest: "{{ docker_compose_dir }}/mysql-slave.cnf"
+        mode: '0644'
+
+    - name: Копирование docker-compose файла
+      template:
+        src: "templates/docker-compose-slave.yml"
+        dest: "{{ docker_compose_dir }}/docker-compose-slave.yml"
+        mode: '0644'
+
+    - name: Запуск контейнера через Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_compose_dir }}"
+        files:
+          - docker-compose-slave.yml
+        state: present
+
+    - name: Проверка запущенных контейнеров
+      docker_host_info:
+        containers: yes
+      register: all_containers
+
+    # Вывод информации о контейнерах из переменной all_containers
+    - name: Вывод статуса контейнеров
+      debug:
+        msg:  
+          - "Контейнер: {{ item.Names[0][1:] }}"
+          - "Образ: {{ item.Image}}"
+          - "Статус: {{ item.Status }}"
+      loop: "{{ all_containers.containers }}"
+      loop_control:
+        label: "{{ item.Names[0] }}" # Сделал чтобы сократить вывод
+        
+    - name: Подождать, пока MySQL станет доступен
+      wait_for:
+        host: "{{ local_login_host }}"
+        port: "{{ mysql_port }}"
+        delay: 30 # Задержка перед проверкой доступности
+        timeout: 120
+
+    - name: Проверить статус репликации
+      community.mysql.mysql_query:
+        login_user: "{{ root_user_name }}"
+        login_password: "{{ mysql_root_password }}"
+        query: "SHOW SLAVE STATUS"
+      register: slave_status_result
+
+    - name: Вывести основные показатели репликации
+      debug:
+        var: slave_status_result.query_result[0]
+
+    - name: Настроить репликацию
+      community.mysql.mysql_replication:
+        mode: changeprimary
+        primary_host: "{{ master_host }}"
+        primary_user: "{{ replication_user }}"
+        primary_password: "{{ replication_password }}"
+        primary_auto_position: 0
+        login_host: "{{ local_login_host }}"
+        login_port: "{{ mysql_port }}"
+        login_user: "{{ root_user_name }}"
+        login_password: "{{ mysql_root_password }}"
+        connect_timeout: 30
+      when: >
+        slave_status_result.query_result[0] == [] 
+       # slave_status_result.query_result is not defined or
+       # slave_status_result.query_result[0][0]['Slave_IO_Running'] not in ['Yes', 'Connecting'] or
+       # slave_status_result.query_result[0][0]['Slave_SQL_Running'] != 'Yes'
+
+    - name: Запустить репликацию
+      community.mysql.mysql_replication:
+        mode: startreplica
+        login_user: "{{ root_user_name }}"
+        login_password: "{{ mysql_root_password }}"
+      when: >
+        slave_status_result.query_result[0] == [] 
+       # slave_status_result.query_result is not defined or
+       # slave_status_result.query_result[0][0]['Slave_IO_Running'] not in ['Yes', 'Connecting'] or
+       # slave_status_result.query_result[0][0]['Slave_SQL_Running'] != 'Yes'
+
+    - name: Проверить статус репликации
+      community.mysql.mysql_query:
+        login_user: "{{ root_user_name }}"
+        login_password: "{{ mysql_root_password }}"
+        query: "SHOW SLAVE STATUS"
+      register: slave_status_result
+
+    - name: Вывести статус репликации
+      debug:
+        var: slave_status_result.query_result[0]
+
+    - name: Вывести основные показатели репликации
+      debug:
+        msg:
+          - "Master_Host: {{ slave_status_result.query_result[0][0]['Master_Host'] }}"
+          - "Slave_IO_Running: {{ slave_status_result.query_result[0][0]['Slave_IO_Running'] }}"
+          - "Slave_IO_State: {{ slave_status_result.query_result[0][0]['Slave_IO_State'] }}"
+          - "Slave_SQL_Running: {{ slave_status_result.query_result[0][0]['Slave_SQL_Running'] }}"
+          - "Slave_SQL_Running_State: {{ slave_status_result.query_result[0][0]['Slave_SQL_Running_State'] }}"
