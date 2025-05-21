@@ -64,7 +64,6 @@
         attributes:
           common_name: "{{ ansible_default_ipv4.address }}"
         selfsigned_not_after: "+365d"
-        selfsigned_create_subject_key_identifier: create_if_not_provided
         mode: '0644'
 
     - name: Enable and start Docker service
