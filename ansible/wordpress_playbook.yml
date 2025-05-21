@@ -61,7 +61,7 @@
         mode: '0600'
 
     - name: Generate self-signed certificate with IP
-      community.crypto.openssl_certificate:
+      community.crypto.x509_certificate:
         path: /etc/ssl/wordpress/fullchain.pem
         privatekey_path: /etc/ssl/wordpress/privkey.pem
         provider: selfsigned
