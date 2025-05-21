@@ -42,6 +42,36 @@
         state: present
         update_cache: true
 
+    - name: Ensure certificate directory exists
+      become: true
+      file:
+        path: /etc/ssl/wordpress
+        state: directory
+        mode: '0755'
+
+    - name: Get primary IP address
+      ansible.builtin.set_fact:
+        server_ip: "{{ ansible_default_ipv4.address }}"
+
+    - name: Generate private key
+      community.crypto.openssl_privatekey:
+        path: /etc/ssl/wordpress/privkey.pem
+        size: 2048
+        type: RSA
+        mode: '0600'
+
+    - name: Generate self-signed certificate with IP
+      community.crypto.openssl_certificate:
+        path: /etc/ssl/wordpress/fullchain.pem
+        privatekey_path: /etc/ssl/wordpress/privkey.pem
+        provider: selfsigned
+        subject:
+          common_name: "{{ server_ip }}"
+        subject_alt_name:
+          - "IP:{{ server_ip }}"
+        not_after: "+365d"
+        mode: '0644'
+
     - name: Enable and start Docker service
       systemd:
         name: docker
