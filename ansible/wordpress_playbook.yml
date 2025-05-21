@@ -64,11 +64,8 @@
         attributes:
           common_name: "{{ ansible_default_ipv4.address }}"
         selfsigned_not_after: "+365d"
-        selfsigned_version: 3
         selfsigned_create_subject_key_identifier: create_if_not_provided
         mode: '0644'
-        unsafe_writes: yes
-      register: cert_result
 
     - name: Enable and start Docker service
       systemd:
