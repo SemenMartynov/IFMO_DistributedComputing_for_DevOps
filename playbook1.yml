@@ -1,4 +1,5 @@
 - name: Home work 1
+  become: true
   hosts: carrier
   tasks:
     # default settings

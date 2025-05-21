@@ -1,6 +1,8 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
+  gather_facts: false
   tasks:
     - name: Set Ansible Python interpreter to virtualenv
       ansible.builtin.set_fact:
