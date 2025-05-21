@@ -1,8 +1,83 @@
----
 - name: Home work 3
   hosts: carrier
+  become: true
+  gather_facts: false
+
+  vars:
+    grafana_port: "9100"
+    grafana_internal_port: "3000"
+
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    # implement monitoring
+    - name: Create Prometheus data directory
+      ansible.builtin.file:
+        path: "{{ vol_prometheus }}"
+        state: directory
+        mode: '0755'
+
+    - name: Sync monitoring config files
+      ansible.posix.synchronize:
+        src: files/monitoring/monitoring-lab3/
+        dest: "{{ monitoring_conf_path }}"
+        recursive: true
+
+    - name: Create Docker network monitoring_network
+      community.docker.docker_network:
+        name: monitoring_network
+        driver: bridge
+        state: present
+
+    - name: Create DATA_PROMETHEUS volume
+      community.docker.docker_volume:
+        name: DATA_PROMETHEUS
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_prometheus }}"
+          o: bind
+
+    - name: Run cAdvisor container
+      community.docker.docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:v0.52.0
+        volumes:
+          - "/:/rootfs:ro"
+          - "/var/run:/var/run:ro"
+          - "/sys:/sys:ro"
+          - "/var/lib/docker/:/var/lib/docker:ro"
+          - "/dev/disk/:/dev/disk:ro"
+        networks:
+          - name: monitoring_network
+        restart_policy: unless-stopped
+        platform: linux/amd64
+
+    - name: Run Prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:v3.3.1
+        volumes:
+          - "{{ monitoring_conf_path }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+          - DATA_PROMETHEUS:/prometheus
+        networks:
+          - name: monitoring_network
+        restart_policy: unless-stopped
+
+    - name: Run Grafana container
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana
+        env:
+          GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+          GF_AUTH_ANONYMOUS_ENABLED: "true"
+          GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+          GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+          GF_AUTH_DISABLE_LOGIN_FORM: "true"
+        volumes:
+          - "{{ monitoring_conf_path }}/grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro"
+          - "{{ monitoring_conf_path }}/grafana/dashboards:/var/lib/grafana/dashboards:ro"
+          - "{{ monitoring_conf_path }}/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro"
+        published_ports:
+          - "{{ grafana_port }}:{{ grafana_internal_port }}"
+        networks:
+          - name: monitoring_network
+        restart_policy: unless-stopped

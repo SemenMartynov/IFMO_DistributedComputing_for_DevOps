@@ -1,12 +1,164 @@
----
 - name: Home work 1
+  become: true
   hosts: carrier
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_host: {{ db_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password
+    # default settings
+    - name: Update repositories cache and install utils
+      ansible.builtin.apt:
+        pkg:
+          - ca-certificates
+          - curl
+          - python3
+          - python3-venv
+          - python3-pip
+          - mariadb-client
+        update_cache: true
+
+    - name: Setup locale
+      ansible.builtin.shell: |
+        locale-gen {{ locale1 }}
+        update-locale LANG={{ locale2 }} LC_TIME={{ locale1 }}
+      when:
+        - ansible_env.LANG != locale2
+        - ansible_env.LC_TIME != locale1
+      changed_when: true
+
+    # install docker
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Ensure Docker is installed
+      when:
+        - "'docker-ce' not in ansible_facts.packages"
+        - "'docker-compose-plugin' not in ansible_facts.packages"
+      block:
+        - name: Create directory "keyrings"
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+
+        - name: Download Docker GPG key
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/debian/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: '0644'
+
+        - name: Add Docker APT repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+            filename: docker
+            state: present
+
+        - name: Install Docker packages
+          ansible.builtin.apt:
+            pkg:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            update_cache: true
+
+    # install wordpress
+    - name: Create necessary directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ vol_nginx_www }}"
+        - "{{ vol_nginx_conf }}"
+        - "{{ vol_db_data }}"
+
+    - name: Copy Nginx conf files
+      ansible.builtin.copy:
+        src: files/nginx.conf
+        dest: "{{ vol_nginx_conf }}"
+        mode: '0644'
+
+    - name: Create Docker network app_network
+      community.docker.docker_network:
+        name: app_network
+        driver: bridge
+        state: present
+
+    - name: Create NGINX_WWW volume
+      community.docker.docker_volume:
+        name: NGINX_WWW
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_nginx_www }}"
+          o: bind
+
+    - name: Create NGINX_CONF volume
+      community.docker.docker_volume:
+        name: NGINX_CONF
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_nginx_conf }}"
+          o: bind
+
+    - name: Create DB_DATA volume
+      community.docker.docker_volume:
+        name: DB_DATA
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_db_data }}"
+          o: bind
+
+    - name: Start MariaDB container
+      community.docker.docker_container:
+        name: db
+        image: mariadb:11.7.2-noble
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+        volumes:
+          - DB_DATA:/var/lib/mysql:Z
+        networks:
+          - name: app_network
+        published_ports:
+          - "3306:3306"
+        command: "--default-authentication-plugin=mysql_native_password"
+        healthcheck:
+          test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+
+    - name: Start WordPress container
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:php8.1-fpm
+        restart_policy: unless-stopped
+        env:
+          WORDPRESS_DB_HOST: db:3306
+          WORDPRESS_DB_USER: "{{ db_wordpress_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_wordpress_password }}"
+          WORDPRESS_DB_NAME: "{{ wordpress_database }}"
+        volumes:
+          - NGINX_WWW:/var/www/html
+        networks:
+          - name: app_network
+
+    - name: Start Nginx container
+      community.docker.docker_container:
+        name: nginx
+        image: nginx:1.27-perl
+        restart_policy: unless-stopped
+        ports:
+          - "80:80"
+        volumes:
+          - NGINX_WWW:/var/www/html
+          - NGINX_CONF:/etc/nginx/conf.d
+        networks:
+          - name: app_network

@@ -1,18 +1,331 @@
 ---
 - name: Home work 4
   hosts: carrier
+  become: true
+  gather_facts: false
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db1_host: {{ db1_host }}" # container name
-          - "db2_host: {{ db2_host }}" # container name
-          - "db3_host: {{ db3_host }}" # container name
-          - "db4_host: {{ db4_host }}" # container name
-          - "db5_host: {{ db5_host }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for DBs
-          - "loadbalancer: {{ loadbalancer }}" # container name
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: Set Ansible Python interpreter to virtualenv
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: "{{ venv_path }}/bin/python"
+
+    - name: Create necessary directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: 1001
+        group: 1001
+        mode: '0755'
+      loop:
+        - "{{ vol_db1_host }}"
+        - "{{ vol_db2_host }}"
+        - "{{ vol_db3_host }}"
+        - "{{ vol_db4_host }}"
+        - "{{ vol_db5_host }}"
+        - "{{ vol_haproxy_conf }}"
+
+    - name: Copy SQL init file
+      ansible.builtin.copy:
+        src: files/init_user.sql
+        dest: "{{ vol_db1_host }}/init_user.sql"
+        owner: 1001
+        group: 1001
+        mode: '0755'
+
+    - name: Create Docker network galera_network
+      community.docker.docker_network:
+        name: galera_network
+        driver: bridge
+        state: present
+
+    - name: Create volume for galera cluster
+      community.docker.docker_volume:
+        name: "{{ item.name }}"
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ item.path }}"
+          o: bind
+      loop:
+        - { name: "{{ db1_host }}", path: "{{ vol_db1_host }}" }
+        - { name: "{{ db2_host }}", path: "{{ vol_db2_host }}" }
+        - { name: "{{ db3_host }}", path: "{{ vol_db3_host }}" }
+        - { name: "{{ db4_host }}", path: "{{ vol_db4_host }}" }
+        - { name: "{{ db5_host }}", path: "{{ vol_db5_host }}" }
+
+    - name: Check if db1 volume already has data
+      ansible.builtin.stat:
+        path: "{{ vol_db1_host }}/.bootstrap/done"
+      register: db1_volume_has_data
+
+    - name: Set bootstrap variable
+      ansible.builtin.set_fact:
+        galera_bootstrap: "{{ not db1_volume_has_data.stat.exists }}"
+
+    - name: Start bootstrap node
+      community.docker.docker_container:
+        name: "{{ db1_host }}"
+        image: bitnami/mariadb-galera:11.4.6
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+          MARIADB_GALERA_CLUSTER_NAME: "galera-cluster"
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://"
+          MARIADB_REPLICATION_USER: "{{ replication_user }}"
+          MARIADB_REPLICATION_PASSWORD: "{{ replication_password }}"
+          MARIADB_GALERA_MARIABACKUP_USER: "{{ galera_backup_user }}"
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ galera_backup_password }}"
+          MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+          MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+        volumes:
+          - "{{ vol_db1_host }}:/bitnami/mariadb:Z"
+          - "{{ vol_db1_host }}/init_user.sql:/docker-entrypoint-initdb.d/init_user.sql:ro"
+        networks:
+          - name: galera_network
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+      when: galera_bootstrap
+
+    - name: Wait for bootstrap node to be healthy
+      community.docker.docker_container_info:
+        name: "{{ db1_host }}"
+      register: db1_status
+      until: db1_status.container.State.Health.Status == "healthy"
+      retries: 20
+      delay: 10
+      when: galera_bootstrap
+
+    - name: Start MariaDB cluster
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: bitnami/mariadb-galera:11.4.6
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+          MARIADB_GALERA_CLUSTER_NAME: "galera-cluster"
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}"
+          MARIADB_REPLICATION_USER: "{{ replication_user }}"
+          MARIADB_REPLICATION_PASSWORD: "{{ replication_password }}"
+          MARIADB_GALERA_MARIABACKUP_USER: "{{ galera_backup_user }}"
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ galera_backup_password }}"
+        volumes:
+          - "{{ item.path }}:/var/lib/mysql:Z"
+        networks:
+          - name: galera_network
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+      loop:
+        - { name: "{{ db2_host }}", path: "{{ vol_db2_host }}" }
+        - { name: "{{ db3_host }}", path: "{{ vol_db3_host }}" }
+        - { name: "{{ db4_host }}", path: "{{ vol_db4_host }}" }
+        - { name: "{{ db5_host }}", path: "{{ vol_db5_host }}" }
+
+    - name: Wait for galera cluster to be healthy
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+      register: container_status
+      until: container_status.container.State.Health.Status == "healthy"
+      retries: 20
+      delay: 10
+      loop:
+        - "{{ db2_host }}"
+        - "{{ db3_host }}"
+        - "{{ db4_host }}"
+        - "{{ db5_host }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Stop bootstrap container
+      community.docker.docker_container:
+        name: "{{ db1_host }}"
+        state: absent
+      when: galera_bootstrap
+
+    - name: Start MariaDB db1_host
+      community.docker.docker_container:
+        name: "{{ db1_host }}"
+        image: bitnami/mariadb-galera:11.4.6
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+          MARIADB_GALERA_CLUSTER_NAME: "galera-cluster"
+          MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ db1_host }},{{ db2_host }},{{ db3_host }},{{ db4_host }},{{ db5_host }}"
+          MARIADB_REPLICATION_USER: "{{ replication_user }}"
+          MARIADB_REPLICATION_PASSWORD: "{{ replication_password }}"
+          MARIADB_GALERA_MARIABACKUP_USER: "{{ galera_backup_user }}"
+          MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ galera_backup_password }}"
+        volumes:
+          - "{{ vol_db1_host }}:/var/lib/mysql:Z"
+        networks:
+          - name: galera_network
+        healthcheck:
+          test: ['CMD', '/opt/bitnami/scripts/mariadb-galera/healthcheck.sh']
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+
+    - name: Wait for db1_host to be healthy
+      community.docker.docker_container_info:
+        name: "{{ db1_host }}"
+      register: db1_status
+      until: db1_status.container.State.Health.Status == "healthy"
+      retries: 20
+      delay: 10
+
+    - name: Run mysql exporter of metrics
+      community.docker.docker_container:
+        name: "exporter-{{ item }}"
+        image: prom/mysqld-exporter:v0.17.2
+        restart_policy: always
+        command:
+          - "--mysqld.username={{ exporter_user }}:{{ exporter_password }}"
+          - "--mysqld.address={{ item }}:3306"
+        networks:
+          - name: galera_network
+          - name: monitoring_network
+      loop:
+        - "{{ db1_host }}"
+        - "{{ db2_host }}"
+        - "{{ db3_host }}"
+        - "{{ db4_host }}"
+        - "{{ db5_host }}"
+
+    - name: Sync monitoring config files
+      ansible.posix.synchronize:
+        src: files/monitoring/monitoring-lab4/
+        dest: "{{ monitoring_conf_path }}"
+        recursive: true
+      register: monitoring_config
+      notify: Restart monitoring containers
+
+    - name: Create HAPROXY_CONF volume
+      community.docker.docker_volume:
+        name: HAPROXY_CONF
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_haproxy_conf }}"
+          o: bind
+
+    - name: Copy HAProxy conf file
+      ansible.builtin.copy:
+        src: files/haproxy.cfg
+        dest: "{{ vol_haproxy_conf }}"
+        mode: '0644'
+
+    - name: Run HAProxy container for Galera
+      community.docker.docker_container:
+        name: haproxy
+        image: haproxy:3.2-dev16-alpine3.21
+        restart_policy: always
+        volumes:
+          - HAPROXY_CONF:/usr/local/etc/haproxy/
+        ports:
+          - "3308:3308"
+        networks:
+          - name: galera_network
+          - name: app_network
+          - name: monitoring_network
+
+    - name: Check if 'db' container exists
+      community.docker.docker_container_info:
+        name: db
+      register: db_container_info
+      failed_when: false
+      changed_when: false
+
+    - name: Lock master for consistent backup
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        login_port: 3306
+        query:
+          - "FLUSH TABLES WITH READ LOCK;"
+          - "SET GLOBAL read_only = ON;"
+      when: db_container_info.exists
+
+    - name: Create dump of wordpress database
+      community.mysql.mysql_db:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        state: dump
+        name: wordpress
+        target: /data/wordpress_dump.sql
+      when: db_container_info.exists
+
+    - name: Import wordpress database to cluster
+      community.mysql.mysql_db:
+        login_port: 3308
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        name: wordpress
+        state: import
+        target: /data/wordpress_dump.sql
+      when: db_container_info.exists
+
+    - name: Start WordPress container
+      community.docker.docker_container:
+        name: wordpress
+        image: wordpress:php8.1-fpm
+        restart_policy: unless-stopped
+        env:
+          WORDPRESS_DB_HOST: haproxy:3308
+          WORDPRESS_DB_USER: "{{ db_wordpress_user }}"
+          WORDPRESS_DB_PASSWORD: "{{ db_wordpress_password }}"
+          WORDPRESS_DB_NAME: "{{ wordpress_database }}"
+        volumes:
+          - NGINX_WWW:/var/www/html
+        networks:
+          - name: app_network
+
+    - name: Remove containers replica
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        force_kill: true
+      loop:
+        - "db"
+        - "db_replica"
+
+    - name: Remove Docker volume containers replica
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - "DB_DATA"
+        - "DB_DATA_REPLICA"
+
+    - name: Remove directory replicas
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ vol_db_data }}"
+        - "{{ vol_db_data_replica }}"
+
+  handlers:
+    - name: Restart monitoring containers
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: started
+        restart: true
+      loop:
+        - prometheus
+        - grafana

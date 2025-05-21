@@ -1,13 +1,309 @@
 ---
 - name: Home work 2
   hosts: carrier
+  become: true
+  gather_facts: false
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "wordpress: {{ is_wordpress }}" # True or False
-          - "wordpress_port: {{ wordpress_port }}" # 80 or 8080 or whatewer
-          - "wordpress_db_name: {{ wordpress_db_name }}" # WP database name
-          - "db_master: {{ db_master }}" # container name
-          - "db_replica: {{ db_replica }}" # container name
-          - "db_pass: {{ db_pass }}" # root password for master and replica
+    # create replica
+    - name: Create Python virtual environment folder
+      ansible.builtin.file:
+        path: /opt/ansible_venv
+        mode: '0755'
+        state: directory
+
+    - name: Install Python modules in virtual environment
+      ansible.builtin.pip:
+        name:
+          - PyMySQL
+          - mysql-connector-python
+          - cryptography
+          - requests
+        virtualenv: "{{ venv_path }}"
+        virtualenv_command: python3 -m venv
+        state: present
+
+    - name: Set Ansible Python interpreter to virtualenv
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: "{{ venv_path }}/bin/python"
+
+    - name: Create necessary directories for replica container
+      ansible.builtin.file:
+        path: "{{ vol_db_data_replica }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create db_replica container volume
+      community.docker.docker_volume:
+        name: "DB_DATA_REPLICA"
+        driver: local
+        driver_options:
+          type: none
+          device: "{{ vol_db_data_replica }}"
+          o: bind
+
+    - name: Copy replica_mariadb.cnf
+      ansible.builtin.copy:
+        src: ./files/mariadb/replica_mariadb.cnf
+        dest: "{{ vol_db_data_replica }}/mariadb.cnf"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Start MariaDB replica container
+      community.docker.docker_container:
+        name: db_replica
+        image: mariadb:11.7.2-noble
+        restart_policy: always
+        env:
+          MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+          MARIADB_DATABASE: "{{ wordpress_database }}"
+          MARIADB_USER: "{{ db_wordpress_user }}"
+          MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+        volumes:
+          - DB_DATA_REPLICA:/var/lib/mysql:Z
+          - "{{ vol_db_data_replica }}/mariadb.cnf:/etc/mysql/mariadb.cnf:ro"
+        networks:
+          - name: app_network
+        published_ports:
+          - "3307:3306"
+        command: "--default-authentication-plugin=mysql_native_password"
+        healthcheck:
+          test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+          start_period: 60s
+          interval: 60s
+          timeout: 5s
+          retries: 3
+
+    - name: Primary status
+      community.mysql.mysql_replication:
+        login_port: 3306
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        mode: getprimary
+      register: primary_status
+
+    - name: Setup MariaDB Master
+      when:
+        - primary_status is defined
+        - not primary_status.get('Is_Primary', false)
+      block:
+        - name: Create replication user on master
+          community.mysql.mysql_user:
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            name: "{{ replication_user }}"
+            host: "%"
+            password: "{{ replication_password }}"
+            priv: "*.*:REPLICATION SLAVE"
+            state: present
+
+        - name: Copy master_mariadb.cnf
+          ansible.builtin.copy:
+            src: ./files/mariadb/master_mariadb.cnf
+            dest: "{{ vol_db_data }}/mariadb.cnf"
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Start MariaDB container
+          community.docker.docker_container:
+            name: db
+            image: mariadb:11.7.2-noble
+            restart_policy: always
+            env:
+              MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+              MARIADB_DATABASE: "{{ wordpress_database }}"
+              MARIADB_USER: "{{ db_wordpress_user }}"
+              MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+            volumes:
+              - DB_DATA:/var/lib/mysql:Z
+              - "{{ vol_db_data }}/mariadb.cnf:/etc/mysql/mariadb.cnf:ro"
+            networks:
+              - name: app_network
+            published_ports:
+              - "3306:3306"
+            command: "--default-authentication-plugin=mysql_native_password"
+            healthcheck:
+              test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+              start_period: 60s
+              interval: 60s
+              timeout: 5s
+              retries: 3
+
+      rescue:
+        - name: Log error during MariaDB master configuration
+          ansible.builtin.debug:
+            msg: "MariaDB configuration failed, restoring original config."
+
+        - name: Restart MariaDB container
+          community.docker.docker_container:
+            name: db
+            image: mariadb:11.7.2-noble
+            restart_policy: always
+            env:
+              MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+              MARIADB_DATABASE: "{{ wordpress_database }}"
+              MARIADB_USER: "{{ db_wordpress_user }}"
+              MARIADB_PASSWORD: "{{ db_wordpress_password }}"
+            volumes:
+              - DB_DATA:/var/lib/mysql:Z
+            networks:
+              - name: app_network
+            published_ports:
+              - "3306:3306"
+            command: "--default-authentication-plugin=mysql_native_password"
+            healthcheck:
+              test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+              start_period: 60s
+              interval: 60s
+              timeout: 5s
+              retries: 3
+
+        - name: Log successful restoration
+          ansible.builtin.debug:
+            msg: "MariaDB configuration inside the Docker container was restored"
+
+    - name: Wait until db_replica container is healthy
+      community.docker.docker_container_info:
+        name: db_replica
+      register: replica_info
+      retries: 10
+      delay: 5
+      until: replica_info.container.State.Health.Status == 'healthy'
+
+    - name: Replica status
+      community.mysql.mysql_replication:
+        login_port: 3307
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        mode: getreplica
+      register: replica_status
+      failed_when: false
+
+    - name: Setup MariaDB Replica
+      when:
+        - replica_status is defined
+        - not replica_status.Is_Replica
+      block:
+        - name: Get master status
+          community.mysql.mysql_replication:
+            login_port: 3306
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            mode: getprimary
+          register: mysql_primary_status
+
+        - name: Check replica status
+          community.mysql.mysql_replication:
+            login_port: 3307
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            mode: getreplica
+          register: check_replica_status
+          failed_when: false
+
+        - name: Configure replication on slave
+          community.mysql.mysql_replication:
+            login_port: 3307
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            mode: changeprimary
+            primary_host: db
+            primary_port: 3306
+            primary_user: "{{ replication_user }}"
+            primary_password: "{{ replication_password }}"
+            primary_log_file: "{{ mysql_primary_status.File }}"
+            primary_log_pos: "{{ mysql_primary_status.Position }}"
+            primary_connect_retry: 5
+          when:
+            - check_replica_status is failed or
+              not check_replica_status.Is_Replica or
+              check_replica_status.Slave_IO_Running != 'Yes' or
+              check_replica_status.Slave_SQL_Running != 'Yes'
+
+        - name: Create dump of wordpress database on master
+          community.mysql.mysql_db:
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            state: dump
+            name: wordpress
+            target: /data/wordpress_dump.sql
+
+        - name: Import wordpress database to slave
+          community.mysql.mysql_db:
+            login_port: 3307
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            name: wordpress
+            state: import
+            target: /data/wordpress_dump.sql
+
+        - name: Start slave replication
+          community.mysql.mysql_replication:
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            login_port: 3307
+            mode: startreplica
+
+        - name: Wait until db_replica container is healthy
+          community.docker.docker_container_info:
+            name: db_replica
+          register: replica_info
+          retries: 10
+          delay: 5
+          until: replica_info.container.State.Health.Status == 'healthy'
+
+        - name: Get replica status
+          community.mysql.mysql_replication:
+            login_port: 3307
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            mode: getreplica
+          register: check_replica_status
+          retries: 5
+          delay: 10
+          until:
+            - check_replica_status.Slave_IO_Running == 'Yes'
+            - check_replica_status.Slave_SQL_Running == 'Yes'
+            - check_replica_status.Last_SQL_Error == ''
+            - check_replica_status.Last_IO_Error == ''
+
+        - name: Display final replication status
+          ansible.builtin.debug:
+            msg: "{{ check_replica_status | default('Replication status not available') }}"
+
+      rescue:
+        - name: Log failure
+          ansible.builtin.debug:
+            msg: "An error occurred during replication setup"
+
+        - name: Unlock master tables, if locked
+          community.mysql.mysql_query:
+            login_port: 3306
+            login_user: root
+            login_password: "{{ db_root_password }}"
+            query: "UNLOCK TABLES;"
+          failed_when: false
+
+        - name: Remove container db_replica
+          community.docker.docker_container:
+            name: db_replica
+            state: absent
+            force_kill: true
+
+        - name: Remove Docker volume container db_replica
+          community.docker.docker_volume:
+            name: "DB_DATA_REPLICA"
+            state: absent
+
+        - name: Remove directory db_replica
+          ansible.builtin.file:
+            path: "{{ vol_db_data_replica }}"
+            state: absent
+
+      always:
+        - name: Remove dump file
+          ansible.builtin.file:
+            path: /data/wordpress_dump.sql
+            state: absent
+          failed_when: false
