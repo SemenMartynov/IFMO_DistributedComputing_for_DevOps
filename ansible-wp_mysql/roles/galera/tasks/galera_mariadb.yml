@@ -17,7 +17,7 @@
     env:
       MARIADB_USER: "{{ db_user }}"
       MARIADB_PASSWORD: "{{ db_password }}"
-      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
       MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
       MARIADB_GALERA_CLASTER_ADDRESS: "gcomm://"
@@ -46,8 +46,8 @@
   community.mysql.mysql_db:
     login_host: "{{ mariadb_bootstrap_ip }}"
     login_port: 3306
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
+    login_user: "{{ db_root_user }}"
+    login_password: "{{ db_root_password }}"
     name: "{{ db_name }}"
     state: import
     target: "{{ db_dump_path }}"
@@ -71,7 +71,7 @@
     env:
       MARIADB_USER: "{{ db_user }}"
       MARIADB_PASSWORD: "{{ db_password }}"
-      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
       MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
       MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
@@ -98,7 +98,7 @@
     env:
       MARIADB_USER: "{{ db_user }}"
       MARIADB_PASSWORD: "{{ db_password }}"
-      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
       MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
       MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
@@ -125,7 +125,7 @@
     env:
       MARIADB_USER: "{{ db_user }}"
       MARIADB_PASSWORD: "{{ db_password }}"
-      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
       MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
       MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
@@ -152,7 +152,7 @@
     env:
       MARIADB_USER: "{{ db_user }}"
       MARIADB_PASSWORD: "{{ db_password }}"
-      MARIADB_ROOT_PASSWORD: "{{ db_password }}"
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
       MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
       MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"

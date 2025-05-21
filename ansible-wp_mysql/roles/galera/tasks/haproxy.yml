@@ -4,8 +4,8 @@
     password: ""
     host: "%"
     priv: "mysql.*:USAGE"
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
+    login_user: "{{ db_root_user }}"
+    login_password: "{{ db_root_password }}"
     login_host: "{{ mariadb_bootstrap_ip }}"
     # login_host: "{{ mariadb_bootstrap.container.NetworkSettings.Networks.wp-network.IPAddress }}"
     state: present

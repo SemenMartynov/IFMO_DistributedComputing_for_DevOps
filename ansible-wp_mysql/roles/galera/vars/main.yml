@@ -4,8 +4,10 @@ db_image: bitnami/mariadb-galera:latest
 db_host: 127.0.0.1
 db_port: 3306
 db_name: mysql_db
-db_user: root
-db_password: rootpass
+db_user: user
+db_password: password
+db_root_user: root
+db_root_password: rootpassword
 db_dump_path: "/tmp/dump.sql"
 galera_cluster: galera_cluster
 galera_cluster_address: gcomm://mariadb_1,mariadb_2,mariadb_3,mariadb_4,mariadb_5
