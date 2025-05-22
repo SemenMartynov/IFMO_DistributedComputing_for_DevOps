@@ -69,18 +69,17 @@
         mode: '0755'
       become: true
 
+    - name: Remove existing Docker Compose
+      ansible.builtin.file:
+        path: /usr/libexec/docker/cli-plugins/docker-compose
+        state: absent
+      become: true
+
     - name: Download Docker Compose V2
       ansible.builtin.get_url:
         url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
-        dest: /usr/local/bin/docker-compose
-        mode: '0755'
-      become: true
-
-    - name: Create symlink for Docker Compose
-      ansible.builtin.file:
-        src: /usr/local/bin/docker-compose
         dest: /usr/libexec/docker/cli-plugins/docker-compose
-        state: link
+        mode: '0755'
       become: true
 
     - name: Verify Docker Compose installation
