@@ -14,12 +14,6 @@
       - acl
     state: present
 
-- name: Ensure ACL is installed
-  ansible.builtin.apt:
-    name: acl
-    state: present
-  become: true
-
 - name: Add the PostgreSQL 17 GPG key
   ansible.builtin.apt_key:
     url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
@@ -42,15 +36,6 @@
     name: postgresql
     state: started
     enabled: true
-
-- name: Set ACL on temporary directory /var/tmp for user postgres
-  ansible.posix.acl:
-    path: /var/tmp
-    entity: postgres
-    etype: user
-    permissions: rx
-    state: present
-  become: true
 
 - name: Allow full access from 127.0.0.1/32 for all users
   become: true

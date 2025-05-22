@@ -23,16 +23,6 @@
     path: /var/lib/postgresql/17/main
   register: backup_dir
 
-- name: Check replication slot
-  become: true
-  become_user: postgres
-  community.postgresql.postgresql_slot:
-    name: my_slot
-    state: present
-    login_user: postgres
-  register: slot_check
-  when: backup_dir.stat.exists
-
 - name: Start pg_basebackup
   become: true
   become_user: postgres
@@ -42,7 +32,6 @@
     creates: /var/lib/postgresql/17/main  # Защита от повторного запуска
   when:
     - not backup_dir.stat.exists
-    - not (slot_check.slot_exists | default(false) | bool)
 
 - name: Create standby.signal file
   ansible.builtin.file:

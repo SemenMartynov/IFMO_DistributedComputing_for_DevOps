@@ -1,52 +1,9 @@
-# - name: Создать Docker-сеть для мониторинга
-#   community.docker.docker_network:
-#     name: monitoring_net
-#     driver: bridge
-
-# - name: Убедиться, что директория для конфигов Prometheus существует
-#   ansible.builtin.file:
-#     path: "/opt/prometheus"
-#     state: directory
-#     owner: root
-#     group: root
-#     mode: "0755"
-
-# - name: Создать prometheus.yml
-#   ansible.builtin.copy:
-#     dest: "/opt/prometheus/prometheus.yml"
-#     content: |
-#       global:
-#         scrape_interval: 15s
-#         evaluation_interval: 15s
-#       scrape_configs:
-#         - job_name: 'postgres_exporter'
-#           static_configs:
-#             - targets:
-#               - '192.168.56.20:9187'  # Существующий таргет
-#               - '192.168.56.30:9187'  # Новый таргет
-#     owner: root
-#     group: root
-#     mode: '0644'
-
-# - name: Запустить Prometheus в Docker
-#   community.docker.docker_container:
-#     name: "prometheus"
-#     image: "prom/prometheus"
-#     state: started
-#     restart_policy: always
-#     networks:
-#       - name: monitoring_net
-#     ports:
-#       - "9090:9090"
-#     volumes:
-#       - "/opt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
-
-- name: Создать Docker-сеть для мониторинга
+- name: Create Docker network
   community.docker.docker_network:
     name: monitoring_net
     driver: bridge
 
-- name: Убедиться, что директория для конфигов Prometheus существует
+- name: Check if Prometheus config directory exists
   ansible.builtin.file:
     path: "/opt/prometheus"
     state: directory
@@ -54,7 +11,7 @@
     group: root
     mode: "0755"
 
-- name: Генерировать prometheus.yml из шаблона
+- name: Generate prometheus.yml from j2 template
   ansible.builtin.template:
     src: "prometheus.yml.j2"
     dest: "/opt/prometheus/prometheus.yml"
@@ -62,7 +19,7 @@
     group: root
     mode: "0644"
 
-- name: Запустить Prometheus в Docker
+- name: Start Prometheus in Docker
   community.docker.docker_container:
     name: "prometheus"
     image: "prom/prometheus"

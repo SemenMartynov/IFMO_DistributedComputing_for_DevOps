@@ -1,4 +1,4 @@
-- name: Создать директорию для Grafana provisioning
+- name: Create Grafana directory
   ansible.builtin.file:
     path: /opt/grafana/provisioning/datasources
     state: directory
@@ -7,7 +7,7 @@
     mode: "0755"
     recurse: true
 
-- name: Создать datasource для Prometheus
+- name: Create Prometheus datasource
   ansible.builtin.copy:
     dest: /opt/grafana/provisioning/datasources/prometheus.yml
     content: |
@@ -22,7 +22,7 @@
     group: root
     mode: "0644"
 
-- name: Создать директорию для dashboard JSON
+- name: Create dir for JSON dashboard 
   ansible.builtin.file:
     path: /opt/grafana/dashboards
     state: directory
@@ -31,13 +31,13 @@
     mode: "0755"
 
 # Используем локальный файл вместо скачивания
-- name: Скопировать JSON дашборда PostgreSQL
+- name: Copy JSON dashboard PostgreSQL
   ansible.builtin.copy:
     src: ../files/postgres_dashboard.json  # noqa
     dest: /opt/grafana/dashboards/postgres_dashboard.json
     mode: "0644"
 
-- name: Создать директорию для provisioning dashboards
+- name: Create dir fot provisioning dashboards
   ansible.builtin.file:
     path: /opt/grafana/provisioning/dashboards
     state: directory
@@ -46,7 +46,7 @@
     mode: "0755"
     recurse: true
 
-- name: Создать provisioning для dashboard
+- name: Create dashboard provisioning
   ansible.builtin.copy:
     dest: /opt/grafana/provisioning/dashboards/dashboard.yml
     content: |
@@ -64,7 +64,7 @@
     group: root
     mode: "0644"
 
-- name: Запустить Grafana в Docker
+- name: Start Grafana in Docker
   community.docker.docker_container:
     name: "grafana"
     image: "grafana/grafana-oss"
