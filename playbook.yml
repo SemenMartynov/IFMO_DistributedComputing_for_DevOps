@@ -59,9 +59,27 @@
           - lsb-release
           - software-properties-common
           - docker.io
-          - docker-compose
         state: present
         update_cache: true
+
+    - name: Create Docker plugins directory
+      ansible.builtin.file:
+        path: /usr/libexec/docker/cli-plugins
+        state: directory
+        mode: '0755'
+      become: true
+
+    - name: Install Docker Compose V2
+      ansible.builtin.get_url:
+        url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
+        dest: /usr/libexec/docker/cli-plugins/docker-compose
+        mode: '0755'
+      become: true
+
+    - name: Install community.docker collection
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install community.docker
+      become: true
 
     - name: Create docker group
       ansible.builtin.group:
