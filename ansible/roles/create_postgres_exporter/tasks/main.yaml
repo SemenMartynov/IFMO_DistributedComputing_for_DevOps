@@ -1,0 +1,26 @@
+- name: Ensure PostgreSQL 17 is installed
+  ansible.builtin.apt:
+    name: postgresql-17
+    state: present
+
+- name: Create postgres_exporter user
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.sudo
+  community.postgresql.postgresql_user:
+    name: postgres_exporter
+    password: postgres_exporter
+    state: present
+    host: 127.0.0.1
+    port: 5432
+    login_user: postgres
+    login_password: ""
+
+- name: Add postgres_exporter to "pg_monitor" group
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.sudo
+  community.postgresql.postgresql_membership:
+    group: pg_monitor
+    target_role: postgres_exporter
+    state: present

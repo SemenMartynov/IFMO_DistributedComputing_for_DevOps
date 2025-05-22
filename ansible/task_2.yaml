@@ -1,0 +1,33 @@
+- name: "PostgreSQL installation"
+  hosts: node2-postgresql
+  become: true
+  roles:
+    - postgresql_install
+
+- name: Allow access from node 1 to node 2
+  hosts: node2-postgresql
+  become: true
+  vars_files:
+    - roles/append_pg_hba/vars/main.yaml
+  roles:
+    - role: append_pg_hba
+      vars:
+        append_pg_hba_allow_network: "{{ append_pg_hba_node1_replication.allow_network }}"
+        append_pg_hba_entry: "{{ append_pg_hba_node1_replication.entry }}"
+
+- name: Allow access from node 2 to node 1
+  hosts: node1-postgresql
+  become: true
+  vars_files:
+    - roles/append_pg_hba/vars/main.yaml
+  roles:
+    - role: append_pg_hba
+      vars:
+        append_pg_hba_allow_network: "{{ append_pg_hba_node2_replication.allow_network }}"
+        append_pg_hba_entry: "{{ append_pg_hba_node2_replication.entry }}"
+
+- name: PostgreSQL setup replica
+  hosts: node2-postgresql
+  become: true
+  roles:
+    - setup_replica

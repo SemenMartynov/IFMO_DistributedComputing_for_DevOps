@@ -1,0 +1,82 @@
+- name: Create Grafana directory
+  ansible.builtin.file:
+    path: /opt/grafana/provisioning/datasources
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+    recurse: true
+
+- name: Create Prometheus datasource
+  ansible.builtin.copy:
+    dest: /opt/grafana/provisioning/datasources/prometheus.yml
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          isDefault: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create dir for JSON dashboard 
+  ansible.builtin.file:
+    path: /opt/grafana/dashboards
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Используем локальный файл вместо скачивания
+- name: Copy JSON dashboard PostgreSQL
+  ansible.builtin.copy:
+    src: ../files/postgres_dashboard.json  # noqa
+    dest: /opt/grafana/dashboards/postgres_dashboard.json
+    mode: "0644"
+
+- name: Create dir fot provisioning dashboards
+  ansible.builtin.file:
+    path: /opt/grafana/provisioning/dashboards
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+    recurse: true
+
+- name: Create dashboard provisioning
+  ansible.builtin.copy:
+    dest: /opt/grafana/provisioning/dashboards/dashboard.yml
+    content: |
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start Grafana in Docker
+  community.docker.docker_container:
+    name: "grafana"
+    image: "grafana/grafana-oss"
+    state: started
+    restart_policy: always
+    networks:
+      - name: monitoring_net
+    ports:
+      - "3000:3000"
+    volumes:
+      - "/opt/grafana/provisioning:/etc/grafana/provisioning:ro"
+      - "/opt/grafana/dashboards:/var/lib/grafana/dashboards:ro"
+    env:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
