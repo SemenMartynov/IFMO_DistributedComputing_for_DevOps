@@ -59,6 +59,7 @@
           - lsb-release
           - software-properties-common
           - docker.io
+          - docker-compose
         state: present
         update_cache: true
 
@@ -84,7 +85,7 @@
 
     - name: Verify Docker Compose installation
       ansible.builtin.command:
-        cmd: docker compose version
+        cmd: docker-compose --version
       register: compose_version
       changed_when: false
       failed_when: false
@@ -166,7 +167,7 @@
 
     - name: Управление основным Docker Compose стеком
       ansible.builtin.command:
-        cmd: docker compose -f {{ project_dir }}/docker-compose.yml up -d
+        cmd: docker-compose -f {{ project_dir }}/docker-compose.yml up -d
       become: true
       args:
         chdir: "{{ project_dir }}"
@@ -179,7 +180,7 @@
 
     - name: Управление стеком мониторинга
       ansible.builtin.command:
-        cmd: docker compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
+        cmd: docker-compose -f {{ project_dir }}/docker-compose-monitoring.yml up -d
       become: true
       args:
         chdir: "{{ project_dir }}"
