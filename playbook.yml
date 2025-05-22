@@ -175,6 +175,7 @@
         files:
           - docker-compose.yml
         state: present
+        remove_orphans: true
       become: true
 
     - name: Шаблонизировать docker-compose-monitoring.yml
@@ -189,5 +190,6 @@
         files:
           - docker-compose-monitoring.yml
         state: present
+        remove_orphans: true
       become: true
  
