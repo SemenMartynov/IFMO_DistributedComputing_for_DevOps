@@ -10,7 +10,7 @@ services:
       MYSQL_PASSWORD: wp_password
     volumes:
       - master_data:/var/lib/mysql
-      - ./master.conf:/etc/mysql/conf.d/master.conf
+      - ./master.conf:/etc/mysql/my.cnf
     networks:
       - wordpress_network
 
@@ -27,7 +27,7 @@ services:
       - mysql_master
     volumes:
       - replica_data:/var/lib/mysql
-      - ./replica.conf:/etc/mysql/conf.d/replica.conf
+      - ./replica.conf:/etc/mysql/my.cnf
     networks:
       - wordpress_network
 
