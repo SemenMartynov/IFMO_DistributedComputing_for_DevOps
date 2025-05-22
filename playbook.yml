@@ -135,6 +135,15 @@
         owner: "{{ project_user }}"
         group: "{{ project_group }}"
 
+    - name: Create ansible tmp directory for project user
+      ansible.builtin.file:
+        path: "{{ project_home }}/.ansible/tmp"
+        state: directory
+        mode: "0o700"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        recurse: true
+
     - name: Create .env file
       ansible.builtin.copy:
         content: |
@@ -170,16 +179,13 @@
         mode: "0o644"
 
     - name: Управление основным Docker Compose стеком
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        files:
-          - docker-compose.yml
-        state: present
-        remove_orphans: true
-        recreate: always
-        pull: true
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose.yml up -d --remove-orphans
       become: true
       become_user: "{{ project_user }}"
+      register: docker_compose_result
+      changed_when: docker_compose_result.rc == 0 and docker_compose_result.stdout != ""
+      args:
+        executable: /bin/bash
 
     - name: Шаблонизировать docker-compose-monitoring.yml
       ansible.builtin.template:
@@ -188,14 +194,11 @@
         mode: "0o644"
 
     - name: Управление стеком мониторинга
-      community.docker.docker_compose:
-        project_src: "{{ project_dir }}"
-        files:
-          - docker-compose-monitoring.yml
-        state: present
-        remove_orphans: true
-        recreate: always
-        pull: true
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose-monitoring.yml up -d --remove-orphans
       become: true
       become_user: "{{ project_user }}"
+      register: monitoring_compose_result
+      changed_when: monitoring_compose_result.rc == 0 and monitoring_compose_result.stdout != ""
+      args:
+        executable: /bin/bash
  
