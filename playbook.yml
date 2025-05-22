@@ -1,4 +1,21 @@
 ---
+- name: Setup sudo access
+  hosts: wordpress_servers
+  become: true
+  tasks:
+    - name: Add current user to sudo group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: sudo
+        append: true
+
+    - name: Set up sudo for current user
+      ansible.builtin.copy:
+        content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL"
+        dest: "/etc/sudoers.d/{{ ansible_user }}"
+        mode: "0o440"
+        validate: /usr/sbin/visudo -cf %s
+
 - name: Setup ansible user
   hosts: wordpress_servers
   become: true
