@@ -1,0 +1,121 @@
+- name: Install python3-pymysql
+  ansible.builtin.apt:
+    name: python3-pymysql
+    state: present
+    update_cache: true
+
+- name: Prepare project dir
+  ansible.builtin.file:
+    path: "{{ wordpress_setup_project_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Dockerfiles
+  ansible.builtin.copy:
+    src: files/
+    dest: "{{ wordpress_setup_project_dir }}"
+    mode: '0755'
+
+- name: Copy .env
+  ansible.builtin.template:
+    src: ".env.j2"
+    dest: "{{ wordpress_setup_project_dir }}/.env"
+    mode: "0755"
+
+- name: Build Docker image from local Dockerfile
+  community.docker.docker_image_build:
+    name: "{{ item.name }}:v1.1"
+    path: "{{ wordpress_setup_project_dir }}"
+    dockerfile: "{{ item.dockerfile }}"
+  loop:
+    - { name: "{{ wordpress_setup_db_master_container }}", dockerfile: "Dockerfile.db_master" }
+    - { name: "{{ wordpress_setup_db_slave_container }}", dockerfile: "Dockerfile.db_slave" }
+
+- name: Create Docker Network
+  community.docker.docker_network:
+    name: "{{ wordpress_setup_network }}"
+
+- name: Create Docker a volumes
+  community.docker.docker_volume:
+    name: "wordpress_data"
+
+- name: Start WordPress container
+  community.docker.docker_container:
+    name: "{{ wordpress_setup_container }}"
+    image: "wordpress:latest"
+    state: started
+    env_file: "{{ wordpress_setup_project_dir }}/.env"
+    ports:
+      - "8081:80"
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - name: "{{ wordpress_setup_network }}"
+
+- name: Start Database containers
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: "{{ item.name }}:v1.1"
+    state: started
+    env_file: "{{ wordpress_setup_project_dir }}/.env"
+    ports:
+      - "{{ item.port }}:3306"
+    networks:
+      - name: "{{ wordpress_setup_network }}"
+  loop:
+    - { name: "{{ wordpress_setup_db_master_container }}", port: 3301 }
+    - { name: "{{ wordpress_setup_db_slave_container }}", port: 3302 }
+
+- name: Wait for MySQL to be up on master
+  ansible.builtin.wait_for:
+    host: "{{ wordpress_setup_remote_host }}"
+    port: 3301
+    delay: 10
+    state: started
+
+- name: Wait for MySQL to be up on slave
+  ansible.builtin.wait_for:
+    host: "{{ wordpress_setup_remote_host }}"
+    port: 3302
+    delay: 10
+    state: started
+
+- name: Create replication user on master
+  community.mysql.mysql_user:
+    name: "{{ wordpress_setup_mysql_replication_user }}"
+    password: "{{ wordpress_setup_mysql_replication_password }}"
+    host: '%'
+    priv: '*.*:REPLICATION SLAVE'
+    login_host: "{{ wordpress_setup_remote_host }}"
+    login_port: 3301
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    state: present
+
+- name: Get master status
+  community.mysql.mysql_query:
+    login_host: "{{ wordpress_setup_remote_host }}"
+    login_port: 3301
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    query: "SHOW MASTER STATUS"
+  register: wordpress_setup_master_status
+
+- name: Setup MySQL Replication
+  community.mysql.mysql_replication:
+    login_host: "{{ wordpress_setup_remote_host }}"
+    login_port: 3302
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    mode: changeprimary
+    primary_host: wordpress_db_master
+    primary_log_file: "{{ wordpress_setup_master_status.query_result[0][0].File }}"
+    primary_log_pos: "{{ wordpress_setup_master_status.query_result[0][0].Position }}"
+
+- name: Start MySQL Slave
+  community.mysql.mysql_replication:
+    login_host: "{{ wordpress_setup_remote_host }}"
+    login_port: 3302
+    login_user: root
+    login_password: "{{ wordpress_setup_mysql_root_password }}"
+    mode: startreplica

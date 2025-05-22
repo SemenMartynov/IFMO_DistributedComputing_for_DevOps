@@ -1,0 +1,22 @@
+---
+# Where will be store docker files
+wordpress_setup_project_dir: '/opt/wordpress/'
+
+# Container names
+wordpress_setup_db_master_container: 'wordpress_db_master'
+wordpress_setup_db_slave_container: 'wordpress_db_slave'
+wordpress_setup_container: 'wordpress_app'
+
+# Mysql vars
+wordpress_setup_remote_host: '127.0.0.1'
+wordpress_setup_mysql_root_password: 'example_password'
+wordpress_setup_mysql_database: 'wordpress'
+wordpress_setup_mysql_user: 'wordpress_user'
+wordpress_setup_mysql_password: 'wordpress_password'
+wordpress_setup_mysql_replication_user: 'example_replication_user'
+wordpress_setup_mysql_replication_password: 'example_replication_password'
+wordpress_setup_db_host: 'wordpress_db_master:3306'
+wordpress_setup_db_name: 'wordpress'
+wordpress_setup_db_user: 'wordpress_user'
+wordpress_setup_db_password: 'wordpress_password'
+wordpress_setup_network: "network_name"

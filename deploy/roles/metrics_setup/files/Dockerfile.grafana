@@ -1,0 +1,7 @@
+FROM grafana/grafana-enterprise:latest
+
+COPY ./datasource.yml /etc/grafana/provisioning/datasources/datasource.yml
+COPY ./dashboards.yml /etc/grafana/provisioning/dashboards/dashboards.yml
+
+RUN mkdir -p /var/lib/grafana/dashboards
+COPY ./dashboard_* /var/lib/grafana/dashboards/

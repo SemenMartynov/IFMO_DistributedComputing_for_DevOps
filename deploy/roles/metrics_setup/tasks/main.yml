@@ -1,0 +1,85 @@
+---
+- name: Prepare project dir
+  ansible.builtin.file:
+    path: "{{ metrics_setup_project_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Dockerfiles
+  ansible.builtin.copy:
+    src: files/
+    dest: "{{ metrics_setup_project_dir }}"
+    mode: '0755'
+
+- name: Create Docker Network
+  community.docker.docker_network:
+    name: "{{ metrics_setup_network }}"
+
+- name: Copy Prometheus and Grafana configs
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ metrics_setup_project_dir }}/{{ item.dest }}"
+    mode: "0755"
+  loop:
+    - { src: "prometheus.yml.j2", dest: "prometheus.yml" }
+    - { src: "datasource.yml.j2", dest: "datasource.yml" }
+
+- name: Build local containers
+  community.docker.docker_image_build:
+    name: "{{ item.name }}:v1.1"
+    path: "{{ metrics_setup_project_dir }}"
+    dockerfile: "{{ item.dockerfile }}"
+  loop:
+    - { name: "{{ metrics_setup_prometheus_container }}", dockerfile: "Dockerfile.prometheus" }
+    - { name: "{{ metrics_setup_grafana_container }}", dockerfile: "Dockerfile.grafana" }
+
+- name: Start Prometheus and Grafana containers
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: "{{ item.name }}:v1.1"
+    state: started
+    ports:
+      - "{{ item.port }}:{{ item.port }}"
+    networks:
+      - name: "{{ metrics_setup_network }}"
+  loop:
+    - { name: "{{ metrics_setup_prometheus_container }}", port: "9090" }
+    - { name: "{{ metrics_setup_grafana_container }}", port: "3000" }
+
+- name: Start cAdvisor container
+  community.docker.docker_container:
+    name: "{{ metrics_setup_cadvisor_container }}"
+    image: "gcr.io/cadvisor/cadvisor:latest"
+    state: started
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+    networks:
+      - name: "{{ metrics_setup_network }}"
+
+- name: Create exporter user MySQL
+  community.mysql.mysql_user:
+    name: "{{ metrics_setup_mysql_exporter_user }}"
+    password: "{{ metrics_setup_mysql_exporter_user_password }}"
+    host: "%"
+    priv: '*.*:SELECT'
+    login_host: "{{ metrics_setup_remote_host }}"
+    login_port: 3301
+    login_user: root
+    login_password: "{{ metrics_setup_mysql_root_password }}"
+    state: present
+
+- name: Start MySQL exporter
+  community.docker.docker_container:
+    name: "{{ metrics_setup_mysql_container }}"
+    image: "prom/mysqld-exporter:latest"
+    state: started
+    command: ["--mysqld.username=exporter:example_password",
+              "--mysqld.address=wordpress_db_master:3306",
+              "--collect.info_schema.replica_host",
+              "--collect.slave_status",
+              "--collect.slave_hosts"]
+    networks:
+      - name: "{{ metrics_setup_network }}"

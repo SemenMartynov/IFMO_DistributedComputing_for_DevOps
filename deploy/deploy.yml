@@ -1,0 +1,11 @@
+---
+- name: "Deploy docker and start containers with metrics"
+  hosts: all
+  become: true
+  roles:
+    - role: docker_setup
+      tags: ['docker']
+    - role: wordpress_setup
+      tags: ['wp']
+    - role: metrics_setup
+      tags: ['metrics']
