@@ -111,12 +111,6 @@
     primary_host: wordpress_db_master
     primary_log_file: "{{ wordpress_setup_master_status.query_result[0][0].File }}"
     primary_log_pos: "{{ wordpress_setup_master_status.query_result[0][0].Position }}"
-    # mode: changemaster
-    # master_host: wordpress_db_master
-    # master_user: "{{ wordpress_setup_mysql_replication_user }}"
-    # master_password: "{{ wordpress_setup_mysql_replication_password }}"
-    # master_log_file: "{{ wordpress_setup_master_status.query_result[0][0].File }}"
-    # master_log_pos: "{{ wordpress_setup_master_status.query_result[0][0].Position }}"
 
 - name: Start MySQL Slave
   community.mysql.mysql_replication:
