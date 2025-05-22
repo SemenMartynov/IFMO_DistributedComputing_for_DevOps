@@ -126,7 +126,8 @@
           - -p{{ wordpress_db_root_password }}
           - -e
           - >
-            CREATE USER IF NOT EXISTS '{{ repl_user }}'@'%' IDENTIFIED BY '{{ repl_password }}';
+            DROP USER IF EXISTS '{{ repl_user }}'@'%';
+            CREATE USER IF NOT EXISTS '{{ repl_user }}'@'%' IDENTIFIED WITH sha256_password BY '{{ repl_password }}';
             GRANT REPLICATION SLAVE ON *.* TO '{{ repl_user }}'@'%';
             FLUSH PRIVILEGES;
       register: create_replication_user_result
