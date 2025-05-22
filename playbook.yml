@@ -179,7 +179,7 @@
         mode: "0o644"
 
     - name: Управление основным Docker Compose стеком
-      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose.yml up -d --remove-orphans
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: docker_compose_result
@@ -194,7 +194,7 @@
         mode: "0o644"
 
     - name: Управление стеком мониторинга
-      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose-monitoring.yml up -d --remove-orphans
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose-monitoring.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: monitoring_compose_result
