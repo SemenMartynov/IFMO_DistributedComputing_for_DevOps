@@ -41,6 +41,8 @@
           - gnupg
           - lsb-release
           - software-properties-common
+          - docker.io
+          - docker-compose
         state: present
         update_cache: true
 
