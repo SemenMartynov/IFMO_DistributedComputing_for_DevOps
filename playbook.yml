@@ -41,6 +41,8 @@
           - gnupg
           - lsb-release
           - software-properties-common
+          - docker.io
+          - docker-compose-plugin
         state: present
         update_cache: true
 
@@ -54,6 +56,7 @@
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
         state: present
         filename: docker
+        update_cache: true
 
     - name: Install Docker and Docker Compose plugin
       ansible.builtin.apt:
