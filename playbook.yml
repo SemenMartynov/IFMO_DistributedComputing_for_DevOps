@@ -176,7 +176,10 @@
           - docker-compose.yml
         state: present
         remove_orphans: true
+        recreate: always
+        pull: true
       become: true
+      become_user: "{{ project_user }}"
 
     - name: Шаблонизировать docker-compose-monitoring.yml
       ansible.builtin.template:
@@ -191,5 +194,8 @@
           - docker-compose-monitoring.yml
         state: present
         remove_orphans: true
+        recreate: always
+        pull: true
       become: true
+      become_user: "{{ project_user }}"
  
