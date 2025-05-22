@@ -11,6 +11,7 @@ services:
     volumes:
       - master_data:/var/lib/mysql
       - ./master.conf:/etc/mysql/conf.d/master.conf
+      - /etc/ssl/wordpress:/etc/ssl/wordpress
     networks:
       - wordpress_network
 
@@ -28,6 +29,7 @@ services:
     volumes:
       - replica_data:/var/lib/mysql
       - ./replica.conf:/etc/mysql/conf.d/replica.conf
+      - /etc/ssl/wordpress:/etc/ssl/wordpress
     networks:
       - wordpress_network
 
