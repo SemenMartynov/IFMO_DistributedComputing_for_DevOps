@@ -5,10 +5,10 @@ services:
     image: bitnami/mysql:8.0
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+      - MYSQL_DATABASE={{ mysql_database }}
+      - MYSQL_USER={{ mysql_user }}
+      - MYSQL_PASSWORD={{ mysql_password }}
       - MYSQL_REPLICATION_MODE=master
       - MYSQL_REPLICATION_USER=repl_user
       - MYSQL_REPLICATION_PASSWORD=repl_password
@@ -21,16 +21,16 @@ services:
     image: bitnami/mysql:8.0
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+      - MYSQL_DATABASE={{ mysql_database }}
+      - MYSQL_USER={{ mysql_user }}
+      - MYSQL_PASSWORD={{ mysql_password }}
       - MYSQL_REPLICATION_MODE=slave
       - MYSQL_REPLICATION_USER=repl_user
       - MYSQL_REPLICATION_PASSWORD=repl_password
       - MYSQL_MASTER_HOST=node1
       - MYSQL_MASTER_PORT_NUMBER=3306
-      - MYSQL_MASTER_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_MASTER_ROOT_PASSWORD={{ mysql_root_password }}
     volumes:
       - mysql_node2_data:/bitnami/mysql/data
     networks:
@@ -42,16 +42,16 @@ services:
     image: bitnami/mysql:8.0
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+      - MYSQL_DATABASE={{ mysql_database }}
+      - MYSQL_USER={{ mysql_user }}
+      - MYSQL_PASSWORD={{ mysql_password }}
       - MYSQL_REPLICATION_MODE=slave
       - MYSQL_REPLICATION_USER=repl_user
       - MYSQL_REPLICATION_PASSWORD=repl_password
       - MYSQL_MASTER_HOST=node1
       - MYSQL_MASTER_PORT_NUMBER=3306
-      - MYSQL_MASTER_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_MASTER_ROOT_PASSWORD={{ mysql_root_password }}
     volumes:
       - mysql_node3_data:/bitnami/mysql/data
     networks:
@@ -70,9 +70,9 @@ services:
     restart: always
     environment:
       WORDPRESS_DB_HOST: node1
-      WORDPRESS_DB_USER: ${MYSQL_USER}
-      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
-      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: {{ mysql_user }}
+      WORDPRESS_DB_PASSWORD: {{ mysql_password }}
+      WORDPRESS_DB_NAME: {{ mysql_database }}
     volumes:
       - wordpress_data:/var/www/html
     networks:
@@ -81,7 +81,7 @@ services:
   mysqld_exporter_node1:
     image: prom/mysqld-exporter:latest
     environment:
-      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node1:3306)/
+      - DATA_SOURCE_NAME=wordpress:{{ mysql_password }}@tcp(node1:3306)/
     depends_on:
       - node1
     networks:
@@ -90,7 +90,7 @@ services:
   mysqld_exporter_node2:
     image: prom/mysqld-exporter:latest
     environment:
-      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node2:3306)/
+      - DATA_SOURCE_NAME=wordpress:{{ mysql_password }}@tcp(node2:3306)/
     depends_on:
       - node2
     networks:
@@ -99,7 +99,7 @@ services:
   mysqld_exporter_node3:
     image: prom/mysqld-exporter:latest
     environment:
-      - DATA_SOURCE_NAME=wordpress:${MYSQL_PASSWORD}@tcp(node3:3306)/
+      - DATA_SOURCE_NAME=wordpress:{{ mysql_password }}@tcp(node3:3306)/
     depends_on:
       - node3
     networks:
