@@ -18,9 +18,9 @@
 
 - name: Copy .env
   ansible.builtin.template:
-    src: "templates/.env.j2"
+    src: ".env.j2"
     dest: "{{ wordpress_setup_project_dir }}/.env"
-    mode: '0755'
+    mode: "0755"
 
 - name: Build Docker image from local Dockerfile
   community.docker.docker_image_build:
@@ -33,7 +33,7 @@
 
 - name: Create Docker Network
   community.docker.docker_network:
-    name: wordpress_network
+    name: "{{ wordpress_setup_network }}"
 
 - name: Create Docker a volumes
   community.docker.docker_volume:
@@ -47,10 +47,10 @@
     env_file: "{{ wordpress_setup_project_dir }}/.env"
     ports:
       - "8081:80"
-    networks:
-      - name: wordpress_network
     volumes:
       - wordpress_data:/var/www/html
+    networks:
+      - name: "{{ wordpress_setup_network }}"
 
 - name: Start Database containers
   community.docker.docker_container:
@@ -61,7 +61,7 @@
     ports:
       - "{{ item.port }}:3306"
     networks:
-      - name: wordpress_network
+      - name: "{{ wordpress_setup_network }}"
   loop:
     - { name: "{{ wordpress_setup_db_master_container }}", port: 3301 }
     - { name: "{{ wordpress_setup_db_slave_container }}", port: 3302 }
@@ -101,32 +101,27 @@
     query: "SHOW MASTER STATUS"
   register: wordpress_setup_master_status
 
-- name: Set Up Slave
-  community.mysql.mysql_query:
+- name: Setup MySQL Replication
+  community.mysql.mysql_replication:
     login_host: "{{ wordpress_setup_remote_host }}"
     login_port: 3302
     login_user: root
     login_password: "{{ wordpress_setup_mysql_root_password }}"
-    query: STOP SLAVE
+    mode: changeprimary
+    primary_host: wordpress_db_master
+    primary_log_file: "{{ wordpress_setup_master_status.query_result[0][0].File }}"
+    primary_log_pos: "{{ wordpress_setup_master_status.query_result[0][0].Position }}"
+    # mode: changemaster
+    # master_host: wordpress_db_master
+    # master_user: "{{ wordpress_setup_mysql_replication_user }}"
+    # master_password: "{{ wordpress_setup_mysql_replication_password }}"
+    # master_log_file: "{{ wordpress_setup_master_status.query_result[0][0].File }}"
+    # master_log_pos: "{{ wordpress_setup_master_status.query_result[0][0].Position }}"
 
-- name: Change master MySQL
-  community.mysql.mysql_query:
+- name: Start MySQL Slave
+  community.mysql.mysql_replication:
     login_host: "{{ wordpress_setup_remote_host }}"
     login_port: 3302
     login_user: root
     login_password: "{{ wordpress_setup_mysql_root_password }}"
-    query: >
-      CHANGE MASTER TO
-      MASTER_HOST='wordpress_db_master',
-      MASTER_USER='{{ wordpress_setup_mysql_replication_user }}',
-      MASTER_PASSWORD='{{ wordpress_setup_mysql_replication_password }}',
-      MASTER_LOG_FILE='{{ wordpress_setup_master_status.query_result[0][0].File }}',
-      MASTER_LOG_POS={{ wordpress_setup_master_status.query_result[0][0].Position }}
-
-- name: Start slave MySQL
-  community.mysql.mysql_query:
-    login_host: "{{ wordpress_setup_remote_host }}"
-    login_port: 3302
-    login_user: root
-    login_password: "{{ wordpress_setup_mysql_root_password }}"
-    query: START SLAVE
+    mode: startreplica

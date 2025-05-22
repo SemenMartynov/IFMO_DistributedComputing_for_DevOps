@@ -1,0 +1,16 @@
+# Containers names
+metrics_setup_project_dir: "/opt/metrics"
+metrics_setup_prometheus_container: "prometheus_container"
+metrics_setup_grafana_container: "grafana_container"
+metrics_setup_cadvisor_container: "cadvisor_exporter"
+metrics_setup_mysql_container: "mysql_exporter"
+
+# MySQL Exporter Vars
+metrics_setup_mysql_root_password: "example_password"
+metrics_setup_mysql_exporter_user: "exporter"
+metrics_setup_mysql_exporter_user_password: "example_password"
+metrics_setup_mysql_hosts:
+  - "host1"
+  - "host2"
+
+metrics_setup_network: "network_name"

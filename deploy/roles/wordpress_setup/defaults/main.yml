@@ -19,3 +19,4 @@ wordpress_setup_db_host: 'wordpress_db_master:3306'
 wordpress_setup_db_name: 'wordpress'
 wordpress_setup_db_user: 'wordpress_user'
 wordpress_setup_db_password: 'wordpress_password'
+wordpress_setup_network: "network_name"

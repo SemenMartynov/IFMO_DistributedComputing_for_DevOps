@@ -1,3 +1,15 @@
 ansible_python_interpreter: '/usr/bin/python3'
 
-wordpress_setup_remote_host: '127.0.0.1'
+remote_host: "127.0.0.1"
+wordpress_setup_remote_host: "{{ remote_host }}"
+metrics_setup_remote_host: "{{ remote_host }}"
+
+wordpress_setup_db_master_container: 'wordpress_db_master'
+wordpress_setup_db_slave_container: 'wordpress_db_slave'
+metrics_setup_mysql_hosts:
+  - "{{ wordpress_setup_db_master_container }}"
+  - "{{ wordpress_setup_db_slave_container }}"
+
+docker_network: "wordpress_network"
+metrics_setup_network: "{{ docker_network }}"
+wordpress_setup_network: "{{ docker_network }}"

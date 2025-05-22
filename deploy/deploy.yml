@@ -1,5 +1,5 @@
 ---
-- name: "Deploy docker and start containers"
+- name: "Deploy docker and start containers with metrics"
   hosts: all
   become: true
   roles:
@@ -7,3 +7,5 @@
       tags: ['docker']
     - role: wordpress_setup
       tags: ['wp']
+    - role: metrics_setup
+      tags: ['metrics']
