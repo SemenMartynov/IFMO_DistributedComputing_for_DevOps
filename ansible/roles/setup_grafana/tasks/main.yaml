@@ -22,7 +22,7 @@
     group: root
     mode: "0644"
 
-- name: Create dir for JSON dashboard 
+- name: Create dir for JSON dashboard
   ansible.builtin.file:
     path: /opt/grafana/dashboards
     state: directory
