@@ -149,6 +149,10 @@
         query: "SHOW MASTER STATUS;"
       register: master_status
 
+    - name: Debug master_status
+      debug:
+        var: master_status
+
     - name: Set master log file and position
       set_fact:
         master_log_file: "{{ master_status.query_result[0].File }}"
