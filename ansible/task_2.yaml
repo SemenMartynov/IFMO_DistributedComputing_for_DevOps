@@ -7,27 +7,31 @@
 - name: Allow access from node 1 to node 2
   hosts: node2-postgresql
   become: true
-  vars_files:
-    - roles/append_pg_hba/vars/main.yaml
+  pre_tasks:
+    - name: Set node facts
+      ansible.builtin.set_fact:
+        append_pg_hba_allow_network: "{{ hostvars['node1-postgresql']['internal_host'] }}"
+        append_pg_hba_entry: "host replication all {{ hostvars['node1-postgresql']['internal_host'] }}/32 trust"
   roles:
-    - role: append_pg_hba
-      vars:
-        append_pg_hba_allow_network: "{{ append_pg_hba_node1_replication.allow_network }}"
-        append_pg_hba_entry: "{{ append_pg_hba_node1_replication.entry }}"
+    - append_pg_hba
 
 - name: Allow access from node 2 to node 1
   hosts: node1-postgresql
   become: true
-  vars_files:
-    - roles/append_pg_hba/vars/main.yaml
+  pre_tasks:
+    - name: Set node facts
+      ansible.builtin.set_fact:
+        append_pg_hba_allow_network: "{{ hostvars['node2-postgresql']['internal_host'] }}"
+        append_pg_hba_entry: "host replication all {{ hostvars['node2-postgresql']['internal_host'] }}/32 trust"
   roles:
-    - role: append_pg_hba
-      vars:
-        append_pg_hba_allow_network: "{{ append_pg_hba_node2_replication.allow_network }}"
-        append_pg_hba_entry: "{{ append_pg_hba_node2_replication.entry }}"
+    - append_pg_hba
 
 - name: PostgreSQL setup replica
   hosts: node2-postgresql
   become: true
+  pre_tasks:
+    - name: Set primary ip
+      ansible.builtin.set_fact:
+        primary_node_ip: "{{ hostvars['node1-postgresql']['internal_host'] }}"
   roles:
     - setup_replica

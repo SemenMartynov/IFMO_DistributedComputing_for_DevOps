@@ -30,12 +30,12 @@
     login_user: postgres
     login_password: ""
 
-- name: Allow access from 192.168.56.10/32 for all directus
+- name: Allow access from for directus from {{ directus_ip }}
   become: true
   become_user: root
   ansible.builtin.lineinfile:
     path: /etc/postgresql/17/main/pg_hba.conf
-    line: 'host directus directus 192.168.56.10/32 md5'
+    line: 'host directus directus {{ directus_ip }}/32 md5'
     backup: true
 
 - name: Reload PostgreSQL service

@@ -104,3 +104,24 @@ Vagrant.configure("2") do |config|
         end
     end
 end
+
+require 'yaml'
+
+inventory = {
+  "all" => {
+    "hosts" => {}
+  }
+}
+
+VMS.each do |vm|
+  inventory["all"]["hosts"][vm[:name]] = {
+    "ansible_host" => "127.0.0.1",
+    "ansible_port" => vm[:ssh_port],
+    "ansible_user" => "devopsuser",
+    "ansible_ssh_private_key_file" => "devopsuser_rsa",
+    "internal_host" => vm[:private_ip],
+    "ansible_ssh_extra_args" => "-o StrictHostKeyChecking=no"
+  }
+end
+
+File.write("./ansible/inventory/inventory.yml", inventory.to_yaml)
