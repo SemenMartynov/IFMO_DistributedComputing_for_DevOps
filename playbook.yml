@@ -82,6 +82,20 @@
         state: present
         update_cache: true
 
+    - name: Ensure Docker service is started and enabled
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+      become: true
+
+    - name: Set correct permissions for Docker socket
+      ansible.builtin.file:
+        path: /var/run/docker.sock
+        state: file
+        mode: '0666'
+      become: true
+
     - name: Download Docker Compose
       ansible.builtin.get_url:
         url: "https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-{{ ansible_architecture }}"
@@ -146,6 +160,14 @@
         name: "{{ project_user }}"
         groups: docker
         append: true
+
+    - name: Reload user groups without restarting session
+      ansible.builtin.shell: newgrp docker
+      become: true
+      become_user: "{{ project_user }}"
+      args:
+        executable: /bin/bash
+      changed_when: false
 
     - name: Wait for group changes to take effect
       ansible.builtin.meta: flush_handlers
