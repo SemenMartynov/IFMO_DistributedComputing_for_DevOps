@@ -16,3 +16,7 @@
           - "db_pass: {{ db_pass }}" # root password for DBs
           - "loadbalancer: {{ loadbalancer }}" # container name
           - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+
+    - name: Deploy / update 5-node Galera Cluster and HAProxy
+      ansible.builtin.import_role:
+        name: galera_cluster
