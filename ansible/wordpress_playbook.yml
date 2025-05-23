@@ -160,7 +160,7 @@
 
     - name: Stop replication on replica (if running)
       community.mysql.mysql_replication:
-        mode: stopslave
+        mode: stopreplica
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
         login_host: "{{ mysql_replica_ip }}"
@@ -168,7 +168,7 @@
 
     - name: Reset replica state
       community.mysql.mysql_replication:
-        mode: resetslaveall
+        mode: resetreplicaall
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
         login_host: "{{ mysql_replica_ip }}"
@@ -187,7 +187,7 @@
 
     - name: Start replication
       community.mysql.mysql_replication:
-        mode: startslave
+        mode: startreplica
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
         login_host: "{{ mysql_replica_ip }}"
