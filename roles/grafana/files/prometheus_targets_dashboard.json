@@ -1,0 +1,169 @@
+{
+    "uid": "prom-targets-health",
+    "title": "Prometheus Targets / Экспортёры",
+    "description": "Статус всех целей Prometheus: зелёный — UP, красный — DOWN",
+    "tags": [
+        "prometheus",
+        "health",
+        "exporters"
+    ],
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "10s",
+    "timezone": "browser",
+    "time": {
+        "from": "now-30m",
+        "to": "now"
+    },
+    "templating": {
+        "list": [
+            {
+                "name": "job",
+                "type": "query",
+                "label": "Job",
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "PBFA97CFB590B2093"
+                },
+                "query": {
+                    "query": "label_values(up, job)",
+                    "refId": "A"
+                },
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true
+            }
+        ]
+    },
+    "panels": [
+        {
+            "type": "stat",
+            "title": "Не доступно целей",
+            "id": 1,
+            "gridPos": {
+                "h": 3,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+            },
+            "targets": [
+                {
+                    "expr": "sum(1 - up{job=~\"$job\"})",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "none",
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "text": "OK",
+                                    "color": "green"
+                                }
+                            }
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 1
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                },
+                "orientation": "horizontal",
+                "graphMode": "none",
+                "textMode": "auto"
+            }
+        },
+        {
+            "type": "table",
+            "title": "Статус по каждому endpoint",
+            "id": 2,
+            "gridPos": {
+                "h": 11,
+                "w": 24,
+                "x": 0,
+                "y": 3
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+            },
+            "targets": [
+                {
+                    "expr": "up{job=~\"$job\"}",
+                    "legendFormat": "{{job}} | {{instance}}",
+                    "refId": "A"
+                }
+            ],
+            "transformations": [
+                {
+                    "id": "labelsToFields",
+                    "options": {}
+                },
+                {
+                    "id": "organize",
+                    "options": {
+                        "excludeByName": {
+                            "__name__": true
+                        }
+                    }
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "align": "center"
+                    },
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "text": "DOWN",
+                                    "color": "red"
+                                },
+                                "1": {
+                                    "text": "UP",
+                                    "color": "green"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "overrides": []
+            },
+            "options": {
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "displayName": "up",
+                        "desc": true
+                    }
+                ]
+            }
+        }
+    ]
+}
