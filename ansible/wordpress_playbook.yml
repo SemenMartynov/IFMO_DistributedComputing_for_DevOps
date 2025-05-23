@@ -175,7 +175,7 @@
 
     - name: Configure replication on replica
       community.mysql.mysql_replication:
-        mode: changemaster
+        mode: changereplication
         master_host: "{{ mysql_master_ip }}"
         master_user: "{{ repl_user }}"
         master_password: "{{ repl_password }}"
