@@ -76,6 +76,12 @@
         mode: '0755'
       become: true
 
+    - name: Remove existing docker-compose if it exists
+      ansible.builtin.file:
+        path: /usr/bin/docker-compose
+        state: absent
+      become: true
+
     - name: Create symlink for backwards compatibility
       ansible.builtin.file:
         src: /usr/local/lib/docker/cli-plugins/docker-compose
