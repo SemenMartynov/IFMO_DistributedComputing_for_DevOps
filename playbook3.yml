@@ -1,8 +1,84 @@
----
-- name: Home work 3
-  hosts: carrier
+
+- name: Create user
+  hosts: db_master, db_slave
+  become: yes
   tasks:
-    - name: Display Configuration Variables
-      ansible.builtin.debug:
-        msg:
-          - "monitoring_url: {{ monitoring_url }}" # monitoring url including port
+    - name: User
+      community.mysql.mysql_user:
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+        name: "exporter"
+        password: "{{ mariadb_exporter_password }}"
+        host: "%"
+        priv: "*.*:PROCESS, REPLICATION CLIENT, SELECT"
+        state: present
+
+- name: Deploy monitoring
+  hosts: all
+  become: yes
+  tasks:
+    - name: Create config dir
+      file:
+        path: /etc/prometheus
+        state: directory
+
+    - name: Create config
+      copy:
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'mariadb'
+              static_configs:
+                - targets:
+                    - "mariadb-master:9104"
+                    - "mariadb-slave:9104"
+        dest: /etc/prometheus/prometheus.yml
+
+- name: Deploy export
+  hosts: db_master,db_slave
+  become: yes
+  tasks:
+    - name: Run export
+      docker_container:
+        name: mysqld-exporter
+        image: prom/mysqld-exporter:v0.14.0
+        state: started
+        restart_policy: unless-stopped
+        env:
+          DATA_SOURCE_NAME: "exporter:{{ mariadb_exporter_password }}@tcp({{ inventory_hostname }}:3306)/"
+        ports:
+          - "9104:9104"
+        networks:
+          - name: backend
+
+- name: Start monitoring
+  hosts: wordpress_server
+  become: yes
+  tasks:
+    - name: Run Prometheus
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        volumes:
+          - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        ports:
+          - "9090:9090"
+        networks:
+          - name: backend
+
+    - name: Run Grafana
+      docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana
+        networks:
+          - name: backend
