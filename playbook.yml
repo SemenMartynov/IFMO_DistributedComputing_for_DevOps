@@ -131,9 +131,10 @@
       failed_when: false
 
     - name: Install community.docker collection
-      ansible.builtin.ansible.galaxy.collection:
-        name: community.docker
-        state: present
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install community.docker
+      register: galaxy_result
+      changed_when: "'was installed successfully' in galaxy_result.stdout or 'is already installed' in galaxy_result.stdout"
       become: true
 
     - name: Create docker group
@@ -220,7 +221,7 @@
         mode: "0o644"
 
     - name: Управление основным Docker Compose стеком
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         files:
           - docker-compose.yml
@@ -234,7 +235,7 @@
         mode: "0o644"
 
     - name: Управление стеком мониторинга
-      community.docker.docker_compose:
+      community.docker.docker_compose_v2:
         project_src: "{{ project_dir }}"
         files:
           - docker-compose-monitoring.yml
