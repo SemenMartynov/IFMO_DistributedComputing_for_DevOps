@@ -1,0 +1,50 @@
+---
+- name: Start {{ galera_node.name }} if absent
+  community.docker.docker_container:
+    name: "{{ galera_node.name }}"
+    image: "{{ galera_image }}"
+    restart_policy: unless-stopped
+    env:
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+      MARIADB_USER: "{{ mariadb_user }}"
+      MARIADB_PASSWORD: "{{ mariadb_password }}"
+      MARIADB_DATABASE: "{{ wordpress_db_name }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://{{ galera_nodes | map(attribute='name') | join(',') }}"
+      MARIADB_GALERA_SST_METHOD: "{{ galera_sst_method }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ db_root_password }}"
+    volumes:
+      - "galera_data_node_{{ galera_node.id }}:/bitnami/mariadb/data"
+    networks:
+      - name: "{{ docker_network }}"
+    state: started
+
+- name: Wait until {{ galera_node.name }} container appears healthy or simply running
+  community.docker.docker_container_info:
+    name: "{{ galera_node.name }}"
+  register: node_state
+  until:
+    - node_state.container.State.Status == 'running' and
+      (
+      (node_state.container.State.Health is defined and
+      node_state.container.State.Health.Status == 'healthy') or
+      (node_state.container.State.Health is not defined)
+      )
+  retries: 10
+  delay: 10
+  changed_when: false
+
+- name: Ensure host resolves '{{ galera_node.name }}' to container IP
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '.*\s+{{ galera_node.name }}$'
+    line: "{{ node_state.container.NetworkSettings.Networks[docker_network].IPAddress }} {{ galera_node.name }}"
+    state: present
+  become: true
+
+- name: Wait until port 3306 on {{ galera_node.name }} is accepting connections
+  ansible.builtin.wait_for:
+    host: "{{ galera_node.name }}"
+    port: 3306
+    delay: 2
+    timeout: 180
+  changed_when: false
