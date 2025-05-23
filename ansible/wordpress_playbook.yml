@@ -139,7 +139,7 @@
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
         login_host: "{{ mysql_master_ip }}"
-        auth_plugin: sha256_password
+        plugin: sha256_password
         state: present
 
     - name: Get master binlog status
