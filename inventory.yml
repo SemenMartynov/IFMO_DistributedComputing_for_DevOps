@@ -6,4 +6,4 @@ all:
       ansible_password: ifmo_ansible_password
       ansible_become_method: sudo
       ansible_become_pass: ifmo_ansible_password
-      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
