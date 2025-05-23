@@ -207,5 +207,5 @@
     - name: Print slave IO and SQL running status
       debug:
         msg:
-          - "Slave_IO_Running: {{ slave_status.query_result[0][0].Slave_IO_Running }}"
-          - "Slave_SQL_Running: {{ slave_status.query_result[0][0].Slave_SQL_Running }}"
+          - "Replica_IO_Running: {{ slave_status.query_result[0][0].Replica_IO_Running }}"
+          - "Replica_SQL_Running: {{ slave_status.query_result[0][0].Replica_SQL_Running }}"
