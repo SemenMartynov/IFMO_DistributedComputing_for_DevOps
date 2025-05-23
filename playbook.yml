@@ -96,6 +96,12 @@
         mode: '0755'
       become: true
 
+    - name: Remove existing Docker Compose plugin if exists
+      ansible.builtin.file:
+        path: /usr/local/lib/docker/cli-plugins/docker-compose
+        state: absent
+      become: true
+
     - name: Create symlink for Docker Compose plugin
       ansible.builtin.file:
         src: /usr/local/bin/docker-compose
