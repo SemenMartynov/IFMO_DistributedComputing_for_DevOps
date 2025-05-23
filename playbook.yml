@@ -59,39 +59,36 @@
           - lsb-release
           - software-properties-common
           - docker.io
-          - docker-compose
         state: present
         update_cache: true
 
     - name: Create Docker plugins directory
       ansible.builtin.file:
-        path: /usr/libexec/docker/cli-plugins
+        path: /usr/local/lib/docker/cli-plugins
         state: directory
         mode: '0755'
-      become: true
-
-    - name: Remove existing Docker Compose
-      ansible.builtin.file:
-        path: /usr/libexec/docker/cli-plugins/docker-compose
-        state: absent
       become: true
 
     - name: Download Docker Compose V2
       ansible.builtin.get_url:
         url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
-        dest: /usr/libexec/docker/cli-plugins/docker-compose
+        dest: /usr/local/lib/docker/cli-plugins/docker-compose
         mode: '0755'
       become: true
 
+    - name: Create symlink for backwards compatibility
+      ansible.builtin.file:
+        src: /usr/local/lib/docker/cli-plugins/docker-compose
+        dest: /usr/bin/docker-compose
+        state: link
+      become: true
+
     - name: Check Docker Compose installation
-      ansible.builtin.stat:
-        path: /usr/libexec/docker/cli-plugins/docker-compose
-      register: compose_binary
-      
-    - name: Verify Docker Compose executable
-      ansible.builtin.debug:
-        msg: "Docker Compose is installed at {{ compose_binary.stat.path }} with permissions {{ compose_binary.stat.mode }}"
-      when: compose_binary.stat.exists
+      ansible.builtin.command:
+        cmd: docker compose version
+      register: compose_version
+      changed_when: false
+      failed_when: false
 
     - name: Install community.docker collection
       ansible.builtin.shell: ansible-galaxy collection install community.docker
@@ -179,7 +176,7 @@
         mode: "0o644"
 
     - name: Управление основным Docker Compose стеком
-      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose.yml up -d
+      ansible.builtin.shell: cd {{ project_dir }} && docker compose -f docker-compose.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: docker_compose_result
@@ -194,7 +191,7 @@
         mode: "0o644"
 
     - name: Управление стеком мониторинга
-      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose-monitoring.yml up -d
+      ansible.builtin.shell: cd {{ project_dir }} && docker compose -f docker-compose-monitoring.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: monitoring_compose_result
