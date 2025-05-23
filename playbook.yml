@@ -62,43 +62,16 @@
         state: present
         update_cache: true
 
-    - name: Create Docker plugins directory
-      ansible.builtin.file:
-        path: /usr/local/lib/docker/cli-plugins
-        state: directory
-        mode: '0755'
+    - name: Install Docker Compose V2 using official script
+      ansible.builtin.shell: |
+        curl -SL https://github.com/docker/compose/releases/latest/download/install.sh | sh
       become: true
+      args:
+        executable: /bin/bash
+      register: compose_install
+      changed_when: compose_install.rc == 0
 
-    - name: Get system architecture
-      ansible.builtin.command: uname -m
-      register: architecture
-      changed_when: false
-
-    - name: Set Docker Compose URL based on architecture
-      ansible.builtin.set_fact:
-        compose_url: "https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-{{ 'aarch64' if architecture.stdout == 'aarch64' else 'arm64' if architecture.stdout == 'arm64' else 'x86_64' }}"
-
-    - name: Download Docker Compose V2
-      ansible.builtin.get_url:
-        url: "{{ compose_url }}"
-        dest: /usr/local/lib/docker/cli-plugins/docker-compose
-        mode: '0755'
-      become: true
-
-    - name: Remove existing docker-compose if it exists
-      ansible.builtin.file:
-        path: /usr/bin/docker-compose
-        state: absent
-      become: true
-
-    - name: Create symlink for backwards compatibility
-      ansible.builtin.file:
-        src: /usr/local/lib/docker/cli-plugins/docker-compose
-        dest: /usr/bin/docker-compose
-        state: link
-      become: true
-
-    - name: Check Docker Compose installation
+    - name: Test Docker Compose V2
       ansible.builtin.command:
         cmd: docker compose version
       register: compose_version
