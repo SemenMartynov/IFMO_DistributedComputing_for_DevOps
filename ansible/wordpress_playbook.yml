@@ -127,8 +127,8 @@
 
     - name: Set facts for master and replica IPs
       set_fact:
-        mysql_master_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_master') | first).containers.NetworkSettings.Networks.bridge.IPAddress }}"
-        mysql_replica_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_replica') | first).containers.NetworkSettings.Networks.bridge.IPAddress }}"
+        mysql_master_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_master') | first).container.NetworkSettings.Networks.wordpress_network.IPAddress }}"
+        mysql_replica_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_replica') | first).container.NetworkSettings.Networks.wordpress_network.IPAddress }}"
 
     - name: Create replication user on master
       community.mysql.mysql_user:
