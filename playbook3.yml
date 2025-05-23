@@ -3,7 +3,7 @@
   hosts: db_master, db_slave
   become: yes
   tasks:
-    - name: Create MySQL exporter user
+    - name: User
       community.mysql.mysql_user:
         login_user: root
         login_password: "{{ mariadb_root_password }}"
