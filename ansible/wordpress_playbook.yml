@@ -117,6 +117,19 @@
       until: result.rc == 0
       changed_when: false
 
+    - name: Get IP addresses of mysql containers
+      community.docker.docker_container_info:
+        name: "{{ item }}"
+      loop:
+        - mysql_master
+        - mysql_replica
+      register: container_infos
+
+    - name: Set facts for master and replica IPs
+      set_fact:
+        mysql_master_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_master') | first).containers[0].NetworkSettings.Networks.bridge.IPAddress }}"
+        mysql_replica_ip: "{{ (container_infos.results | selectattr('item', 'equalto', 'mysql_replica') | first).containers[0].NetworkSettings.Networks.bridge.IPAddress }}"
+
     - name: Create replication user on master
       community.mysql.mysql_user:
         name: "{{ repl_user }}"
@@ -125,14 +138,14 @@
         priv: "*.*:REPLICATION SLAVE"
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_master
+        login_host: "{{ mysql_master_ip }}"
         state: present
 
     - name: Get master binlog status
       community.mysql.mysql_query:
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_master
+        login_host: "{{ mysql_master_ip }}"
         query: "SHOW MASTER STATUS;"
       register: master_status
 
@@ -146,7 +159,7 @@
         mode: stopslave
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_replica
+        login_host: "{{ mysql_replica_ip }}"
       ignore_errors: true
 
     - name: Reset replica state
@@ -154,32 +167,32 @@
         mode: resetslaveall
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_replica
+        login_host: "{{ mysql_replica_ip }}"
 
     - name: Configure replication on replica
       community.mysql.mysql_replication:
         mode: changemaster
-        master_host: mysql_master
+        master_host: "{{ mysql_master_ip }}"
         master_user: "{{ repl_user }}"
         master_password: "{{ repl_password }}"
         master_log_file: "{{ master_log_file }}"
         master_log_pos: "{{ master_log_pos | int }}"
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_replica
+        login_host: "{{ mysql_replica_ip }}"
 
     - name: Start replication
       community.mysql.mysql_replication:
         mode: startslave
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_replica
+        login_host: "{{ mysql_replica_ip }}"
 
     - name: Check replication status
       community.mysql.mysql_query:
         login_user: root
         login_password: "{{ wordpress_db_root_password }}"
-        login_host: mysql_replica
+        login_host: "{{ mysql_replica_ip }}"
         query: "SHOW REPLICA STATUS;"
       register: slave_status
 
