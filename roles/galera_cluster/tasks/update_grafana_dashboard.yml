@@ -1,0 +1,7 @@
+---
+- name: Copy Galera dashboard JSON to Grafana provisioning directory
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/galera_dashboard.json"
+    dest: "{{ grafana_dashboards_path }}/galera_dashboard.json"
+    mode: "0644"
+  notify: Restart grafana
