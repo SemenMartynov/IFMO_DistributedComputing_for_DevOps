@@ -1,3 +1,4 @@
 # - ansible.builtin.import_tasks: make_dump.yml
 - ansible.builtin.import_tasks: galera_mariadb.yml
 - ansible.builtin.import_tasks: haproxy.yml
+- ansible.builtin.import_tasks: monitoring.yml

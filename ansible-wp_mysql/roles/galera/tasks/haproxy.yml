@@ -31,8 +31,10 @@
       - name: "{{ network }}"
     expose:
       - "{{ db_port }}"
+    published_ports:
+      - "8404:8404"
     volumes:
-      - "/home/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+      - "{{ haproxy_config_path }}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
 
 - name: WordPress container start
   community.docker.docker_container:

@@ -23,3 +23,12 @@ backend galera_backend
     server mariadb_3 mariadb_3:3306 check
     server mariadb_4 mariadb_4:3306 check
     server mariadb_5 mariadb_5:3306 check
+
+listen stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats show-node
+    stats auth {{ haproxy_user }}:{{ haproxy_password }}

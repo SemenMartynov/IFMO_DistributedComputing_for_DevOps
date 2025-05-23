@@ -12,8 +12,8 @@
   community.mysql.mysql_db:
     login_host: "{{ db_host }}"
     login_port: "{{ db_port }}"
-    login_user: "{{ db_user }}"
-    login_password: "{{ db_password }}"
+    login_user: "{{ mysql_user }}"
+    login_password: "{{ mysql_password }}"
     name: "{{ db_name }}"
     state: dump
     target: "{{ db_dump_path }}"
