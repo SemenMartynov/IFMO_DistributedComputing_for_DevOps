@@ -1,0 +1,9 @@
+.env
+/opt/wp_app/docker-compose.yml
+/opt/wp_app/.env
+/opt/wp_monitoring/docker-compose.yml
+/opt/wp_monitoring/prometheus.yml
+*.pyc
+__pycache__/
+*.log
+.DS_Store 

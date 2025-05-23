@@ -1,0 +1,38 @@
+---
+# Docker config
+docker_compose_version: "2.24.6"
+docker_compose_arch: "x86_64"
+docker_compose_sha256: "sha256:0b3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+
+# Project config
+project_user: "wordpress"
+project_group: "wordpress"
+project_home: "/home/{{ project_user }}"
+project_dir: "{{ project_home }}/wordpress"
+
+# Docker network config
+docker_network_name: "wp_network"
+
+# Database cluster config
+mysql_root_password: "root_password"
+mysql_database: "wordpress"
+mysql_user: "wordpress"
+mysql_password: "wordpress_password"
+cluster_name: "wp_cluster"
+cluster_nodes:
+  - name: "node1"
+    ip: "10.0.0.11"
+  - name: "node2"
+    ip: "10.0.0.12"
+  - name: "node3"
+    ip: "10.0.0.13"
+
+grafana_user: admin
+grafana_password: admin
+
+app_user: wpadmin
+app_dir: /opt/wp_app
+monitoring_dir: /opt/wp_monitoring
+monitoring_grafana_user: monadmin
+monitoring_grafana_password: monpassword
+monitoring_network: monnet
