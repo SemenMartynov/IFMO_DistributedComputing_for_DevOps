@@ -200,6 +200,10 @@
         query: "SHOW REPLICA STATUS;"
       register: slave_status
 
+    - name: Debug slave_status
+      debug:
+        var: slave_status
+
     - name: Print slave IO and SQL running status
       debug:
         msg:
