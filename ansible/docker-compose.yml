@@ -1,6 +1,6 @@
 services:
   mysql_master:
-    image: mysql:latest
+    image: mysql:8.0
     container_name: mysql_master
     restart: always
     environment:
@@ -15,7 +15,7 @@ services:
       - wordpress_network
 
   mysql_replica:
-    image: mysql:latest
+    image: mysql:8.0
     container_name: mysql_replica
     restart: always
     environment:
@@ -32,7 +32,7 @@ services:
       - wordpress_network
 
   wordpress:
-    image: wordpress:latest
+    image: wordpress:6.8.1
     container_name: wordpress_app
     restart: always
     expose:
@@ -48,7 +48,7 @@ services:
       - wordpress_network
 
   nginx:
-    image: nginx:latest
+    image: nginx:1.28.0
     container_name: nginx
     restart: always
     volumes:
