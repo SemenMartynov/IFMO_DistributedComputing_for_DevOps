@@ -49,7 +49,7 @@
     - vars/main.yml
 
   tasks:
-    - name: Install required packages
+    - name: Install prerequisites
       ansible.builtin.apt:
         name:
           - apt-transport-https
@@ -58,22 +58,54 @@
           - gnupg
           - lsb-release
           - software-properties-common
-          - docker.io
         state: present
         update_cache: true
 
-    - name: Install Docker Compose V2 using official script
-      ansible.builtin.shell: |
-        curl -SL https://github.com/docker/compose/releases/latest/download/install.sh | sh
-      become: true
-      args:
-        executable: /bin/bash
-      register: compose_install
-      changed_when: compose_install.rc == 0
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-    - name: Test Docker Compose V2
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        update_cache: true
+
+    - name: Install Docker and Docker Compose Plugin
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+        state: present
+        update_cache: true
+
+    - name: Download Docker Compose
+      ansible.builtin.get_url:
+        url: "https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-{{ ansible_architecture }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      become: true
+
+    - name: Create Docker CLI plugins directory
+      ansible.builtin.file:
+        path: /usr/local/lib/docker/cli-plugins
+        state: directory
+        mode: '0755'
+      become: true
+
+    - name: Create symlink for Docker Compose plugin
+      ansible.builtin.file:
+        src: /usr/local/bin/docker-compose
+        dest: /usr/local/lib/docker/cli-plugins/docker-compose
+        state: link
+      become: true
+
+    - name: Test Docker Compose
       ansible.builtin.command:
-        cmd: docker compose version
+        cmd: docker-compose --version
       register: compose_version
       changed_when: false
       failed_when: false
@@ -164,7 +196,7 @@
         mode: "0o644"
 
     - name: Управление основным Docker Compose стеком
-      ansible.builtin.shell: cd {{ project_dir }} && docker compose -f docker-compose.yml up -d
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: docker_compose_result
@@ -179,7 +211,7 @@
         mode: "0o644"
 
     - name: Управление стеком мониторинга
-      ansible.builtin.shell: cd {{ project_dir }} && docker compose -f docker-compose-monitoring.yml up -d
+      ansible.builtin.shell: cd {{ project_dir }} && docker-compose -f docker-compose-monitoring.yml up -d
       become: true
       become_user: "{{ project_user }}"
       register: monitoring_compose_result
