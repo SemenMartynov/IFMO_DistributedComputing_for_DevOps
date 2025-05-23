@@ -101,4 +101,53 @@ select * from pg_stat_wal_receiver;
 vagrant destroy -f
 ```
 
-TODO: улучшить работу с переменными в следующих итерациях работ
+# Лабораторная работа №2
+# Студент: Денис Бурцев
+
+Для запуска необходимо установить:
+
+- [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+- [Vagrant](https://developer.hashicorp.com/vagrant/downloads)
+- [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
+
+Ключевые изменения: Запускается 3 ВМ на virtualbox с помощью vagrant
+
+Directus запускается в docker контейнере на машине directus
+
+PostgreSQL запускается на ВМ node1-postgresql и node2-postgresql без контейниризации
+
+Запуск возможен по следующему сценарию:
+
+1) Склонировать репозитория, перейти в директорию с репозиторием
+
+2) Запустить создание виртуальных машин (используется vagrant + virtual box):
+
+```
+vagrant up --parallel
+```
+
+3) Для первого задания выполнить из корня проекта
+
+```
+ansible-playbook -i ./ansible/inventory/inventory.yml ./ansible/task_1.yaml
+```
+
+4) Для второго задания выполнить из корня (последовательно после первого)
+
+```
+ansible-playbook -i ./ansible/inventory/inventory.yml ./ansible/task_2.yaml
+```
+
+5) Для третьего задания выполнить из корня (последовательно после второго)
+
+```
+ansible-playbook -i ./ansible/inventory/inventory.yml ./ansible/task_3.yaml
+```
+
+Мониторинг будет установлен для node1-postgresql и node2-postgresql: 
+
+- postgres_exporter в docker контейнере на каждой ВМ
+- на node3-monitoring Prometheus доступен по порту 9090
+- на node3-monitoring Grafana доступна по порту 3000
+
+Grafana будет доступна: http://127.0.0.1:3000/
