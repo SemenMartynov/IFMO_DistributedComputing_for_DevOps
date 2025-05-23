@@ -155,8 +155,8 @@
 
     - name: Set master log file and position
       set_fact:
-        master_log_file: "{{ master_status.query_result[0].File }}"
-        master_log_pos: "{{ master_status.query_result[0].Position }}"
+        master_log_file: "{{ master_status.query_result[0][0].File }}"
+        master_log_pos: "{{ master_status.query_result[0][0].Position }}"
 
     - name: Stop replication on replica (if running)
       community.mysql.mysql_replication:
