@@ -116,67 +116,74 @@
       until: result.rc == 0
       changed_when: false
 
-    - name: Create replication user inside mysql_master container
-      community.docker.docker_container_exec:
-        container: mysql_master
-        argv:
-          - mysql
-          - -h127.0.0.1
-          - -uroot
-          - -p{{ wordpress_db_root_password }}
-          - -e
-          - >
-            DROP USER IF EXISTS '{{ repl_user }}'@'%';
-            CREATE USER IF NOT EXISTS '{{ repl_user }}'@'%' IDENTIFIED WITH sha256_password BY '{{ repl_password }}';
-            GRANT REPLICATION SLAVE ON *.* TO '{{ repl_user }}'@'%';
-            FLUSH PRIVILEGES;
-      register: create_replication_user_result
-      failed_when: create_replication_user_result.rc != 0
+    - name: Create replication user on master
+      community.mysql.mysql_user:
+        name: "{{ repl_user }}"
+        password: "{{ repl_password }}"
+        host: "%"
+        priv: "*.*:REPLICATION SLAVE"
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_master
+        state: present
 
-    - name: Get master status
-      community.docker.docker_container_exec:
-        container: mysql_master
-        command: mysql -u root -p{{ wordpress_db_root_password }} -e "SHOW BINARY LOG STATUS;"
-      register: master_status_output
-      changed_when: false
+    - name: Get master binlog status
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_master
+        query: "SHOW MASTER STATUS;"
+      register: master_status
 
-    - name: Parse master log file
+    - name: Set master log file and position
       set_fact:
-        master_log_file: "{{ master_status_output.stdout | regex_search('File: (.*)', '\\1') }}"
+        master_log_file: "{{ master_status.query_result[0].File }}"
+        master_log_pos: "{{ master_status.query_result[0].Position }}"
 
-    - name: Parse master log position
-      set_fact:
-        master_log_pos: "{{ master_status_output.stdout | regex_search('Position: (\\d+)', '\\1') | int }}"
+    - name: Stop replication on replica (if running)
+      community.mysql.mysql_replication:
+        mode: stopslave
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_replica
+      ignore_errors: true
 
-    - name: Wait for replica to be ready
-      community.docker.docker_container_exec:
-        container: mysql_replica
-        command: "mysqladmin ping -u root -p{{ wordpress_db_root_password }}"
-      register: result
-      retries: 10
-      delay: 5
-      until: result.rc == 0
-      changed_when: false
+    - name: Reset replica state
+      community.mysql.mysql_replication:
+        mode: resetslaveall
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_replica
 
     - name: Configure replication on replica
-      community.docker.docker_container_exec:
-        container: mysql_replica
-        command: >
-          mysql -u root -p{{ wordpress_db_root_password }} -e "
-          STOP REPLICA;
-          RESET REPLICA ALL;
-          CHANGE REPLICATION SOURCE TO
-            SOURCE_HOST='mysql_master',
-            SOURCE_USER='{{ repl_user }}',
-            SOURCE_PASSWORD='{{ repl_password }}',
-            SOURCE_LOG_FILE='{{ master_log_file }}',
-            SOURCE_LOG_POS={{ master_log_pos }};
-          START REPLICA;"
-      changed_when: true
+      community.mysql.mysql_replication:
+        mode: changemaster
+        master_host: mysql_master
+        master_user: "{{ repl_user }}"
+        master_password: "{{ repl_password }}"
+        master_log_file: "{{ master_log_file }}"
+        master_log_pos: "{{ master_log_pos | int }}"
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_replica
 
-    - name: Check slave status
-      community.docker.docker_container_exec:
-        container: mysql_replica
-        command: "mysql -u root -p{{ wordpress_db_root_password }} -e 'SHOW REPLICA STATUS;'"
-      register: slave_status_output
-      changed_when: false
+    - name: Start replication
+      community.mysql.mysql_replication:
+        mode: startslave
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_replica
+
+    - name: Check replication status
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ wordpress_db_root_password }}"
+        login_host: mysql_replica
+        query: "SHOW REPLICA STATUS;"
+      register: slave_status
+
+    - name: Print slave IO and SQL running status
+      debug:
+        msg:
+          - "Slave_IO_Running: {{ slave_status.query_result[0].Slave_IO_Running }}"
+          - "Slave_SQL_Running: {{ slave_status.query_result[0].Slave_SQL_Running }}"
