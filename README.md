@@ -11,7 +11,18 @@ Distributed Computing course for DevOps 2025
 - Минимум 2 ГБ оперативной памяти
 - Минимум 5 ГБ свободного места на диске
 
-## Деплой
+## Подготовка к запуску
+
+### Установка зависимостей
+
+Перед запуском плейбука необходимо установить требуемые коллекции Ansible:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+### Настройка inventory
+
 1. Клонировать репозиторий:
    ```bash
    git clone https://github.com/DSugakov/IFMO_DistributedComputing_for_DevOps.git
