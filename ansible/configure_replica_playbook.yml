@@ -3,12 +3,27 @@
   hosts: slave
   become: yes
   gather_facts: yes
+  vars:
+    application_path: "/var/www"
+    master_host: "158.160.158.175"
 
   tasks:
+    - name: Create Docker Compose directory
+      file:
+        path: "{{ application_path }}"
+        state: directory
+        mode: '0755'
+
     - name: Copy docker-compose
       copy:
-        src: ./files/docker-compose.production.yml
+        src: ./files/docker-compose.slave.yml
         dest: "{{ application_path }}/docker-compose.yml"
+        mode: "0644"
+    
+    - name: Copy .pgpass
+      copy:
+        src: ./files/configs/.pgpass
+        dest: "{{ application_path }}/.pgpass"
         mode: "0644"
 
     - name: Copy env
@@ -18,45 +33,50 @@
         mode: "0644"
 
     - name: Up containers
-      community.docker.docker_compose:
-        project_src: {{ application_path }}
-        project_files: docker-compose.production.yml
-        build: no
-        detached: yes
-      shell: "docker compose up -d"
+      community.docker.docker_compose_v2:
+        project_src: "{{ application_path }}"
+        state: present
+
+    - name: Copy a .pgpass into the container
+      community.docker.docker_container_copy_into:
+        container: slave
+        path: /var/www/.pgpass
+        container_path: /var/lib/postgresql/.pgpass
+
+    - name: Chmod pgpass
+      community.docker.docker_container_exec:
+        user: "postgres"
+        container: slave
+        command: "chmod 600 /var/lib/postgresql/.pgpass"
 
     - name: Make backup
       community.docker.docker_container_exec:
+        user: "postgres"
         container: slave
-        command: "pg_basebackup -h postgres-master -U repl_user -D /var/lib/postgresql/data -P -R -X stream -C -S pg_replica_slot"
-        detach: false
-      register: exec_output
-    
-    - name: Create standby.signal
-      community.docker.docker_container_exec:
-        container: slave
-        command: "touch /var/lib/postgresql/data/standby.signal"
-        detach: false
-      register: exec_output
+        command: "pg_basebackup -h {{ master_host }} -U repl_user -D /var/lib/postgresql/data -R -X stream -w -C -S pg_replica_slot1"
 
     - name: Configure postgresql.auto.conf
       community.docker.docker_container_exec:
-        container: backend
-        command: "echo -e \"primary_conninfo = 'host=postgres-master port=5432 user=repl_user password=secret'\"\n\"primary_slot_name = 'pg_replica_slot'\" >> /var/lib/postgresql/data/postgresql.auto.conf"
-        detach: false
-      register: exec_output
+        container: slave
+        command: "echo primary_conninfo = 'host=158.160.158.175 port=5432 user=repl_user password=secret'primary_conninfo = 'host=158.160.158.175 port=5432 user=repl_user password=secret' >> /var/lib/postgresql/data/postgresql.auto.conf"
+
+    - name: Configure postgresql.auto.conf
+      community.docker.docker_container_exec:
+        container: slave
+        command: "echo primary_slot_name = 'pg_replica_slot' >> /var/lib/postgresql/data/postgresql.auto.conf"
     
     - name: Chown postgresql/data
       community.docker.docker_container_exec:
-        container: backend
+        container: slave
         command: "chown postgres:postgres -R /var/lib/postgresql/data/"
-        detach: false
-      register: exec_output
+    
+    - name: Chmod postgresql/data
+      community.docker.docker_container_exec:
+        container: slave
+        command: "chmod -R 750 /var/lib/postgresql/data/"
     
     - name: Start pg
       community.docker.docker_container_exec:
-        container: backend
+        container: slave
         command: "pg_ctl start -D /var/lib/postgresql/data"
         user: "postgres"
-        detach: false
-      register: exec_output

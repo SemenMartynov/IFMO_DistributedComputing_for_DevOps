@@ -5,6 +5,7 @@
   gather_facts: yes
   vars:
     application_path: "/var/www"
+    venv_path: "/opt/myvenv"
 
   tasks:
     - name: Create Docker Compose directory
@@ -18,34 +19,87 @@
         src: ./files/docker-compose.production.yml
         dest: "{{ application_path }}/docker-compose.yml"
         mode: "0644"
+      
+    - name: Copy pg_hba.conf
+      copy:
+        src: ./files/configs/pg_hba.conf
+        dest: "{{ application_path }}/pg_hba.conf"
+        mode: "0644"
+      
+    - name: Copy postgresql.conf
+      copy:
+        src: ./files/configs/postgresql.conf
+        dest: "{{ application_path }}/postgresql.conf"
+        mode: "0644"
 
     - name: Copy env
       copy:
         src: ./files/.env
         dest: "{{ application_path }}/.env"
         mode: "0644"
-
-    - name: Up containers
-      community.docker.docker_compose:
-        project_src: {{ application_path }}
-        project_files: docker-compose.production.yml
-        build: no
-        detached: yes
-      shell: "docker compose up -d"
     
-    - name: Configure pg_hba.conf
-      community.docker.docker_container_exec:
-        container: backend
-        command: "echo \"host replication repl_user 0.0.0.0/0 md5\" >> /var/lib/postgresql/data/pg_hba.conf"
-        detach: false
-      register: exec_output
+    - name: Docker compose up
+      community.docker.docker_compose_v2:
+        project_src: "{{ application_path }}"
+        state: present
+    
+    - name: Copy a pg_hba.conf into the container
+      community.docker.docker_container_copy_into:
+        container: postgres
+        path: /var/www/pg_hba.conf
+        container_path: /var/lib/postgresql/data/pg_hba.conf
+    
+    - name: Copy a postgresql.conf into the container
+      community.docker.docker_container_copy_into:
+        container: postgres
+        path: /var/www/postgresql.conf
+        container_path: /var/lib/postgresql/data/postgresql.conf
+    
+    - name: Install required system packages
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3-venv
+        state: present
+        update_cache: yes
 
-    - name: Configure postgresql.conf
-      community.docker.docker_container_exec:
-        container: backend
-        command: "echo -e \"wal_level = replica\"\n\"max_wal_senders = 10\"\n\"wal_keep_size = 1GB\" >> /var/lib/postgresql/data/postgresql.conf"
-        detach: false
-      register: exec_output
+    - name: Create virtual environment
+      ansible.builtin.command:
+        cmd: "/usr/bin/python3.12 -m venv {{ venv_path }}"
+        creates: "{{ venv_path }}"
+    
+    - name: "Check pip"
+      ansible.builtin.stat:
+        path: "{{ venv_path }}/bin/pip"
+      register: pip_exists
+
+    - name: "Install pip (сделал через команду потому что через pip не вышло, добавил проверку для иммутаиммутабельности)"
+      ansible.builtin.command: "/opt/myvenv/bin/python -m ensurepip --upgrade"
+      when: not pip_exists.stat.exists
+
+    - name: Install packages in virtualenv
+      ansible.builtin.pip:
+        name: 
+          - "psycopg2-binary"
+          - "requests"
+        virtualenv: "{{ venv_path }}"
+        state: present
+
+    - name: "Set ansible_python_interpreter"
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: "{{ venv_path }}/bin/python"
+
+    - name: "Выполнить запрос к pg_roles"
+      community.postgresql.postgresql_query:
+        query: |
+          SELECT EXISTS(
+            SELECT 1 FROM pg_roles WHERE rolname = 'repl_user'
+          ) AS role_exists;
+        db: "kittygram"
+        login_host: "localhost"
+        login_user: "postgres"
+        login_password: "secret"
+      register: pg_role_check
 
     - name: Create role for replication
       community.postgresql.postgresql_query:
@@ -54,10 +108,16 @@
         login_user: "postgres"
         login_password: "secret"
         query: "CREATE ROLE repl_user WITH REPLICATION LOGIN PASSWORD 'secret';"
+      when: not pg_role_check.query_result[0].role_exists
+    
+    - name: Re-start postgres
+      community.docker.docker_container:
+        name: postgres
+        state: started
+        restart: yes
 
     - name: Make migration
       community.docker.docker_container_exec:
         container: backend
         command: "python3 manage.py migrate"
         detach: false
-      register: exec_output

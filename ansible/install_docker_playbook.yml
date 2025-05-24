@@ -3,56 +3,58 @@
   hosts: all
   become: yes
   gather_facts: yes
-  vars:
-    packages_to_install:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
 
   tasks:
-    - name: Install required packages (ca-certificates and curl)
-      apt:
+    - name: Обновление apt кэша
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Установка зависимостей
+      ansible.builtin.apt:
         name:
+          - apt-transport-https
           - ca-certificates
           - curl
+          - software-properties-common
         state: present
-        update_cache: yes
 
-    - name: Create directory for apt keyrings
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
-
-    - name: Download Docker's official GPG key
-      get_url:
+    - name: Добавление GPG ключа Docker
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: '0644'
-        validate_certs: yes
-
-    - name: Add repository
-      apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
         state: present
-    
-    # - name: Append users
-    #   user:
-    #     name: "{{ item }}"
-    #     groups: docker
-    #     append: yes
-    #   loop: "{{ docker_users }}"
-    #   when: docker_users | length > 0
+        keyring: /usr/share/keyrings/docker-archive-keyring.gpg
+      become: true
 
-    - name: Install packages
-      apt:
-        name: "{{ packages_to_install }}"
+    - name: Добавление репозитория Docker
+      ansible.builtin.apt_repository:
+        repo: |
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else
+          ('arm64' if ansible_architecture == 'aarch64' else ansible_architecture) }}
+          signed-by=/usr/share/keyrings/docker-archive-keyring.gpg]
+          https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
         state: present
-    
-    - name: Run docker
-      service:
+        filename: docker
+      become: true
+
+    - name: Обновление apt кэша после добавления репозитория
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Установка Docker CE
+      ansible.builtin.apt:
+        name: docker-ce
+        state: present
+
+    - name: Запуск и активация сервиса Docker
+      ansible.builtin.systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
+
+    - name: Установка Docker Compose
+      ansible.builtin.apt:
+        name:
+          - docker-compose-plugin
+          - docker-compose
+        state: present

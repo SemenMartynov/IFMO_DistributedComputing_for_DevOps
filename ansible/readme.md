@@ -31,3 +31,10 @@ echo "primary_slot_name = 'pg_replica_slot'" >> /var/lib/postgresql/data/postgre
 chown postgres:postgres -R /var/lib/postgresql/data/
 
 pg_ctl start -D /var/lib/postgresql/data
+
+
+Ansible
+
+ansible-playbook install_docker_playbook.yml -l all
+ansible-playbook install_py_modules.yml -l all
+ansible-playbook run_application_playbook.yml -l app

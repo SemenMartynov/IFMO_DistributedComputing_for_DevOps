@@ -1,9 +1,9 @@
 [all]
-backend1    ansible_host=158.160.169.70    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
-backend2    ansible_host=158.160.169.70    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
+backend    ansible_host=158.160.158.175   ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
+replica    ansible_host=158.160.155.146    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
 
 [app]
-backend1    ansible_host=158.160.169.70    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
+backend    ansible_host=158.160.158.175    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
 
 [slave]
-backend2    ansible_host=158.160.169.70    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen
+replica    ansible_host=158.160.155.146    ansible_ssh_private_key_file=~/.ssh/id_rsa    ansible_user=evgen

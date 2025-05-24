@@ -8,3 +8,10 @@
 ```bash
 cp ansible/files/_env.example ansible/files/.env
 ```
+#### 2. Поменять хосты в файлах
+```
+ansible/hosts
+ansible/files/configs/.pgpass
+ansible/files/configs/postgresql.conf
+ansible/configure_replica_playbook.yml (в переменной master_host)
+```

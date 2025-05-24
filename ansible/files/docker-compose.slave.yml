@@ -1,0 +1,21 @@
+version: '3'
+
+volumes:
+  pg-slave-data:
+    driver: local
+
+services:
+  postgres-slave:
+    container_name: slave
+    image: postgres:13.10
+    user: postgres
+    environment:
+      POSTGRES_DB: application
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pg-slave-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    command: >
+      bash -c "while true; do sleep 1; done"
