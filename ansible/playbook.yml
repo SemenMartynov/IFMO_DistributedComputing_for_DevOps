@@ -1,0 +1,33 @@
+---
+- name: Ставим докер на все три машины
+  hosts: db_master, db_slave, app
+  become: true
+
+  roles:
+    - docker
+
+
+- name: Ставим PostgreSQL на db_master
+  hosts: db_master
+  become: true
+
+  roles:
+    - db_master
+
+
+- name: Ставим PostgreSQL на db_slave
+  hosts: db_slave
+  become: true
+
+  roles:
+    - db_slave
+
+
+- name: Ставим Django на app
+  hosts: app
+  vars_files:
+    - group_vars/db_master.yml
+  become: true
+
+  roles:
+    - app

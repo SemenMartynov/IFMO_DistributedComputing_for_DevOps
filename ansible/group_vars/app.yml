@@ -1,0 +1,6 @@
+db_master_internal_host: 10.129.1.28
+
+app_container_name: strapi
+app_image: strapi/strapi
+app_port_outside: '80'
+app_database_client: postgres

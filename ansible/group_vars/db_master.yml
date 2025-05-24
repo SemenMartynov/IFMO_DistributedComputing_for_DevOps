@@ -1,0 +1,16 @@
+db_replication_user: artisan_slave_user       #
+db_replication_password: artisan_slave_pass   #
+db_replication_mode: 'master'                 #
+
+db_username: artisan                          #
+db_password: artisan                          #
+db_database: artisan                          #
+db_postgres_user: postgres                    #
+db_postgres_password: postgres                #
+db_port: '5432'                               #
+
+db_volume: pg_master_data                     #
+db_volume_path_inside: /db_master/postgresql  #
+db_container_name: postgres_master            #
+db_image: bitnami/postgresql                  #
+

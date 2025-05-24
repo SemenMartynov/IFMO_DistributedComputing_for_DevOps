@@ -1,0 +1,43 @@
+---
+- name: Создаём том для PostgreSQL реплики
+  community.docker.docker_volume:
+    name: "{{ db_volume }}"
+
+- name: Запускаем PostgreSQL контейнер с реплика БД
+  community.docker.docker_container:
+    name: "{{ db_container_name }}"
+    image: "{{ db_image }}"
+    restart_policy: always
+    env:
+      POSTGRESQL_REPLICATION_MODE: "{{ db_replication_mode }}"
+      POSTGRESQL_REPLICATION_USER: "{{ db_replication_user }}"
+      POSTGRESQL_REPLICATION_PASSWORD: "{{ db_replication_password }}"
+      POSTGRESQL_MASTER_HOST: "{{ db_master_internal_host }}"
+      POSTGRESQL_USERNAME: "{{ db_username }}"
+      POSTGRESQL_PASSWORD: "{{ db_password }}"
+    volumes:
+      - "{{ db_volume }}:{{ db_volume_path_inside }}"
+    ports:
+      - "{{ db_port }}:{{ db_port }}"
+
+- name: Ждём создания контейнера
+  community.docker.docker_container_info:
+    name: "{{ db_container_name }}"
+  register: db_container_info
+
+- name: Проверить healthcheck контейнера
+  community.docker.docker_container_info:
+    name: "{{ db_container_name }}"
+  register: container_info
+
+- name: Вывести статус healthcheck
+  debug:
+    var: container_info.container.State.Health.Status
+
+- name: Ждём доступа к порту PostgreSQL
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 5432
+    delay: 2
+    timeout: 60
+    state: started

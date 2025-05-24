@@ -1,0 +1,56 @@
+---
+- name: Готовим систему к работе
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Добавляем GPG-ключ Docker
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Добавляем Docker репозиторий
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+    state: present
+    update_cache: yes
+
+- name: Непосредственно устанавливаем Docker
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: latest
+
+- name: Проверяем, что Docker работает
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Создаём группу docker
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Добавляем пользователя в группу docker
+  ansible.builtin.user:
+    name: "{{ ansible_user | default(ansible_ssh_user) }}"
+    groups: docker
+    append: true
+
+- name: Ещё раз убеждаемся что Docker установлен
+  ansible.builtin.command: docker --version
+  register: docker_version_check
+  changed_when: false
+  failed_when: docker_version_check.rc != 0
+
+- name: Выводим версию Docker
+  ansible.builtin.debug:
+    msg: "Installed Docker version: {{ docker_version_check.stdout }}"

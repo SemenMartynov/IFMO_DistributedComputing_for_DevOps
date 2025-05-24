@@ -1,0 +1,23 @@
+---
+- name: Запускаем Strapi
+  community.docker.docker_container:
+    name: "{{ app_container_name }}"
+    image: "{{ app_image }}"
+    restart_policy: always
+    env:
+      DATABASE_CLIENT: "{{ app_database_client }}"
+      DATABASE_HOST: "{{ db_master_internal_host }}"
+      DATABASE_PORT: "{{ db_port }}"
+      DATABASE_NAME: "{{ db_database }}"
+      DATABASE_USERNAME: "{{ db_username }}"
+      DATABASE_PASSWORD: "{{ db_password }}"
+    ports:
+      - "{{ app_port_outside }}:1337"
+
+- name: Ждём доступа к порту Strapi
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 80
+    delay: 2
+    timeout: 600
+    state: started
