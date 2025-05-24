@@ -1,0 +1,4 @@
+- ansible.builtin.import_tasks: deploy_prometheus.yml
+- ansible.builtin.import_tasks: deploy_exporter_MySQL_master.yml
+- ansible.builtin.import_tasks: deploy_exporter_MySQL_slave.yml
+- ansible.builtin.import_tasks: deploy_grafana.yml

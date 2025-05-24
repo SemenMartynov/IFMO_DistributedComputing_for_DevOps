@@ -1,0 +1,17 @@
+- name: Install docker
+  apt:
+    name:
+      - docker.io
+    state: present
+    update_cache: yes
+
+- name: Ensure Docker is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create network
+  docker_network:
+    name: wp-network
+    state: present

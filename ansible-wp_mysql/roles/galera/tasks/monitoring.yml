@@ -1,0 +1,117 @@
+- name: Create exporter db1 config
+  ansible.builtin.template:
+    src: exporter_cfg_db1.j2
+    dest: "{{ exporters_config_path }}/db1_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db1 container start
+  community.docker.docker_container:
+    name: db1_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db1_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db1_config.my-cnf:/cfg/db1_config.my-cnf"
+    networks:
+      - name: "{{ network }}"
+    state: started
+
+- name: Create exporter db2 config
+  ansible.builtin.template:
+    src: exporter_cfg_db2.j2
+    dest: "{{ exporters_config_path }}/db2_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db2 container start
+  community.docker.docker_container:
+    name: db2_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db2_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db2_config.my-cnf:/cfg/db2_config.my-cnf"
+    networks:
+      - name: "{{ network }}"
+    state: started
+
+- name: Create exporter db3 config
+  ansible.builtin.template:
+    src: exporter_cfg_db3.j2
+    dest: "{{ exporters_config_path }}/db3_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db3 container start
+  community.docker.docker_container:
+    name: db3_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db3_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db3_config.my-cnf:/cfg/db3_config.my-cnf"
+    networks:
+      - name: "{{ network }}"
+    state: started
+
+- name: Create exporter db4 config
+  ansible.builtin.template:
+    src: exporter_cfg_db4.j2
+    dest: "{{ exporters_config_path }}/db4_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db4 container start
+  community.docker.docker_container:
+    name: db4_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db4_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db4_config.my-cnf:/cfg/db4_config.my-cnf"
+    networks:
+      - name: "{{ network }}"
+    state: started
+
+- name: Create exporter db5 config
+  ansible.builtin.template:
+    src: exporter_cfg_db5.j2
+    dest: "{{ exporters_config_path }}/db5_config.my-cnf"
+    mode: '0644'
+
+- name: Exporter db5 container start
+  community.docker.docker_container:
+    name: db5_exporter
+    image: prom/mysqld-exporter:latest
+    restart_policy: always
+    command: '--config.my-cnf=/cfg/db5_config.my-cnf'
+    volumes:
+      - "{{ exporters_config_path }}/db5_config.my-cnf:/cfg/db5_config.my-cnf"
+    networks:
+      - name: "{{ network }}"
+    state: started
+
+- name: Exporter HAProxy container Start
+  community.docker.docker_container:
+    name: haproxy_exporter
+    image: prom/haproxy-exporter:latest
+    restart_policy: always
+    command: --haproxy.scrape-uri="http://{{ haproxy_user }}:{{ haproxy_password }}@haproxy:8404/stats;csv"
+    networks:
+      - name: "{{ network }}"
+
+- name: Prometheus configuration copy
+  ansible.builtin.copy:
+    src: prometheus.yml
+    dest: "{{ prometheus_config_path }}/prometheus.yml"
+    mode: '0644'
+
+- name: Prometheus container restart
+  community.docker.docker_container:
+    name: prometheus
+    restart: true
+    state: started
+
+- name: Import Grafana HAProxy dashboard
+  community.grafana.grafana_dashboard:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    dashboard_url: "https://grafana.com/api/dashboards/12030/revisions/1/download"

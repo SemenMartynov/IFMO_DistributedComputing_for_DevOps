@@ -1,0 +1,40 @@
+- name: Start Grafana container
+  community.docker.docker_container:
+    name: grafana
+    image: grafana/grafana:latest
+    restart_policy: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - name: wp-network
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_password }}"
+    state: started
+
+- name: Wait for Grafana's answer
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3000
+    state: started
+
+- name: Create Prometheus datasource for Grafana
+  community.grafana.grafana_datasource:
+    name: Prometheus
+    ds_type: prometheus
+    ds_url: "http://prometheus:9090"
+    access: proxy
+    uid: "prometheus"
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    state: present
+
+- name: Import Grafana MySQL dashboard
+  community.grafana.grafana_dashboard:
+    url: "http://localhost:3000"
+    grafana_user: "{{ grafana_user }}"
+    grafana_password: "{{ grafana_password }}"
+    dashboard_url: "https://grafana.com/api/dashboards/14057/revisions/1/download"
