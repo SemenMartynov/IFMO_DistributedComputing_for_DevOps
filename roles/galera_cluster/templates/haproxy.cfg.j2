@@ -1,0 +1,27 @@
+global
+    log stdout format raw local0 info
+    maxconn 2048
+
+defaults
+    mode tcp
+    timeout connect 10s
+    timeout client 30s
+    timeout server 30s
+    log global
+
+frontend galera-in
+    bind *:3306
+    default_backend galera-back
+
+backend galera-back
+    balance roundrobin
+    option mysql-check user {{ haproxy_check_user }}
+{% for node in galera_nodes %}
+    server {{ node.name }} {{ node.name }}:3306 check
+{% endfor %}
+
+listen stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /
