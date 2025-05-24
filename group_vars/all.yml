@@ -3,8 +3,10 @@ is_wordpress: true
 wordpress_port: 8080
 wordpress_db_name: wordpress_db
 
-mysql_root_password: root_password
-db_pass: "{{ mysql_root_password }}"
+db_root_password: root_password
+mysql_root_password: "{{ db_root_password }}"
+galera_root_password: "{{ db_root_password }}"
+db_pass: "{{ db_root_password }}"
 
 database_name: "{{ wordpress_db_name }}"
 database_user: wordpress_user
@@ -23,7 +25,7 @@ wordpress_admin_email: admin@mail.ru
 wordpress_site_url: "http://{{ hostvars['carrier'].ansible_host }}:{{ wordpress_port }}"
 
 docker_network: wordpress-network
-docker_compose_version: '3.8'
+docker_compose_version: "3.8"
 project_root: "/opt/wordpress"
 docker_exact_version: "5:28.0.4"
 
@@ -32,6 +34,9 @@ monitoring_url: "http://{{ hostvars['carrier'].ansible_host }}:3000"
 cadvisor_port: 8081
 prometheus_port: 9091
 grafana_port: 3000
+haproxy_port: 3306
+
+haproxy_exporter_port: 9101
 
 cadvisor_container_name: cadvisor
 cadvisor_image: gcr.io/cadvisor/cadvisor:latest
@@ -54,5 +59,21 @@ grafana_data_path: /opt/grafana
 grafana_dashboards_path: "{{ grafana_data_path }}/dashboards"
 grafana_admin_user: admin
 grafana_admin_password: admin
-grafana_users_allow_sign_up: 'false'
+grafana_users_allow_sign_up: "false"
 grafana_ports: "{{ grafana_port }}:3000"
+
+db1_host: galera_node_1
+db2_host: galera_node_2
+db3_host: galera_node_3
+db4_host: galera_node_4
+db5_host: galera_node_5
+
+galera_image: bitnami/mariadb-galera:latest
+galera_sst_method: rsync
+
+loadbalancer: haproxy
+haproxy_exporter_image: prom/haproxy-exporter:latest
+
+monitor_user: exporter
+monitor_password: exporter_password
+haproxy_check_user: haproxy_clustercheck
