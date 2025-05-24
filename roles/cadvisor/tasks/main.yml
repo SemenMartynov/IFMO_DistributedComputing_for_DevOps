@@ -12,6 +12,8 @@
       - "{{ cadvisor_volume_path_sys }}"
     networks:
       - name: "{{ docker_network }}"
+    hostname: cadvisor
+    container_default_behavior: compatibility
 
 - name: Confirm cAdvisor is live
   ansible.builtin.debug:
