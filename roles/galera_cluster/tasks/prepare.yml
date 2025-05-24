@@ -1,0 +1,62 @@
+---
+- name: Ensure MariaDB client is present (needed for mysql_query)
+  ansible.builtin.apt:
+    name: mariadb-client
+    state: present
+    update_cache: true
+
+- name: Reset ssh connection after installing packages
+  ansible.builtin.meta: reset_connection
+
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: "{{ docker_network }}"
+    state: present
+
+- name: Ensure HAProxy config dir exists
+  ansible.builtin.file:
+    path: "{{ home_path }}/haproxy"
+    state: directory
+    mode: "0755"
+
+- name: Render HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ home_path }}/haproxy/haproxy.cfg"
+    mode: "0644"
+  notify: Restart haproxy
+
+- name: Check legacy single-master
+  community.docker.docker_container_info:
+    name: mysql_master
+  register: legacy_master
+  failed_when: false
+
+- name: Check any Galera node (first)
+  community.docker.docker_container_info:
+    name: "{{ galera_nodes[0].name }}"
+  register: galera_first
+  failed_when: false
+
+- name: Set detection facts
+  ansible.builtin.set_fact:
+    legacy_master_exists: "{{ legacy_master.exists | default(false) }}"
+    galera_cluster_exists: "{{ galera_first.exists | default(false) }}"
+
+- name: Capture legacy master IP
+  ansible.builtin.set_fact:
+    legacy_master_ip: >-
+      {{ legacy_master.container.NetworkSettings.Networks[docker_network].IPAddress
+         | default('') }}
+  when: legacy_master_exists
+
+- name: Ensure host resolves 'mysql_master' to legacy container IP
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '.*\s+mysql_master$'
+    line: "{{ legacy_master_ip }} mysql_master"
+    state: present
+  become: true
+  when:
+    - legacy_master_exists
+    - legacy_master_ip != ''

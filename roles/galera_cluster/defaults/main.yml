@@ -1,0 +1,44 @@
+---
+home_path: "/home/{{ ansible_user }}"
+
+docker_network: "{{ docker_network | default(ansible_user ~ '_app-network') }}"
+
+db_root_password: >-
+  {{ galera_root_password
+     | default(mysql_root_password, true)
+     | default(db_pass, true)
+     | default('ChangeMeRoot!', true) }}
+
+mariadb_user: "{{ database_user | default('wp_user') }}"
+mariadb_password: "{{ database_password | default('wp_pass') }}"
+wordpress_db_name: "{{ wordpress_db_name | default('wordpress_db') }}"
+
+monitor_user: "exporter"
+monitor_password: "exporter_password"
+
+haproxy_check_user: "haproxy_clustercheck"
+
+galera_nodes:
+  - { name: "{{ db1_host | default('galera_node_1') }}", id: 1 }
+  - { name: "{{ db2_host | default('galera_node_2') }}", id: 2 }
+  - { name: "{{ db3_host | default('galera_node_3') }}", id: 3 }
+  - { name: "{{ db4_host | default('galera_node_4') }}", id: 4 }
+  - { name: "{{ db5_host | default('galera_node_5') }}", id: 5 }
+
+galera_image: "bitnami/mariadb-galera:latest"
+galera_sst_method: "rsync"
+
+loadbalancer: "haproxy"
+haproxy_image: "haproxy:latest"
+haproxy_port: 3306
+
+grafana_dashboards_path: "/opt/grafana/dashboards"
+
+haproxy_exporter_image: "prom/haproxy-exporter:latest"
+haproxy_exporter_port: 9101
+haproxy_exporter_container_name: "haproxy_exporter"
+
+mariadb_exporter_image: "prom/mysqld-exporter:latest"
+mariadb_exporter_port: 9104
+
+prometheus_config_path: "{{ prometheus_data_path }}/prometheus.yml"

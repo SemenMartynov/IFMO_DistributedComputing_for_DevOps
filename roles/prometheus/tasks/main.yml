@@ -1,0 +1,33 @@
+---
+- name: Ensure Prometheus data dir exists
+  ansible.builtin.file:
+    path: "{{ prometheus_data_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy Prometheus config
+  ansible.builtin.copy:
+    src: prometheus.yml
+    dest: "{{ prometheus_data_path }}/prometheus.yml"
+    mode: '0644'
+  become: true
+  register: prometheus_config_changed
+
+- name: Run Prometheus container
+  community.docker.docker_container:
+    name: "{{ prometheus_container_name }}"
+    image: "{{ prometheus_image }}"
+    restart_policy: "{{ prometheus_restart_policy }}"
+    ports:
+      - "{{ prometheus_ports }}"
+    volumes:
+      - "{{ prometheus_volume }}"
+    networks:
+      - name: "{{ docker_network }}"
+    restart: "{{ prometheus_config_changed.changed }}"
+
+- name: Confirm Prometheus is live
+  ansible.builtin.debug:
+    msg: "Prometheus → http://{{ hostvars[inventory_hostname].ansible_host }}:{{ prometheus_port }}"
+  changed_when: false

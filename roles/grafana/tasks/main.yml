@@ -1,0 +1,57 @@
+---
+- name: Ensure Grafana data dir exists
+  ansible.builtin.file:
+    path: "{{ grafana_data_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Ensure Grafana dashboards dir exists
+  ansible.builtin.file:
+    path: "{{ grafana_dashboards_path }}"
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy Grafana datasource definition
+  ansible.builtin.copy:
+    src: datasource.yml
+    dest: "{{ grafana_data_path }}/datasource.yml"
+    mode: '0644'
+  become: true
+
+- name: Copy Grafana dashboards provisioning config
+  ansible.builtin.copy:
+    src: dashboards.yml
+    dest: "{{ grafana_dashboards_path }}/dashboards.yml"
+    mode: '0644'
+  become: true
+
+- name: Copy default Docker dashboard JSON
+  ansible.builtin.copy:
+    src: dashboard.json
+    dest: "{{ grafana_dashboards_path }}/docker_dashboard.json"
+    mode: '0644'
+  become: true
+
+- name: Run Grafana container
+  community.docker.docker_container:
+    name: "{{ grafana_container_name }}"
+    image: "{{ grafana_image }}"
+    restart_policy: "{{ grafana_restart_policy }}"
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+      GF_USERS_ALLOW_SIGN_UP: "{{ grafana_users_allow_sign_up }}"
+    ports:
+      - "{{ grafana_ports }}"
+    volumes:
+      - "{{ grafana_data_path }}/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro"
+      - "{{ grafana_dashboards_path }}:/etc/grafana/provisioning/dashboards:ro"
+    networks:
+      - name: "{{ docker_network }}"
+
+- name: Confirm Grafana is live
+  ansible.builtin.debug:
+    msg: "Grafana → http://{{ hostvars[inventory_hostname].ansible_host }}:{{ grafana_port }}"
+  changed_when: false

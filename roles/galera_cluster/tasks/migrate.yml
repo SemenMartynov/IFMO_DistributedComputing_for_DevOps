@@ -1,0 +1,46 @@
+---
+- name: Dump legacy WordPress DB
+  community.mysql.mysql_db:
+    state: dump
+    name: "{{ wordpress_db_name }}"
+    target: "/tmp/legacy_dump.sql"
+    login_host: "{{ legacy_master_ip | default('mysql_master') }}"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    single_transaction: true
+
+- name: Remove legacy MySQL containers
+  community.docker.docker_container:
+    name: "{{ item }}"
+    state: absent
+    force_kill: true
+  loop:
+    - mysql_master
+    - mysql_slave1
+    - mysql_slave2
+    - mysqld_exporter_master
+    - mysqld_exporter_slave
+
+- name: Wait for {{ galera_nodes[0].name }} MySQL port 3306 to become reachable
+  ansible.builtin.wait_for:
+    host: "{{ galera_nodes[0].name }}"
+    port: 3306
+    delay: 3
+    timeout: 180
+  changed_when: false
+
+- name: Import dump into first Galera node
+  community.mysql.mysql_db:
+    state: import
+    name: "{{ wordpress_db_name }}"
+    target: "/tmp/legacy_dump.sql"
+    login_host: "{{ galera_nodes[0].name }}"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    config_file: ""
+    connect_timeout: 60
+
+- name: Remove temporary dump
+  ansible.builtin.file:
+    path: /tmp/legacy_dump.sql
+    state: absent

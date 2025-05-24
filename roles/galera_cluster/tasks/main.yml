@@ -1,0 +1,31 @@
+---
+- name: Prepare environment & detect legacy components
+  ansible.builtin.include_tasks: prepare.yml
+
+- name: Decide deployment strategy
+  ansible.builtin.set_fact:
+    perform_full_migration: "{{ legacy_master_exists and not galera_cluster_exists }}"
+    update_existing_cluster: "{{ galera_cluster_exists }}"
+    deploy_fresh_cluster: "{{ not legacy_master_exists and not galera_cluster_exists }}"
+
+- name: Deploy / update Galera cluster
+  ansible.builtin.include_tasks: manage_galera.yml
+
+- name: Migrate single-master → Galera
+  ansible.builtin.include_tasks: migrate.yml
+  when: perform_full_migration
+
+- name: Provision monitoring & HAProxy check users
+  ansible.builtin.include_tasks: create_monitoring_users.yml
+
+- name: Deploy / update HAProxy
+  ansible.builtin.include_tasks: deploy_haproxy.yml
+
+- name: Deploy monitoring exporters and update Prometheus config
+  ansible.builtin.include_tasks: deploy_exporters.yml
+
+- name: Provision Galera dashboard in Grafana
+  ansible.builtin.include_tasks: update_grafana_dashboard.yml
+
+- name: Remove dangling or exited containers (professional cleanup)
+  ansible.builtin.include_tasks: cleanup_prune.yml

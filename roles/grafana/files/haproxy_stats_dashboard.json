@@ -1,0 +1,202 @@
+{
+    "uid": "haproxy-overview",
+    "title": "HAProxy & Galera — Обзор",
+    "description": "Доступность Galera-нод и ключевые метрики балансировщика",
+    "tags": [
+        "haproxy",
+        "galera",
+        "mysql"
+    ],
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "10s",
+    "timezone": "browser",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "panels": [
+        {
+            "type": "stat",
+            "title": "Активных узлов",
+            "id": 1,
+            "gridPos": {
+                "h": 3,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+            },
+            "targets": [
+                {
+                    "expr": "sum(haproxy_server_up{backend=\"galera_cluster\"})",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "none",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 3
+                            },
+                            {
+                                "color": "green",
+                                "value": 5
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ]
+                },
+                "orientation": "horizontal",
+                "graphMode": "none",
+                "textMode": "auto"
+            }
+        },
+        {
+            "type": "stat",
+            "title": "Current Sessions",
+            "id": 3,
+            "gridPos": {
+                "h": 3,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+            },
+            "targets": [
+                {
+                    "expr": "haproxy_backend_current_sessions{backend=\"galera_cluster\"}",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "sessions",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 50
+                            },
+                            {
+                                "color": "red",
+                                "value": 200
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "sum"
+                    ]
+                },
+                "orientation": "horizontal",
+                "graphMode": "none"
+            }
+        },
+        {
+            "type": "table",
+            "title": "Статус серверов Galera (HAProxy)",
+            "id": 2,
+            "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 3
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+            },
+            "targets": [
+                {
+                    "expr": "haproxy_server_up{backend=\"galera_cluster\"}",
+                    "refId": "A"
+                },
+                {
+                    "expr": "haproxy_server_current_sessions{backend=\"galera_cluster\"}",
+                    "refId": "B"
+                },
+                {
+                    "expr": "rate(haproxy_server_bytes_out_total{backend=\"galera_cluster\"}[5m])",
+                    "refId": "C"
+                }
+            ],
+            "transformations": [
+                {
+                    "id": "labelsToFields",
+                    "options": {}
+                },
+                {
+                    "id": "organize",
+                    "options": {
+                        "excludeByName": {
+                            "__name__": true
+                        }
+                    }
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "align": "center"
+                    },
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "text": "DOWN",
+                                    "color": "red"
+                                },
+                                "1": {
+                                    "text": "UP",
+                                    "color": "green"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "overrides": []
+            },
+            "options": {
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "displayName": "haproxy_server_up",
+                        "desc": true
+                    }
+                ]
+            }
+        }
+    ]
+}

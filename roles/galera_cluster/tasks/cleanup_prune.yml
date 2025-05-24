@@ -1,0 +1,7 @@
+---
+- name: Prune stopped / dangling containers
+  community.docker.docker_prune:
+    containers: yes
+    images: no
+    volumes: no
+    networks: no

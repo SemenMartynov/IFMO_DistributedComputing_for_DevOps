@@ -1,0 +1,44 @@
+---
+- name: Deploy / update HAProxy exporter container
+  community.docker.docker_container:
+    name: "{{ haproxy_exporter_container_name }}"
+    image: "{{ haproxy_exporter_image }}"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - "--haproxy.scrape-uri=http://{{ loadbalancer }}:8404/;csv"
+    ports:
+      - "{{ haproxy_exporter_port }}:9101"
+    networks:
+      - name: "{{ docker_network }}"
+
+- name: Deploy / update mysqld exporter on each Galera node
+  community.docker.docker_container:
+    name: "mariadb_exporter_{{ item.id }}"
+    image: "{{ mariadb_exporter_image }}"
+    state: started
+    restart_policy: unless-stopped
+    env:
+      DATA_SOURCE_NAME: "{{ monitor_user }}:{{ monitor_password }}@tcp({{ item.name }}:3306)/?tls=false"
+    networks:
+      - name: "{{ docker_network }}"
+        aliases:
+          - "mariadb-exporter-{{ item.id }}"
+  loop: "{{ galera_nodes }}"
+  loop_control:
+    loop_var: item
+
+- name: Update Prometheus configuration with new targets
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_path }}"
+    mode: "0644"
+  become: true
+  register: prometheus_config
+
+- name: Restart Prometheus if configuration changed
+  community.docker.docker_container:
+    name: "{{ prometheus_container_name }}"
+    state: started
+    restart: true
+  when: prometheus_config.changed

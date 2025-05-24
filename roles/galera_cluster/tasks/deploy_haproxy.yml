@@ -1,0 +1,31 @@
+---
+- name: Deploy or update HAProxy container
+  community.docker.docker_container:
+    name: "{{ loadbalancer }}"
+    image: "{{ haproxy_image }}"
+    pull: yes
+    state: started
+    restart_policy: unless-stopped
+    recreate: true
+    ports:
+      - "{{ haproxy_port }}:3306"
+      - "8404:8404"
+    volumes:
+      - "{{ home_path }}/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"
+    networks:
+      - name: "{{ docker_network }}"
+        aliases:
+          - db-master
+          - mysql_master
+
+- name: Wait for HAProxy MySQL port {{ haproxy_port }} to be listening
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[inventory_hostname].ansible_host }}"
+    port: "{{ haproxy_port }}"
+    timeout: 60
+
+- name: Wait for HAProxy stats port 8404 to be listening
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[inventory_hostname].ansible_host }}"
+    port: 8404
+    timeout: 30

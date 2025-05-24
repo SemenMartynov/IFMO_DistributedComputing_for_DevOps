@@ -1,0 +1,39 @@
+---
+- name: Bootstrap first node (clean install or migration bootstrap)
+  community.docker.docker_container:
+    name: "{{ galera_nodes[0].name }}"
+    image: "{{ galera_image }}"
+    restart_policy: unless-stopped
+    env:
+      MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
+      MARIADB_USER: "{{ mariadb_user }}"
+      MARIADB_PASSWORD: "{{ mariadb_password }}"
+      MARIADB_DATABASE: "{{ wordpress_db_name }}"
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP: "yes"
+      MARIADB_GALERA_SST_METHOD: "{{ galera_sst_method }}"
+      MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ db_root_password }}"
+    volumes:
+      - "galera_data_node_1:/bitnami/mariadb/data"
+    networks:
+      - name: "{{ docker_network }}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-p{{ db_root_password }}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  when: deploy_fresh_cluster or perform_full_migration
+
+- name: Ensure every node exists and is healthy
+  ansible.builtin.include_tasks: wait_container_healthy.yml
+  loop: "{{ galera_nodes }}"
+  loop_control:
+    loop_var: galera_node

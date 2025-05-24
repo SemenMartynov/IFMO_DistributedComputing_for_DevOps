@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  scrape_timeout: 8s
+
+scrape_configs:
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: haproxy
+    static_configs:
+      - targets: ["{{ haproxy_exporter_container_name }}:{{ haproxy_exporter_port }}"]
+
+  - job_name: mysql_galera
+    static_configs:
+      - targets:
+{% for node in galera_nodes %}
+        - "mariadb-exporter-{{ node.id }}:{{ mariadb_exporter_port }}"
+{% endfor %}
