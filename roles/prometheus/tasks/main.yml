@@ -12,6 +12,7 @@
     dest: "{{ prometheus_data_path }}/prometheus.yml"
     mode: '0644'
   become: true
+  register: prometheus_config_changed
 
 - name: Run Prometheus container
   community.docker.docker_container:
@@ -24,6 +25,7 @@
       - "{{ prometheus_volume }}"
     networks:
       - name: "{{ docker_network }}"
+    restart: "{{ prometheus_config_changed.changed }}"
 
 - name: Confirm Prometheus is live
   ansible.builtin.debug:
