@@ -7,7 +7,6 @@
     login_user: "{{ db_root_user }}"
     login_password: "{{ db_root_password }}"
     login_host: "{{ mariadb_bootstrap_ip }}"
-    # login_host: "{{ mariadb_bootstrap.container.NetworkSettings.Networks.wp-network.IPAddress }}"
     state: present
 
 - name: Create HAProxy config directory
@@ -35,6 +34,7 @@
       - "8404:8404"
     volumes:
       - "{{ haproxy_config_path }}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+    state: started
 
 - name: WordPress container start
   community.docker.docker_container:

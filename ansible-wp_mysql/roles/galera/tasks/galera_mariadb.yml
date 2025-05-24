@@ -14,11 +14,11 @@
       MARIADB_PASSWORD: "{{ db_password }}"
       MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
-      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
-      MARIADB_GALERA_CLASTER_ADDRESS: "gcomm://"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "gcomm://"
       MARIADB_GALERA_NODE_NAME: mariadb_1
       MARIADB_GALERA_NODE_ADDRESS: mariadb_1
-      MARIADB_GALERA_CLASTER_BOOTSTRAP: "yes"
+      MARIADB_GALERA_CLUSTER_BOOTSTRAP: "yes"
       MARIADB_GALERA_SST_METHOD: mariabackup
       MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
@@ -47,11 +47,6 @@
     state: import
     target: "{{ db_dump_path }}"
 
-# - name: Delete dump file
-#   ansible.builtin.file:
-#     path: "{{ db_dump_path }}"
-#     state: absent
-
 - name: Create 2-nd db volume
   docker_volume:
     name: mariadb_2_data
@@ -68,11 +63,11 @@
       MARIADB_PASSWORD: "{{ db_password }}"
       MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
-      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
-      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "{{ galera_cluster_address }}"
       MARIADB_GALERA_NODE_NAME: mariadb_2
       MARIADB_GALERA_NODE_ADDRESS: mariadb_2
-      # MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_SST_METHOD: mariabackup
       MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
     volumes:
@@ -95,11 +90,11 @@
       MARIADB_PASSWORD: "{{ db_password }}"
       MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
-      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
-      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "{{ galera_cluster_address }}"
       MARIADB_GALERA_NODE_NAME: mariadb_3
       MARIADB_GALERA_NODE_ADDRESS: mariadb_3
-      # MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_SST_METHOD: mariabackup
       MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
     volumes:
@@ -122,11 +117,11 @@
       MARIADB_PASSWORD: "{{ db_password }}"
       MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
-      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
-      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "{{ galera_cluster_address }}"
       MARIADB_GALERA_NODE_NAME: mariadb_4
       MARIADB_GALERA_NODE_ADDRESS: mariadb_4
-      # MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_SST_METHOD: mariabackup
       MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
     volumes:
@@ -149,11 +144,11 @@
       MARIADB_PASSWORD: "{{ db_password }}"
       MARIADB_ROOT_PASSWORD: "{{ db_root_password }}"
       MARIADB_DATABASE: "{{ db_name }}"
-      MARIADB_GALERA_CLASTER_NAME: "{{ galera_cluster }}"
-      MARIADB_GALERA_CLASTER_ADDRESS: "{{ galera_cluster_address }}"
+      MARIADB_GALERA_CLUSTER_NAME: "{{ galera_cluster }}"
+      MARIADB_GALERA_CLUSTER_ADDRESS: "{{ galera_cluster_address }}"
       MARIADB_GALERA_NODE_NAME: mariadb_5
       MARIADB_GALERA_NODE_ADDRESS: mariadb_5
-      # MARIADB_GALERA_SST_METHOD: mariabackup
+      MARIADB_GALERA_SST_METHOD: mariabackup
       MARIADB_GALERA_MARIABACKUP_USER: "{{ mariabackup_user }}"
       MARIADB_GALERA_MARIABACKUP_PASSWORD: "{{ mariabackup_password }}"
     volumes:

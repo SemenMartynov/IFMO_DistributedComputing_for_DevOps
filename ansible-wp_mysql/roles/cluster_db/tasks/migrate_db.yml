@@ -23,7 +23,7 @@
     mode: getreplica
     login_host: "{{ db_host }}"
     login_port: "{{ db_slave_port }}"
-    login_user: "{{ db_user }}"
+    login_user: root
     login_password: "{{ db_slave_password }}"
   register: slave_status  
 

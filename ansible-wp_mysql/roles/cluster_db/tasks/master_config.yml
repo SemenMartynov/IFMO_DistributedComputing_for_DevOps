@@ -40,7 +40,7 @@
 
 - name: Create replica user
   community.mysql.mysql_user:
-    login_user: "{{ db_user }}"
+    login_user: root
     login_password: "{{ db_password }}"
     name: replica
     host: "%"
