@@ -6,20 +6,6 @@
     db_root_password: root_pass
 
   tasks:
-    - name: Install pip3
-      become: true
-      ansible.builtin.apt:
-        name: python3-pip
-        state: present
-        update_cache: yes
-
-    - name: Install PyMySQL for Ansible MySQL modules
-      become: true
-      ansible.builtin.apt:
-        name: python3-pymysql
-        state: present
-        update_cache: yes
-
     - name: Create schema in master
       community.mysql.mysql_db:
         name: testdatab

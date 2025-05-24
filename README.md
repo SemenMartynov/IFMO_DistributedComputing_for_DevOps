@@ -1,6 +1,6 @@
 # Sukhikh Matvei
 
-1. На сервере должен быть установлен ansible, sshpass, docker и docker-compose
+1. На сервере должен быть установлен ansible, sshpass
 
 2. Склонировать репозиторий к себе на ПК
 
@@ -16,3 +16,6 @@ ansible-playbook -i inventory.ini playbook2.yml --ask-pass --ask-become-pass
 6. Проверить можно запустив ansible-playbook'и командами:
 ansible-playbook -i inventory.ini playbook2test.yml --ask-pass --ask-become-pass
 ansible-playbook -i inventory.ini playbook2aftertest.yml --ask-pass --ask-become-pass
+
+7. Запустить ansible-playbook для создания реплики командой:
+ansible-playbook -i inventory.ini playbook3.yml --ask-pass --ask-become-pass

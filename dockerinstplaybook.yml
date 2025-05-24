@@ -1,4 +1,4 @@
-- name: Download Docker
+- name: Install Docker and packages
   hosts: all
   become: true
 
@@ -14,6 +14,13 @@
           - python3-pip
         state: present
         update_cache: true
+
+    - name: Install PyMySQL for Ansible MySQL modules
+      become: true
+      ansible.builtin.apt:
+        name: python3-pymysql
+        state: present
+        update_cache: yes
 
     - name: Dir for GPG keys
       ansible.builtin.file:

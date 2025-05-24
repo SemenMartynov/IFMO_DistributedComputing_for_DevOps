@@ -1,0 +1,140 @@
+- name: Install and run monitoring (grafana + prom + cAd)
+  hosts: all
+  become: true
+
+  vars:
+    monitor_dir: /opt/monitoring
+    grafana_user: admin
+    grafana_password: adminpass
+    grafana_port: 3000
+    prometheus_port: 9090
+    cadvisor_port: 8180
+    grafana_dashboard_id: 193
+    grafana_dashboard_json: /tmp/dashboard.json
+
+  tasks:
+    - name: Monitoring directory
+      file:
+        path: "{{ monitor_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Add Prometheus config
+      copy:
+        dest: "{{ monitor_dir }}/prometheus.yml"
+        content: |
+          global:
+            scrape_interval: 10s
+          scrape_configs:
+            - job_name: 'cadvisor'
+              static_configs:
+                - targets: ['cadvisor:8080']
+        mode: '0644'
+
+    - name: Docker-compose.yml for monitoring
+      copy:
+        dest: "{{ monitor_dir }}/docker-compose.yml"
+        mode: '0644'
+        content: |
+          version: '3.8'
+          services:
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:latest
+              container_name: cadvisor
+              restart: always
+              ports:
+                - "{{ cadvisor_port }}:8080"
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:rw
+                - /sys:/sys:ro
+                - /var/lib/docker/:/var/lib/docker:ro
+              networks:
+                - monitor_net
+
+            prometheus:
+              image: prom/prometheus:latest
+              container_name: prometheus
+              restart: always
+              volumes:
+                - "{{ monitor_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+              ports:
+                - "{{ prometheus_port }}:9090"
+              networks:
+                - monitor_net
+
+            grafana:
+              image: grafana/grafana:latest
+              container_name: grafana
+              restart: always
+              ports:
+                - "{{ grafana_port }}:3000"
+              environment:
+                - GF_SECURITY_ADMIN_USER={{ grafana_user }}
+                - GF_SECURITY_ADMIN_PASSWORD={{ grafana_password }}
+              networks:
+                - monitor_net
+
+          networks:
+            monitor_net:
+
+    - name: Start monitoring
+      community.docker.docker_compose_v2:
+        project_src: "{{ monitor_dir }}"
+        state: present
+
+    - name: Wait for Grafana to be ready
+      uri:
+        url: "http://localhost:{{ grafana_port }}"
+        status_code: 200
+        timeout: 30
+      register: grafana_status
+      retries: 10
+      delay: 5
+      until: grafana_status.status == 200
+
+    - name: Add Prometheus source for Grafana
+      community.grafana.grafana_datasource:
+        name: DS_PROMETHEUS
+        ds_type: prometheus
+        ds_url: http://prometheus:9090
+        access: proxy
+        is_default: true
+        state: present
+        grafana_url: "http://localhost:{{ grafana_port }}"
+        grafana_user: "{{ grafana_user }}"
+        grafana_password: "{{ grafana_password }}"
+
+    - name: Download Grafana dashboard
+      get_url:
+        url: "https://grafana.com/api/dashboards/{{ grafana_dashboard_id }}/revisions/1/download"
+        dest: "{{ grafana_dashboard_json }}"
+        mode: '0644'
+
+    - name: Read dashboard
+      slurp:
+        src: "{{ grafana_dashboard_json }}"
+      register: dashboard_json
+
+    - name: Import dashboard in Grafana
+      uri:
+        url: "http://localhost:{{ grafana_port }}/api/dashboards/import"
+        method: POST
+        user: "{{ grafana_user }}"
+        password: "{{ grafana_password }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          dashboard: "{{ dashboard_json.content | b64decode | from_json }}"
+          inputs:
+            - name: "DS_PROMETHEUS"
+              type: "datasource"
+              pluginId: "prometheus"
+              value: "DS_PROMETHEUS"
+          overwrite: true
+
+    - name: Final information
+      debug:
+        msg: "Everything is good, you can watch metrics at http://{{ ansible_host }}:{{ grafana_port }}"
